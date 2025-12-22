@@ -1,0 +1,73 @@
+System Architecture & Design Brief
+
+Project Scope: Development of a unified suite of open-source tools including Firefox Extensions, Dockerized Web Applications, and Dashboard Containers. Primary Goal: Achieve a unified "Brand Identity" and User Experience (UX) across disparate platforms (Browser vs. Server) while maintaining high reliability and easy deployment.
+
+1. Core Technology Stack
+
+The "Non-Negotiable" Foundation. All code generation should align with these standards unless explicitly instructed otherwise.
+
+    Runtime & Language:
+
+        Backend: Node.js (Latest LTS) with TypeScript (Strict Mode).
+
+        Frontend: TypeScript with React (Next.js for web apps) or Vue 3 (for lightweight tools).
+
+    Styling & Design System:
+
+        Engine: Tailwind CSS (Utility-first).
+
+        Component Philosophy: "Headless" components styled with Tailwind (e.g., Headless UI, Radix UI) or Web Components (Shoelace) for cross-platform portability.
+
+        Theming: usage of CSS Variables (--primary, --bg-surface) to allow for easy "Dark Mode" and "Brand Theme" swapping.
+
+    Infrastructure:
+
+        Containerization: Docker & Docker Compose (Alpine Linux base images preferred for size).
+
+        Database: SQLite (default for simplicity) with support for switching to Postgres if needed.
+
+2. Design Aesthetic & "Vibe"
+
+Visual Reference: The UI should feel "Native," "Professional," and "Responsive."
+
+    Reference A (The Layout): Jellyseerr/Overseerr.
+
+        Key Traits: Clean dashboard grids, "Skeleton" loading states (pulsing placeholders), translucent sidebars, mobile-responsive data tables.
+
+    Reference B (The Polish): LibreChat / shadcn/ui.
+
+        Key Traits: High-quality micro-interactions, accessible dialogs, clean typography, minimalist borders.
+
+    Reference C (The Simplicity): Wizarr.
+
+        Key Traits: Snappy performance, single-purpose setup screens, wizard-style flows.
+
+3. Specific Implementation Constraints
+
+A. For Firefox Extensions
+
+    CSP Compliance: Strictly avoid eval() or new Function() to ensure Manifest V3 compliance.
+
+    Style Isolation: Use Shadow DOM or scoped Tailwind classes/pre-fixes to prevent bleeding styles into host websites.
+
+    Build Tool: Use Vite for bundling extension assets.
+
+B. For Docker Containers
+
+    Zero-Config: The container must start with sensible defaults. Use Environment Variables (ENV) for all configuration.
+
+    Health Checks: Include a /health endpoint and Docker healthcheck instruction.
+
+4. Coding Standards (LLM Instructions)
+
+    Don't write Custom CSS: Always attempt to use standard Tailwind utility classes first. Only write custom CSS for complex animations.
+
+    Type Safety: Do not use any. Define Interfaces for all data structures (especially API responses).
+
+    Directory Structure:
+
+        /src/components (Atomic UI elements)
+
+        /src/features (Business logic bundles)
+
+        /src/lib (Shared utilities)
