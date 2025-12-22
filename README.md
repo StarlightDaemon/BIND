@@ -1,14 +1,23 @@
-# ABMG - AudioBookBay Media Grabber
+# ABMG - AudioBookBay Magnet Grabber
 
-A Python-based automated tool for discovering and managing audiobook torrents from AudioBookBay.
+A Python-based automated tool for discovering and collecting audiobook magnet links from AudioBookBay.
 
 ## Features
 
-- 🔍 **Search functionality** - Search for specific audiobooks
 - 🤖 **Daemon mode** - Automatically monitor and grab new releases
-- 🧲 **Magnet link generation** - Creates magnet links with comprehensive tracker lists
+- 🧲 **Magnet link generation** - Creates magnet links with comprehensive tracker lists  
+- 📝 **File-based output** - Saves magnet links to `magnets.txt` for use with any client
 - 🐳 **Docker support** - Easy deployment with Docker and Docker Compose
 - 🖥️ **GUI interface** - User-friendly graphical interface (via `gui.py`)
+
+## What It Does
+
+ABMG runs in the background, monitoring AudioBookBay for new audiobook releases. When found, it:
+1. Extracts the info hash from the audiobook page
+2. Generates a magnet link with public trackers
+3. Saves the magnet link to `magnets.txt`
+
+**What happens next is up to you** - import the magnet links into your preferred download client, RSS reader, or automation tool.
 
 ## Project Structure
 
@@ -16,7 +25,7 @@ A Python-based automated tool for discovering and managing audiobook torrents fr
 ABMG/
 ├── src/
 │   ├── core/         # Core scraping functionality
-│   ├── clients/      # qBittorrent client integration
+│   ├── clients/      # Download client integrations
 │   └── gui.py        # GUI application
 ├── requirements.txt  # Python dependencies
 ├── Dockerfile        # Docker configuration
@@ -30,7 +39,7 @@ ABMG/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ABMG.git
+git clone https://github.com/StarlightDaemon/ABMG.git
 cd ABMG
 
 # Create virtual environment
@@ -49,20 +58,11 @@ docker-compose up -d
 
 ## Usage
 
-### Search for Audiobooks
-
-```bash
-python -m src.abmg search "book title"
-```
-
 ### Run in Daemon Mode
 
 ```bash
-python -m src.abmg daemon --interval 60 \
-  --qb-host localhost \
-  --qb-port 8080 \
-  --qb-user admin \
-  --qb-pass adminadmin
+# Basic usage - saves magnet links to magnets.txt
+python -m src.abmg daemon --interval 60
 ```
 
 ### GUI Mode
@@ -71,25 +71,21 @@ python -m src.abmg daemon --interval 60 \
 python src/gui.py
 ```
 
-## Environment Variables
-
-Configure qBittorrent connection via environment variables:
-
-- `QB_HOST` - qBittorrent host (default: localhost)
-- `QB_PORT` - qBittorrent port (default: 8080)
-- `QB_USER` - qBittorrent username (default: admin)
-- `QB_PASS` - qBittorrent password (default: adminadmin)
-
 ## Dependencies
 
 - cloudscraper - Bypass Cloudflare protection
 - beautifulsoup4 - HTML parsing
 - requests - HTTP requests
 - click - CLI framework
-- qbittorrent-api - qBittorrent integration
 - lxml - XML/HTML processing
 - schedule - Task scheduling
 - pyyaml - Configuration management
+
+## Planned Features
+
+- 📋 **Category filtering** - Select which AudioBookBay categories to monitor (Fiction, Non-Fiction, etc.)
+- 🎯 **Keyword filtering** - Only grab magnet links matching specific authors or titles
+- 📊 **Statistics tracking** - Monitor collection activity and success rates
 
 ## License
 
