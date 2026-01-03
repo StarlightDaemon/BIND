@@ -16,12 +16,9 @@
 - 🔍 **Health Monitoring** - JSON endpoint for system status
 - 🐳 **Easy Deployment** - One-click Proxmox installer, Docker support
 
-## Tested With
+## Deployment
 
-✅ Proxmox LXC (Debian 12)  
-✅ BiglyBT RSS Feed Scanner  
-✅ qBittorrent RSS Reader  
-✅ Production deployment (8+ magnets collected)
+Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and works with all RSS-capable torrent clients.
 
 ## Quick Start
 
