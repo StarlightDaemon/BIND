@@ -114,16 +114,21 @@ BIND/
 
 ## Dependencies
 
-| Package | Purpose | Size |
-|---------|---------|------|
-| cloudscraper | Cloudflare bypass | Essential |
-| beautifulsoup4 | HTML parsing | Essential |
-| lxml | BeautifulSoup parser | Essential |
-| click | CLI framework | Essential |
-| schedule | Daemon scheduling | Essential |
-| flask | RSS server | Essential |
+BIND uses only 6 carefully chosen dependencies, totaling ~50MB installed:
 
-**All 6 dependencies are actively used and justified.**
+| Package | Version | Size | Purpose |
+|---------|---------|------|---------|
+| **cloudscraper** | latest | ~8MB | Bypasses Cloudflare protection on AudioBookBay |
+| **beautifulsoup4** | latest | ~500KB | Parses HTML to extract magnet links |
+| **lxml** | latest | ~15MB | Fast XML/HTML parser backend for BeautifulSoup |
+| **click** | latest | ~800KB | Command-line interface framework |
+| **schedule** | latest | ~50KB | Lightweight daemon scheduling (cron alternative) |
+| **flask** | latest | ~3MB | RSS server and web UI |
+
+**Total installed size**: ~50MB (including dependencies)  
+**Virtual environment**: ~150MB with all packages
+
+All dependencies are actively maintained and essential to BIND's functionality.
 
 ## Configuration
 
