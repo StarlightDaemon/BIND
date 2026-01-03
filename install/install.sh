@@ -166,46 +166,47 @@ pct exec $CTID -- bash -c "$(cat <<'INSTALL_SCRIPT'
 #!/bin/bash
 set -e
 
+# Suppress verbose output
+export DEBIAN_FRONTEND=noninteractive
+
 # Update system
 echo "Updating system packages..."
-apt-get update
-apt-get upgrade -y
+apt-get update -qq > /dev/null 2>&1
+apt-get upgrade -y -qq > /dev/null 2>&1
 
 # Install dependencies
 echo "Installing dependencies..."
-apt-get install -y \
+apt-get install -y -qq \
     python3 \
     python3-venv \
     python3-pip \
     git \
-    curl
+    curl > /dev/null 2>&1
 
 # Clone BIND repository
 echo "Cloning BIND repository..."
-git clone https://github.com/StarlightDaemon/BIND.git /opt/bind
+git clone -q https://github.com/StarlightDaemon/BIND.git /opt/bind 2>&1 | grep -v "^Cloning" || true
 cd /opt/bind
 
 # Create virtual environment
 echo "Setting up Python virtual environment..."
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv venv > /dev/null 2>&1
 
-# Install Python dependencies
+# Activate and install
 echo "Installing Python packages..."
-pip install --upgrade pip
-pip install -r requirements.txt
+source venv/bin/activate
+pip install -q --upgrade pip > /dev/null 2>&1
+pip install -q -r requirements.txt > /dev/null 2>&1
 
 # Install systemd services
 echo "Installing systemd services..."
 cp deployment/bind.service /etc/systemd/system/
 cp deployment/bind-rss.service /etc/systemd/system/
 
-# Reload systemd
+# Reload and enable
 systemctl daemon-reload
-
-# Enable services
-systemctl enable bind.service
-systemctl enable bind-rss.service
+systemctl enable bind.service > /dev/null 2>&1
+systemctl enable bind-rss.service > /dev/null 2>&1
 
 # Start services
 systemctl start bind.service
