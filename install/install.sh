@@ -98,11 +98,40 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 ###############################################################################
+# Detect or Download Debian Template
+###############################################################################
+msg_info "Checking for Debian template..."
+
+# Find existing Debian 12 template
+TEMPLATE=$(pveam available -section system | grep -o "debian-12-standard.*amd64.tar.zst" | sort -V | tail -1)
+
+if [ -z "$TEMPLATE" ]; then
+    msg_info "No Debian 12 template found, downloading latest..."
+    # Get latest from available list
+    TEMPLATE=$(pveam available | grep "debian-12-standard" | grep -o "debian-12-standard.*amd64.tar.zst" | sort -V | tail -1)
+    
+    if [ -z "$TEMPLATE" ]; then
+        msg_error "Could not find Debian 12 template in repository"
+    fi
+    
+    # Download template
+    msg_info "Downloading: $TEMPLATE"
+    pveam download local "$TEMPLATE"
+    
+    if [ $? -ne 0 ]; then
+        msg_error "Failed to download template"
+    fi
+    msg_ok "Template downloaded"
+else
+    msg_ok "Found template: $TEMPLATE"
+fi
+
+###############################################################################
 # Create LXC Container
 ###############################################################################
 msg_info "Creating LXC container..."
 
-pct create $CTID local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst \
+pct create $CTID local:vztmpl/$TEMPLATE \
     --hostname $HOSTNAME \
     --cores $CORES \
     --memory $RAM \
