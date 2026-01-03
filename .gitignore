@@ -1,3 +1,6 @@
+# BIND - Book Indexing Network Daemon
+# Git ignore file - excludes local files from version control
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -47,7 +50,8 @@ env/
 .DS_Store
 Thumbs.db
 
-# Project-specific
+# BIND Project - Local data files
+magnets/
 magnets.txt
 backups/
 
