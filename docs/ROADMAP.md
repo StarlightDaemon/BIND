@@ -1,89 +1,87 @@
-# BIND - Future Enhancements
+# BIND Roadmap
 
-## Priority 1: UI/UX Improvements
+## Project Philosophy
 
-### StarlightDaemon Design System Implementation
-**Status**: Design guide complete, ready to implement  
-**File**: `BIND_IMPLEMENTATION_GUIDE.md`  
-**Estimated Time**: 2-3 hours
+**BIND is designed to stay slim, focused, and maintainable.**
 
-**Current Web UI**: Purple gradient, basic layout  
-**Target Design**: Clean, light theme based on AlternativeTo.net aesthetic
-
-**Key Changes**:
-- ✅ Replace purple gradient (#667eea/#764ba2) with light gray background (#f5f7f9)
-- ✅ Change accent from purple to StarlightDaemon blue (#06a0ff)
-- ✅ Add proper cards with borders and hover effects
-- ✅ Implement design system CSS variables
-- ✅ Update buttons to match design system
-- ✅ Add badges for status indicators
-- ✅ Improve mobile responsiveness
-- ✅ Better typography (system fonts only)
-
-**Benefits**:
-- Professional, clean appearance
-- Consistent with other StarlightDaemon projects
-- Better accessibility (WCAG AA compliant)
-- Improved mobile experience
-- Easier to maintain
+We prioritize:
+- 📦 **Simplicity** - Do one thing well
+- 🎯 **Focus** - Archive metadata, nothing more
+- 🧹 **Minimal** - Keep codebase small and clean
+- 📚 **Documentation** - Over feature bloat
 
 ---
 
-## Priority 2: Quick Wins (1-2 hours each)
+## v1.1 - Polish (Optional)
 
-### Keyword Filtering
-- [ ] `--include "author1,author2"` option
-- [ ] `--exclude "abridged,sample"` option
-- [ ] Simple string matching
-- **ROI**: High (4/5) - Focused archival
+**Goal**: Minor improvements to user experience
 
-### Configurable Daemon Interval
-- [ ] CLI option: `--interval 30`
-- [ ] Remove hardcoded 60-minute default
-- **ROI**: Medium (3/5) - User flexibility
+### Documentation
+- [ ] Add screenshots to README
+- [ ] Add example RSS feed XML in docs
+- [ ] Video walkthrough of setup (optional)
 
-### Magnet Deduplication
-- [ ] Hash-based uniqueness check
-- [ ] Skip already-collected magnets
-- **ROI**: Medium (3/5) - Cleaner archives
+### Testing
+- [ ] Manual testing on different Proxmox versions
+- [ ] Verify on Debian 11 and 13
+- [ ] Test with more torrent clients
 
----
-
-## Priority 3: Nice to Have
-
-### RSS Feed Enhancements
-- [ ] Pagination support (>100 magnets)
-- [ ] HTTPS support for RSS server
-- [ ] Custom feed titles
-
-### Configuration File
-- [ ] `config.yaml` support
-- [ ] Centralized settings
-- [ ] Per-user configs
+**Timeline**: When community feedback arrives  
+**Priority**: Low (v1.0 is feature-complete)
 
 ---
 
-## Probably Never
+## v1.2+ - Maintenance Only
 
-These were evaluated and rejected due to low ROI:
+**Goal**: Keep BIND working as dependencies update
 
-- ❌ **Statistics dashboard** (200+ lines, 20% usage)
-- ❌ **Desktop GUI** (incompatible with LXC deployment)
-- ❌ **Complex category filtering** (50% effort, 30% value)
-- ❌ **Search command** (already removed - redundant)
+### Maintenance Tasks
+- [ ] Update dependencies as needed
+- [ ] Fix bugs if reported
+- [ ] Update docs based on feedback
+- [ ] Security patches if needed
+
+**No major features planned** - BIND does what it needs to do.
 
 ---
 
-## Implementation Notes
+## Rejected Ideas
 
-**Design System**: Follow `BIND_IMPLEMENTATION_GUIDE.md` exactly
-- Use CSS variables (`var(--accent)` not `#06a0ff`)
-- Test on mobile (375px minimum)
-- Maintain accessibility standards
-- Keep HTML structure simple
+These features were considered but rejected to keep BIND focused:
 
-**Testing Required**:
-- Visual comparison with design guide
-- Mobile responsiveness check
-- Browser compatibility (Chrome, Firefox, Safari)
-- Accessibility audit
+❌ **Keyword Filtering** - Use torrent client's RSS filters instead  
+❌ **Magnet Deduplication** - Not needed with daily files  
+❌ **RSS Pagination** - 100 items is sufficient  
+❌ **Database Storage** - Files are simpler and more reliable  
+❌ **Web Authentication** - Use reverse proxy if needed  
+❌ **Multi-source Support** - Focused on AudioBookBay only  
+❌ **Download Management** - That's the torrent client's job  
+❌ **Search Interface** - RSS feed is the interface  
+
+---
+
+## Design Principles Going Forward
+
+1. **No Feature Creep** - Reject features that add complexity
+2. **Delegate to Client** - Let torrent clients handle filtering/management
+3. **Simple > Complex** - Daily text files > databases
+4. **Documentation > Code** - Explain well rather than over-engineer
+5. **Stability > Features** - Don't fix what isn't broken
+
+---
+
+## Contributing
+
+If you'd like to propose a feature:
+1. Open a GitHub issue first
+2. Explain the use case
+3. Why the torrent client can't handle it
+4. Why it can't be a separate tool
+
+We'll likely say no to maintain BIND's focus, but we're happy to discuss!
+
+---
+
+**BIND is feature-complete at v1.0.**
+
+Future work is polish, testing, and maintenance only.
