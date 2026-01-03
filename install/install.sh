@@ -26,8 +26,50 @@ msg_ok() {
 
 msg_error() {
     echo -e "${RD}[ERROR]${CL} ${RD}$1${CL}"
+    cleanup_failed_container
     exit 1
 }
+
+cleanup_failed_container() {
+    if [ -n "$CTID" ] && pct status $CTID &> /dev/null; then
+        echo ""
+        echo -e "${YW}Installation failed - container $CTID was created but setup failed${CL}"
+        echo ""
+        read -p "Remove broken container $CTID? (y/n): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            msg_info "Removing container $CTID..."
+            pct stop $CTID 2>/dev/null || true
+            pct destroy $CTID 2>/dev/null || true
+            msg_ok "Container removed"
+        else
+            msg_info "Container $CTID left for debugging"
+            msg_info "To remove later: pct destroy $CTID"
+        fi
+    fi
+}
+
+###############################################################################
+# Prerequisites Check
+###############################################################################
+check_prerequisites() {
+    # Check if running on Proxmox
+    if ! command -v pct &> /dev/null; then
+        msg_error "This script must be run on a Proxmox VE host (pct command not found)"
+    fi
+    
+    # Check if running as root
+    if [[ $(id -u) -ne 0 ]]; then
+        msg_error "This script must be run as root (try: sudo bash install.sh)"
+    fi
+    
+    # Check internet connectivity
+    if ! ping -c 1 8.8.8.8 &> /dev/null; then
+        msg_error "No internet connection. Please check network settings."
+    fi
+}
+
+check_prerequisites
 
 ###############################################################################
 # Default Configuration
@@ -240,6 +282,11 @@ echo "Installing systemd services..."
 cp deployment/bind.service /etc/systemd/system/
 cp deployment/bind-rss.service /etc/systemd/system/
 
+# Install update script
+echo "Installing update script..."
+cp update.sh /opt/bind/
+chmod +x /opt/bind/update.sh
+
 # Reload and enable
 systemctl daemon-reload
 systemctl enable bind.service > /dev/null 2>&1
@@ -264,9 +311,16 @@ echo "Services:"
 echo "  - bind.service     (Daemon)"
 echo "  - bind-rss.service (RSS Server)"
 echo ""
+echo "Update BIND:"
+echo "  cd /opt/bind && ./update.sh"
+echo ""
 echo "Logs:"
 echo "  journalctl -u bind.service -f"
 echo "  journalctl -u bind-rss.service -f"
+echo ""
+echo "Troubleshooting:"
+echo "  systemctl status bind.service"
+echo "  systemctl status bind-rss.service"
 echo ""
 
 INSTALL_SCRIPT
@@ -303,8 +357,15 @@ msg_info "Useful Commands:"
 echo "  pct enter $CTID                    # Enter container"
 echo "  pct stop $CTID                     # Stop container"
 echo "  pct start $CTID                    # Start container"
-echo "  systemctl status bind.service      # Check daemon status"
-echo "  systemctl status bind-rss.service  # Check RSS server status"
+echo ""
+msg_info "Update BIND:"
+echo "  pct enter $CTID"
+echo "  cd /opt/bind && ./update.sh"
+echo ""
+msg_info "Check Status:"
+echo "  systemctl status bind.service      # Check daemon"
+echo "  systemctl status bind-rss.service  # Check RSS server"
+echo "  journalctl -u bind.service -f     # View logs"
 echo ""
 msg_info "Add to your torrent client:"
 echo "  Feed URL: http://$CONTAINER_IP:5000/feed.xml"
