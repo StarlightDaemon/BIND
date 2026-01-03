@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "--- ABMG Linux Setup ---"
+echo "--- BIND Linux Setup ---"
 
 # 1. Create venv if not exists
 if [ ! -d "venv" ]; then
@@ -19,4 +19,4 @@ pip install -r requirements.txt
 # 4. Run Daemon
 echo "Starting Daemon..."
 export PYTHONPATH=$(pwd)
-python src/abmg.py daemon
+python src/bind.py daemon

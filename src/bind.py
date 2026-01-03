@@ -11,11 +11,11 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger("ABMG")
+logger = logging.getLogger("BIND")
 
 @click.group()
 def cli():
-    """AudioBookBay Media Grabber (ABMG)"""
+    """Book Indexing Network Daemon (BIND)"""
     pass
 
 @cli.command()
@@ -36,7 +36,7 @@ def search(term):
 @click.option('--qb-pass', default=os.getenv('QB_PASS', 'adminadmin'), help='qBittorrent Password')
 def daemon(interval, qb_host, qb_port, qb_user, qb_pass):
     """Run in daemon mode to auto-grab new torrents"""
-    logger.info(f"Starting ABMG Daemon (Interval: {interval}m)")
+    logger.info(f"Starting BIND Daemon (Interval: {interval}m)")
     
     scraper = AbmgScraper()
     downloader = QBittorrentClient(qb_host, qb_port, qb_user, qb_pass)

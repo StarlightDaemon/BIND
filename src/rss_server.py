@@ -1,5 +1,5 @@
 """
-ABMG RSS Feed Server
+BIND RSS Feed Server
 
 Lightweight Flask server that reads magnets.txt and serves it as:
 - RSS 2.0 feed at /feed.xml
@@ -17,7 +17,7 @@ app = Flask(__name__)
 
 # Configuration
 MAGNETS_FILE = os.getenv('MAGNETS_FILE', 'magnets.txt')
-FEED_TITLE = "ABMG - AudioBookBay Magnets"
+FEED_TITLE = "BIND - Book Indexing Network"
 FEED_DESCRIPTION = "Automatically collected audiobook magnet links"
 MAX_ITEMS = 100
 
@@ -88,7 +88,7 @@ def index():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>ABMG - Magnet Links</title>
+        <title>BIND - Magnet Links</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
@@ -205,7 +205,7 @@ def index():
     </head>
     <body>
         <div class="container">
-            <h1>🧲 ABMG - AudioBookBay Magnet Grabber</h1>
+            <h1>📚 BIND - Book Indexing Network Daemon</h1>
             <p class="subtitle">Automatically collected audiobook magnet links</p>
             
             <div class="stats">
@@ -303,7 +303,7 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     host = os.getenv('HOST', '0.0.0.0')
     
-    print(f"Starting ABMG RSS Server on {host}:{port}")
+    print(f"Starting BIND RSS Server on {host}:{port}")
     print(f"RSS Feed: http://{host}:{port}/feed.xml")
     print(f"Web UI: http://{host}:{port}/")
     
