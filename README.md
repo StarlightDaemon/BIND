@@ -54,123 +54,6 @@ python -m src.bind daemon --interval 60 --output-dir magnets/
 python -m src.rss_server
 ```
 
-## Usage
-
-### RSS Feed Setup
-
-**qBittorrent**:
-1. View → RSS Reader (Alt+S)
-2. Right-click → New subscription
-3. URL: `http://your-server:5000/feed.xml`
-4. Set up auto-download rules
-
-**BiglyBT**:
-1. Install RSS Feed Scanner plugin
-2. Add feed URL
-3. Configure auto-download
-
-**Transmission/Deluge**: Similar RSS subscription process
-
-### Storage
-
-Magnets saved to daily files:
-```
-magnets/
-├── magnets_2026-01-03.txt
-├── magnets_2026-01-04.txt
-└── magnets_2026-01-05.txt
-```
-
-**Storage Requirements**:
-- 100,000 magnets ≈ 35-40 MB
-- Daily files prevent corruption
-- Easy backup and pruning
-
-## How It Works
-
-1. **Daemon** checks AudioBookBay RSS feed every 60 minutes
-2. **Scraper** extracts info hashes from detail pages
-3. **Generator** creates magnet URIs with tracker lists
-4. **Writer** saves to `magnets/magnets_YYYY-MM-DD.txt`
-5. **RSS Server** reads all files and serves as feed
-6. **Torrent Client** auto-downloads from feed
-
-## Project Structure
-
-```
-BIND/
-├── src/
-│   ├── core/
-│   │   └── scraper.py      # AudioBookBay scraping engine
-│   ├── bind.py             # Main daemon (65 lines)
-│   └── rss_server.py       # RSS + Web UI (324 lines)
-├── deployment/
-│   ├── bind.service        # Systemd daemon service
-│   └── bind-rss.service    # Systemd RSS service
-├── install/
-│   └── install.sh          # Proxmox one-click installer
-└── requirements.txt        # 6 dependencies
-```
-
-## Dependencies
-
-BIND uses only 6 carefully chosen dependencies, totaling ~50MB installed:
-
-| Package | Version | Size | Purpose |
-|---------|---------|------|---------|
-| **cloudscraper** | latest | ~8MB | Bypasses Cloudflare protection on AudioBookBay |
-| **beautifulsoup4** | latest | ~500KB | Parses HTML to extract magnet links |
-| **lxml** | latest | ~15MB | Fast XML/HTML parser backend for BeautifulSoup |
-| **click** | latest | ~800KB | Command-line interface framework |
-| **schedule** | latest | ~50KB | Lightweight daemon scheduling (cron alternative) |
-| **flask** | latest | ~3MB | RSS server and web UI |
-
-**Total installed size**: ~50MB (including dependencies)  
-**Virtual environment**: ~150MB with all packages
-
-All dependencies are actively maintained and essential to BIND's functionality.
-
-## Configuration
-
-**Default Settings**:
-- Daemon interval: 60 minutes
-- RSS port: 5000
-- Output directory: `magnets/`
-- Max feed items: 100
-
-**Customization** (edit systemd service):
-```ini
-# Change interval to 30 minutes:
-ExecStart=... daemon --interval 30 --output-dir /opt/bind/magnets
-```
-
-## Monitoring
-
-**Health Check**:
-```bash
-curl http://localhost:5000/health
-```
-
-**Response**:
-```json
-{
-  "status": "ok",
-  "magnet_count": 8,
-  "magnets_dir": "/opt/bind/magnets",
-  "magnet_files_count": 1,
-  "latest_file": "magnets_2026-01-03.txt"
-}
-```
-
-**View Logs**:
-```bash
-# Daemon logs
-journalctl -u bind.service -f
-
-# RSS server logs
-journalctl -u bind-rss.service -f
-```
-
 ## Updating BIND
 
 ### Automatic Update (Recommended)
@@ -201,75 +84,58 @@ pip install -r requirements.txt
 systemctl restart bind.service bind-rss.service
 ```
 
-## Troubleshooting
+---
 
-### Installer Issues
+## Documentation
 
-**Script fails with "pct command not found"**:
-- You're not on a Proxmox host
-- Run this only on Proxmox VE servers
+- **[Usage Guide](docs/USAGE.md)** - RSS setup, storage info, configuration
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Design System](docs/BIND_IMPLEMENTATION_GUIDE.md)** - Web UI theming reference
 
-**Script fails with "must be run as root"**:
-```bash
-sudo bash install.sh
+---
+
+<details>
+<summary><b>📦 Dependencies</b></summary>
+
+BIND uses only 6 carefully chosen dependencies, totaling ~50MB installed:
+
+| Package | Size | Purpose |
+|---------|------|---------|
+| **cloudscraper** | ~8MB | Bypasses Cloudflare protection on AudioBookBay |
+| **beautifulsoup4** | ~500KB | Parses HTML to extract magnet links |
+| **lxml** | ~15MB | Fast XML/HTML parser backend for BeautifulSoup |
+| **click** | ~800KB | Command-line interface framework |
+| **schedule** | ~50KB | Lightweight daemon scheduling (cron alternative) |
+| **flask** | ~3MB | RSS server and web UI |
+
+**Total installed size**: ~50MB (including dependencies)  
+**Virtual environment**: ~150MB with all packages
+
+All dependencies are actively maintained and essential to BIND's functionality.
+
+</details>
+
+<details>
+<summary><b>📁 Project Structure</b></summary>
+
+```
+BIND/
+├── src/
+│   ├── core/
+│   │   └── scraper.py      # AudioBookBay scraping engine
+│   ├── bind.py             # Main daemon (65 lines)
+│   └── rss_server.py       # RSS + Web UI (324 lines)
+├── deployment/
+│   ├── bind.service        # Systemd daemon service
+│   └── bind-rss.service    # Systemd RSS service
+├── install/
+│   └── install.sh          # Proxmox one-click installer
+└── requirements.txt        # 6 dependencies
 ```
 
-**Container creation fails**:
-- Check storage is available: `pvesm status`
-- Check network: `ping 8.8.8.8`
+</details>
 
-**Template download fails**:
-```bash
-pveam update  # Update template list
-# Then retry installation
-```
-
-**Installation fails inside container**:
-- Installer will offer to remove broken container
-- Choose 'y' to clean up and retry
-
-### Runtime Issues
-
-**RSS feed not accessible**:
-```bash
-pct enter <container-id>
-systemctl status bind-rss.service
-ss -tulpn | grep 5000
-curl http://localhost:5000/feed.xml
-```
-
-**No magnets collected**:
-```bash
-pct enter <container-id>
-journalctl -u bind.service -n 50
-ls -lh /opt/bind/magnets/
-```
-
-**Services won't start**:
-```bash
-systemctl status bind.service
-systemctl status bind-rss.service
-journalctl -xe
-```
-
-**Update failed / rollback needed**:
-```bash
-cd /opt/bind
-git tag  # Find backup tags
-git checkout backup-YYYYMMDD-HHMMSS
-systemctl restart bind.service bind-rss.service
-```
-
-**Port 5000 already in use**:
-```bash
-# Find what's using it
-ss -tulpn | grep 5000
-
-# Change BIND's port (edit bind-rss.service)
-# Or stop the conflicting service
-```
-
-**BiglyBT XML parsing error**: Fixed in latest version (ampersands properly escaped - update to latest)
+---
 
 ## Legal
 
