@@ -103,150 +103,271 @@ def index():
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
+            /*!
+             * StarlightDaemon Design System v1.0
+             * For BIND Web UI Implementation
+             */
+
+            /* ============================================
+               CSS VARIABLES
+               ============================================ */
+            :root {
+              /* Colors - Neutrals */
+              --white: #ffffff;
+              --gray-50: #f5f7f9;
+              --gray-100: #e1e8ed;
+              --gray-400: #636e72;
+              --gray-700: #2d3436;
+              --black: #000000;
+
+              /* Colors - Brand */
+              --primary: #06a0ff;
+              --primary-dark: #0087d2;
+
+              /* Colors - Status */
+              --success: #1b5e20;
+              --success-light: #a5d6a7;
+              --error: #c62828;
+              --warning: #f57c00;
+              --info: #0277bd;
+
+              /* Semantic Mapping */
+              --bg: var(--gray-50);
+              --bg-secondary: var(--white);
+              --text: var(--gray-700);
+              --text-secondary: var(--gray-400);
+              --border: var(--gray-100);
+              --accent: var(--primary);
+              --accent-hover: var(--primary-dark);
+
+              /* Typography */
+              --font-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              --font-mono: 'SF Mono', Consolas, 'Courier New', monospace;
+              --text-xs: 0.75rem;
+              --text-sm: 0.875rem;
+              --text-base: 1rem;
+              --text-lg: 1.125rem;
+              --text-xl: 1.25rem;
+              --text-2xl: 1.75rem;
+              --text-3xl: 2rem;
+              --font-normal: 400;
+              --font-medium: 500;
+              --font-semibold: 600;
+              --font-bold: 700;
+
+              /* Spacing (8px scale) */
+              --space-1: 0.25rem;
+              --space-2: 0.5rem;
+              --space-3: 0.75rem;
+              --space-4: 1rem;
+              --space-5: 1.25rem;
+              --space-6: 1.5rem;
+              --space-8: 2rem;
+              --space-10: 2.5rem;
+              --space-12: 3rem;
+
+              /* Border Radius */
+              --radius-sm: 6px;
+              --radius-md: 12px;
+              --radius-lg: 16px;
+              --radius-xl: 24px;
+              --radius-full: 9999px;
+
+              /* Shadows */
+              --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+              --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.08);
+              --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
+              --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.18);
+
+              /* Animation */
+              --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
+              --ease-out: cubic-bezier(0.0, 0.0, 0.2, 1);
+              --ease-in: cubic-bezier(0.4, 0.0, 1, 1);
+            }
+
+            /* ============================================
+               BASE RESET
+               ============================================ */
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+
             body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                min-height: 100vh;
-                padding: 20px;
+              font-family: var(--font-primary);
+              background: var(--bg);
+              color: var(--text);
+              line-height: 1.6;
+              -webkit-font-smoothing: antialiased;
+              padding: var(--space-8) 0;
             }
+
+            /* ============================================
+               LAYOUT
+               ============================================ */
             .container {
-                max-width: 1200px;
-                margin: 0 auto;
-                background: white;
-                border-radius: 12px;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                padding: 30px;
+              max-width: 960px;
+              margin: 0 auto;
+              padding: 0 var(--space-6);
             }
-            h1 {
-                color: #333;
-                margin-bottom: 10px;
-                font-size: 32px;
+
+            .container-lg {
+              max-width: 1200px;
+              margin: 0 auto;
+              padding: 0 var(--space-6);
             }
-            .subtitle {
-                color: #666;
-                margin-bottom: 30px;
-                font-size: 14px;
+
+            /* ============================================
+               GRIDS
+               ============================================ */
+            .grid-auto {
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+              gap: var(--space-6);
             }
-            .stats {
-                display: flex;
-                gap: 20px;
-                margin-bottom: 30px;
-                padding: 20px;
-                background: #f8f9fa;
-                border-radius: 8px;
+
+            @media (max-width: 640px) {
+              .grid-auto {
+                grid-template-columns: 1fr;
+              }
             }
-            .stat-box {
-                flex: 1;
-                text-align: center;
+
+            .grid-2 { 
+              display: grid;
+              grid-template-columns: repeat(2, 1fr); 
+              gap: var(--space-6);
             }
-            .stat-value {
-                font-size: 32px;
-                font-weight: bold;
-                color: #667eea;
+
+            @media (max-width: 640px) {
+              .grid-2 {
+                grid-template-columns: 1fr;
+              }
             }
-            .stat-label {
-                font-size: 12px;
-                color: #666;
-                text-transform: uppercase;
-                letter-spacing: 1px;
+
+            .grid-3 { 
+              display: grid;
+              grid-template-columns: repeat(3, 1fr); 
+              gap: var(--space-6);
             }
-            .magnet-list {
-                list-style: none;
+
+            /* ============================================
+               BUTTONS
+               ============================================ */
+            .btn {
+              padding: var(--space-2) var(--space-4);
+              border-radius: var(--radius-md);
+              font-weight: var(--font-semibold);
+              font-size: var(--text-base);
+              font-family: var(--font-primary);
+              border: none;
+              cursor: pointer;
+              transition: all 0.2s var(--ease-standard);
+              display: inline-block;
+              text-decoration: none;
+              text-align: center;
             }
-            .magnet-item {
-                border: 1px solid #e0e0e0;
-                border-radius: 8px;
-                padding: 15px;
-                margin-bottom: 15px;
-                transition: all 0.3s;
+
+            .btn-primary {
+              background: var(--accent);
+              color: var(--white);
             }
-            .magnet-item:hover {
-                border-color: #667eea;
-                box-shadow: 0 4px 12px rgba(102,126,234,0.15);
+
+            .btn-primary:hover {
+              background: var(--accent-hover);
             }
-            .magnet-title {
-                font-size: 16px;
-                font-weight: 600;
-                color: #333;
-                margin-bottom: 8px;
+
+            .btn-sm {
+              padding: var(--space-1) var(--space-3);
+              font-size: var(--text-sm);
             }
-            .magnet-hash {
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
-                color: #666;
-                background: #f5f5f5;
-                padding: 4px 8px;
-                border-radius: 4px;
-                display: inline-block;
+
+            .btn:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
             }
-            .magnet-link {
-                display: inline-block;
-                margin-top: 10px;
-                padding: 8px 16px;
-                background: #667eea;
-                color: white;
-                text-decoration: none;
-                border-radius: 6px;
-                font-size: 13px;
-                transition: background 0.3s;
+
+            /* ============================================
+               CARDS
+               ============================================ */
+            .card {
+              background: var(--white);
+              border: 1px solid var(--border);
+              border-radius: var(--radius-md);
+              padding: var(--space-6);
+              transition: all 0.2s var(--ease-standard);
             }
-            .magnet-link:hover {
-                background: #764ba2;
+
+            .card:hover {
+              border-color: var(--accent);
+              transform: translateY(-2px);
+              box-shadow: var(--shadow-md);
             }
-            .rss-link {
-                display: inline-block;
-                margin-top: 20px;
-                padding: 12px 24px;
-                background: #28a745;
-                color: white;
-                text-decoration: none;
-                border-radius: 8px;
-                font-weight: 600;
-            }
-            .rss-link:hover {
-                background: #218838;
-            }
-            .empty-state {
-                text-align: center;
-                padding: 60px 20px;
-                color: #999;
+
+            .card-compact {
+              padding: var(--space-4) var(--space-5);
             }
         </style>
     </head>
     <body>
-        <div class="container">
-            <h1>📚 BIND - Book Indexing Network Daemon</h1>
-            <p class="subtitle">Automatically collected audiobook magnet links</p>
+        <div class="container-lg">
+            <div style="margin-bottom: var(--space-8);">
+                <h1 style="color: var(--text); font-size: var(--text-3xl); margin-bottom: var(--space-2); font-weight: var(--font-bold);">
+                    📚 BIND - Book Indexing Network Daemon
+                </h1>
+                <p style="color: var(--text-secondary); font-size: var(--text-base);">
+                    Automatically collected audiobook magnet links
+                </p>
+            </div>
             
-            <div class="stats">
-                <div class="stat-box">
-                    <div class="stat-value">{{ magnet_count }}</div>
-                    <div class="stat-label">Total Magnets</div>
+            <div class="grid-2" style="margin-bottom: var(--space-8);">
+                <div class="card card-compact" style="text-align: center;">
+                    <div style="font-size: var(--text-3xl); font-weight: var(--font-bold); color: var(--accent);">
+                        {{ magnet_count }}
+                    </div>
+                    <div style="font-size: var(--text-xs); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-top: var(--space-2);">
+                        Total Magnets
+                    </div>
                 </div>
-                <div class="stat-box">
-                    <div class="stat-value">RSS</div>
-                    <div class="stat-label">Feed Available</div>
+                <div class="card card-compact" style="text-align: center;">
+                    <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--success);">
+                        ✓ RSS
+                    </div>
+                    <div style="font-size: var(--text-xs); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-top: var(--space-2);">
+                        Feed Available
+                    </div>
                 </div>
             </div>
             
-            <a href="/feed.xml" class="rss-link">📡 Subscribe to RSS Feed</a>
+            <a href="/feed.xml" class="btn btn-primary" style="margin-bottom: var(--space-8);">📡 Subscribe to RSS Feed</a>
             
             {% if magnets %}
-            <h2 style="margin: 30px 0 15px 0; color: #333;">Recent Magnets</h2>
-            <ul class="magnet-list">
+            <h2 style="margin-bottom: var(--space-6); color: var(--text); font-size: var(--text-2xl); font-weight: var(--font-semibold);">
+                Recent Magnets
+            </h2>
+            <div class="grid-auto">
                 {% for magnet in magnets %}
-                <li class="magnet-item">
-                    <div class="magnet-title">{{ magnet.title }}</div>
-                    <div class="magnet-hash">{{ magnet.hash }}</div>
-                    <a href="{{ magnet.magnet }}" class="magnet-link">Open Magnet Link</a>
-                </li>
+                <div class="card">
+                    <h3 style="margin-bottom: var(--space-2); color: var(--text); font-size: var(--text-lg); font-weight: var(--font-semibold);">
+                        {{ magnet.title }}
+                    </h3>
+                    <code style="display: block; margin-bottom: var(--space-4); font-size: var(--text-xs); color: var(--text-secondary); font-family: var(--font-mono); background: var(--gray-50); padding: var(--space-2); border-radius: var(--radius-sm); word-break: break-all;">
+                        {{ magnet.hash }}
+                    </code>
+                    <a href="{{ magnet.magnet }}" class="btn btn-primary btn-sm">
+                        Open Magnet Link
+                    </a>
+                </div>
                 {% endfor %}
-            </ul>
+            </div>
             {% else %}
-            <div class="empty-state">
-                <h2>No magnet links yet</h2>
-                <p>The daemon will start collecting links soon...</p>
+            <div class="card" style="text-align: center; padding: var(--space-12);">
+                <h2 style="color: var(--text-secondary); margin-bottom: var(--space-4); font-size: var(--text-xl);">
+                    No magnet links yet
+                </h2>
+                <p style="color: var(--text-secondary); font-size: var(--text-base);">
+                    The daemon will start collecting links soon...
+                </p>
             </div>
             {% endif %}
         </div>
