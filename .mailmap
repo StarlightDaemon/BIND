@@ -1,5 +1,6 @@
 # .mailmap - Fix author attribution for display
-# Maps old author names to preferred ones
+# Maps old author names to preferred display name
 
-# Map ABMG Developer to real identity
-ABMG Developer <dev@abmg.local> StarlightDaemon <starlightdaemon@proton.me>
+# Map all commits to "BIND Agent" for consistent branding
+BIND Agent <starlightdaemon@proton.me> ABMG Developer <dev@abmg.local>
+BIND Agent <starlightdaemon@proton.me> StarlightDaemon <starlightdaemon@proton.me>
