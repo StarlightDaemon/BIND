@@ -1,8 +1,6 @@
 cloudscraper==1.2.71
 beautifulsoup4==4.12.3
-requests==2.31.0
 click==8.1.7
 lxml
 schedule
-pyyaml==6.0.1
 flask==3.0.0
