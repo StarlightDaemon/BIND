@@ -81,6 +81,41 @@ RAM=${USER_RAM:-$RAM}
 read -p "Enter CPU Cores [$CORES]: " USER_CORES
 CORES=${USER_CORES:-$CORES}
 
+###############################################################################
+# Network Configuration
+###############################################################################
+echo ""
+read -p "Network type - DHCP or Static? (dhcp/static) [dhcp]: " NET_TYPE
+NET_TYPE=${NET_TYPE:-dhcp}
+
+if [[ $NET_TYPE == "static" ]]; then
+    read -p "Enter IP address with CIDR (e.g., 192.168.1.100/24): " STATIC_IP
+    read -p "Enter Gateway (e.g., 192.168.1.1): " GATEWAY
+    NET_CONFIG="name=eth0,bridge=vmbr0,ip=$STATIC_IP,gw=$GATEWAY"
+    NET_DISPLAY="Static: $STATIC_IP (Gateway: $GATEWAY)"
+else
+    NET_CONFIG="name=eth0,bridge=vmbr0,ip=dhcp"
+    NET_DISPLAY="DHCP"
+fi
+
+###############################################################################
+# Storage Detection
+###############################################################################
+msg_info "Detecting available storage..."
+
+# Try to find local-lvm first (most common)
+if pvesm status | grep -q "local-lvm"; then
+    STORAGE="local-lvm"
+    msg_ok "Using storage: local-lvm"
+else
+    # Fallback: find first available storage
+    STORAGE=$(pvesm status | awk 'NR>1 {print $1; exit}')
+    if [ -z "$STORAGE" ]; then
+        msg_error "No storage found. Please check Proxmox storage configuration."
+    fi
+    msg_ok "Using storage: $STORAGE (local-lvm not found, using fallback)"
+fi
+
 echo ""
 msg_info "Configuration Summary:"
 echo "  Container ID: $CTID"
@@ -88,6 +123,8 @@ echo "  Hostname: $HOSTNAME"
 echo "  Disk: ${DISK_SIZE}GB"
 echo "  RAM: ${RAM}MB"
 echo "  Cores: $CORES"
+echo "  Network: $NET_DISPLAY"
+echo "  Storage: $STORAGE"
 echo "  RSS Feed Port: $FEED_PORT"
 echo ""
 
@@ -136,9 +173,9 @@ pct create $CTID local:vztmpl/$TEMPLATE \
     --cores $CORES \
     --memory $RAM \
     --swap 512 \
-    --storage local-lvm \
-    --rootfs local-lvm:$DISK_SIZE \
-    --net0 name=eth0,bridge=vmbr0,ip=dhcp \
+    --storage $STORAGE \
+    --rootfs $STORAGE:$DISK_SIZE \
+    --net0 $NET_CONFIG \
     --unprivileged 1 \
     --features nesting=1 \
     --onboot 1
