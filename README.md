@@ -2,7 +2,16 @@
 
 > **Note**: BIND is a book/audiobook archival tool, NOT the Berkeley Internet Name Domain (DNS server)
 
-A Python-based automated tool for **archiving and preserving audiobook magnet links** from AudioBookBay.
+**A Python-based automated tool for creating local, long-term backups of audiobook metadata from AudioBookBay** (with potential expansion to other sources in the future).
+
+## Mission
+
+BIND creates a **personal, local archive** of magnet link metadata from audiobook sources. This tool is designed for:
+- 📚 **Archival & Preservation**: Long-term backup of audiobook metadata
+- 🔍 **Personal Indexing**: Build your own searchable catalog
+- 🏛️ **Digital Preservation**: Maintain historical records of available content
+
+**Important**: BIND does NOT host, provide, link to, or distribute any copyrighted content. It archives metadata only.
 
 ## Features
 
@@ -119,8 +128,43 @@ python -m src.rss_server
 
 ## License
 
-This project is for educational and archival purposes only.
+MIT License - For educational, archival, and preservation purposes.
 
-## Disclaimer
+## Legal Disclaimer & Usage Policy
 
-This tool is intended for accessing public domain and legally distributable content. Users are responsible for ensuring compliance with copyright laws in their jurisdiction. BIND is designed for **archival and preservation** of metadata, not piracy.
+### What BIND Does
+- ✅ Creates **local backups** of publicly available metadata (magnet links)
+- ✅ Enables **personal archival** and indexing of book/audiobook information
+- ✅ Provides **tools for preservation** of digital library catalogs
+
+### What BIND Does NOT Do
+- ❌ Does NOT host, provide, or distribute copyrighted content
+- ❌ Does NOT link directly to infringing material
+- ❌ Does NOT facilitate piracy or copyright infringement
+- ❌ Does NOT store or transmit actual audiobook files
+
+### Intended Use
+BIND is designed exclusively for:
+1. **Educational purposes** - Learning about metadata archival systems
+2. **Personal archival** - Creating local backups of publicly available metadata
+3. **Preservation** - Maintaining historical records of digital library catalogs
+4. **Legal content only** - Accessing public domain and legally distributable materials
+
+### User Responsibility
+**Users are solely responsible for**:
+- Ensuring all content accessed is legal in their jurisdiction
+- Complying with copyright laws and terms of service
+- Using this tool only for legitimate archival and educational purposes
+- Verifying content licensing before downloading or distributing
+
+### Copyright Compliance
+This tool respects copyright law. BIND archives only **metadata** (titles, descriptions, identifiers) - not copyrighted works themselves. Users must ensure compliance with:
+- Local and international copyright laws
+- Terms of service of source websites
+- Licensing requirements for any content accessed
+
+**By using BIND, you agree to use it only for legal, educational, and archival purposes in accordance with applicable laws.**
+
+---
+
+**Project Goal**: To provide a local, long-term backup solution for audiobook metadata, supporting digital preservation efforts while respecting intellectual property rights.
