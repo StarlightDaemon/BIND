@@ -342,9 +342,16 @@ def index():
             <a href="/feed.xml" class="btn btn-primary" style="margin-bottom: var(--space-8);">📡 Subscribe to RSS Feed</a>
             
             {% if magnets %}
-            <h2 style="margin-bottom: var(--space-6); color: var(--text); font-size: var(--text-2xl); font-weight: var(--font-semibold);">
-                Recent Magnets
-            </h2>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-6);">
+                <h2 style="color: var(--text); font-size: var(--text-2xl); font-weight: var(--font-semibold); margin: 0;">
+                    Recent Magnets
+                </h2>
+                {% if display_count < magnet_count %}
+                <p style="color: var(--text-secondary); font-size: var(--text-sm); margin: 0;">
+                    Showing {{ display_count }} of {{ magnet_count }} • <a href="/feed.xml" style="color: var(--accent); text-decoration: none;">View all in RSS →</a>
+                </p>
+                {% endif %}
+            </div>
             <div class="grid-auto">
                 {% for magnet in magnets %}
                 <div class="card">
@@ -375,7 +382,14 @@ def index():
     </html>
     """
     
-    return render_template_string(html, magnets=magnets, magnet_count=len(magnets))
+    # Limit display to 20 most recent magnets
+    display_magnets = magnets[:20]
+    total_count = len(magnets)
+    
+    return render_template_string(html, 
+                                 magnets=display_magnets, 
+                                 magnet_count=total_count,
+                                 display_count=len(display_magnets))
 
 
 @app.route('/feed.xml')
