@@ -90,6 +90,8 @@ systemctl restart bind.service bind-rss.service
 
 - **[Usage Guide](docs/USAGE.md)** - RSS setup, storage info, configuration
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Architecture](docs/ARCHITECTURE.md)** - System design and data flow diagrams
+- **[FAQ](docs/FAQ.md)** - Frequently asked questions
 - **[Design System](docs/BIND_IMPLEMENTATION_GUIDE.md)** - Web UI theming reference
 
 ---
