@@ -4,8 +4,6 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](install/install.sh)
 
-> **Note**: BIND is an audiobook archival tool, NOT the DNS server
-
 **v1.0 Release** - Automated audiobook metadata archival system. Stable, tested, and ready to use.
 
 ## Features
