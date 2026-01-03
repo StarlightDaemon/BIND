@@ -268,14 +268,17 @@ def feed():
         pub_date = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
         guid = magnet['hash']
         
+        # Escape ampersands for valid XML
+        magnet_escaped = magnet['magnet'].replace('&', '&amp;')
+        
         item = f"""
         <item>
             <title><![CDATA[{magnet['title']}]]></title>
-            <link>{magnet['magnet']}</link>
+            <link>{magnet_escaped}</link>
             <guid isPermaLink="false">{guid}</guid>
             <pubDate>{pub_date}</pubDate>
             <description><![CDATA[Magnet link for: {magnet['title']}]]></description>
-            <enclosure url="{magnet['magnet']}" type="application/x-bittorrent" />
+            <enclosure url="{magnet_escaped}" type="application/x-bittorrent" />
         </item>
         """
         rss_items.append(item.strip())
