@@ -294,12 +294,8 @@ Ensure compliance with copyright laws in your jurisdiction. BIND archives metada
 
 ---
 
-## Project Stats
+## About
 
-**Code**: 531 lines (down from 710 - 27% reduction)  
-**Dependencies**: 6 (down from 8)  
-**Storage**: 35MB per 100k magnets  
-**Deployment**: Production-ready  
-**Testing**: Fully verified
+**Lightweight and focused**: 531 lines of code, 6 dependencies, minimal resource usage.
 
-**Project Goal**: Local, long-term backup of audiobook metadata supporting digital preservation while respecting intellectual property rights.
+BIND archives publicly available audiobook metadata for digital preservation and personal library indexing while respecting intellectual property rights.
