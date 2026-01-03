@@ -4,7 +4,6 @@ import schedule
 import logging
 import os
 from src.core.scraper import AbmgScraper
-from src.clients.qbittorrent import QBittorrentClient
 
 # Configure Logging
 logging.basicConfig(
@@ -30,16 +29,11 @@ def search(term):
 
 @cli.command()
 @click.option('--interval', default=60, help='Check interval in minutes')
-@click.option('--qb-host', default=os.getenv('QB_HOST', 'localhost'), help='qBittorrent Host')
-@click.option('--qb-port', default=os.getenv('QB_PORT', '8080'), help='qBittorrent Port')
-@click.option('--qb-user', default=os.getenv('QB_USER', 'admin'), help='qBittorrent User')
-@click.option('--qb-pass', default=os.getenv('QB_PASS', 'adminadmin'), help='qBittorrent Password')
-def daemon(interval, qb_host, qb_port, qb_user, qb_pass):
+def daemon(interval):
     """Run in daemon mode to auto-grab new torrents"""
     logger.info(f"Starting BIND Daemon (Interval: {interval}m)")
     
     scraper = AbmgScraper()
-    downloader = QBittorrentClient(qb_host, qb_port, qb_user, qb_pass)
     
     def job():
         logger.info("Checking for new uploads...")
