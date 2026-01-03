@@ -19,4 +19,4 @@ COPY . .
 ENV PYTHONPATH=/app
 
 # Default command runs the daemon
-CMD ["python", "src/abmg.py", "daemon"]
+CMD ["python", "src/bind.py", "daemon"]

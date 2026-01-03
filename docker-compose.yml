@@ -1,10 +1,10 @@
 version: '3.8'
 
 services:
-  abmg:
+  bind:
     build: .
-    image: abmg:latest
-    container_name: abmg
+    image: bind:latest
+    container_name: bind
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
@@ -13,10 +13,10 @@ services:
       - ./logs:/app/logs
     # No ports needed as it's a client
 
-  # Optional: qBittorrent for testing/all-in-one stack
-  # qbittorrent:
-  #   image: linuxserver/qbittorrent
-  #   ports:
-  #     - 8080:8080
-  #   environment:
-  #     - WEBUI_PORT=8080
+    # Optional: qBittorrent for testing/all-in-one stack
+    # qbittorrent:
+    #   image: linuxserver/qbittorrent
+    #   ports:
+    #     - 8080:8080
+    #   environment:
+    #     - WEBUI_PORT=8080

@@ -1,0 +1,20 @@
+[Unit]
+Description=BIND RSS Feed Server
+Documentation=https://github.com/StarlightDaemon/BIND
+After=network.target bind.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/bind
+Environment="PYTHONPATH=/opt/bind"
+Environment="FLASK_ENV=production"
+Environment="MAGNETS_FILE=/opt/bind/magnets.txt"
+ExecStart=/opt/bind/venv/bin/python -m src.rss_server
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
