@@ -3,6 +3,7 @@ import time
 import schedule
 import logging
 import os
+from datetime import datetime
 from src.core.scraper import AbmgScraper
 
 # Configure Logging
@@ -18,20 +19,15 @@ def cli():
     pass
 
 @cli.command()
-@click.argument('term')
-def search(term):
-    """Search for a book and print results"""
-    logger.info(f"Searching for: {term}")
-    scraper = AbmgScraper()
-    results = scraper.search(term)
-    for res in results:
-        click.echo(f"[+] Found: {res['title']} (Hash: {res['hash']})")
-
-@cli.command()
 @click.option('--interval', default=60, help='Check interval in minutes')
-def daemon(interval):
+@click.option('--output-dir', default='magnets', help='Directory to store magnet files')
+def daemon(interval, output_dir):
     """Run in daemon mode to auto-grab new torrents"""
     logger.info(f"Starting BIND Daemon (Interval: {interval}m)")
+    logger.info(f"Output directory: {output_dir}/")
+    
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
     
     scraper = AbmgScraper()
     
@@ -39,6 +35,10 @@ def daemon(interval):
         logger.info("Checking for new uploads...")
         books = scraper.get_recent_books()
         logger.info(f"Found {len(books)} recent books.")
+        
+        # Date-based filename for daily rotation
+        today = datetime.now().strftime('%Y-%m-%d')
+        magnet_file = os.path.join(output_dir, f'magnets_{today}.txt')
         
         for book in books:
             logger.info(f"Processing: {book['title']}")
@@ -49,10 +49,10 @@ def daemon(interval):
                 magnet = AbmgScraper.generate_magnet(info_hash, book['title'])
                 logger.info(f"Generated Magnet: {magnet}")
                 
-                # Save to file (User Request)
-                with open("magnets.txt", "a") as f:
+                # Save to date-based file
+                with open(magnet_file, "a", encoding='utf-8') as f:
                     f.write(f"{magnet}\n")
-                logger.info("Saved to magnets.txt")
+                logger.info(f"Saved to {magnet_file}")
             else:
                 logger.warning(f"Failed to extract hash for {book['title']}")
 

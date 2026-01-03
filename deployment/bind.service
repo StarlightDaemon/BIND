@@ -8,7 +8,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/bind
 Environment="PYTHONPATH=/opt/bind"
-ExecStart=/opt/bind/venv/bin/python -m src.bind daemon --interval 60
+ExecStart=/opt/bind/venv/bin/python -m src.bind daemon --interval 60 --output-dir /opt/bind/magnets
 Restart=always
 RestartSec=10
 StandardOutput=journal

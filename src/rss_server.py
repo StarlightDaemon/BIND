@@ -7,16 +7,15 @@ Lightweight Flask server that reads magnets.txt and serves it as:
 - Health check at /health
 """
 
-from flask import Flask, Response, render_template_string
-from datetime import datetime
 import os
 from typing import List, Dict
 import re
+import glob
 
 app = Flask(__name__)
 
 # Configuration
-MAGNETS_FILE = os.getenv('MAGNETS_FILE', 'magnets.txt')
+MAGNETS_DIR = os.getenv('MAGNETS_DIR', 'magnets')
 FEED_TITLE = "BIND - Book Indexing Network"
 FEED_DESCRIPTION = "Automatically collected audiobook magnet links"
 MAX_ITEMS = 100
@@ -53,29 +52,39 @@ def parse_magnet_link(magnet_url: str) -> Dict[str, str]:
 
 def read_magnets() -> List[Dict[str, str]]:
     """
-    Read magnets from magnets.txt and parse them.
-    Returns list of magnet info dicts.
+    Read magnets from all date-based files in magnets directory.
+    Returns list of magnet info dicts, most recent first.
     """
     magnets = []
     
-    if not os.path.exists(MAGNETS_FILE):
-        return magnets
+    # Create directory if it doesn't exist
+    os.makedirs(MAGNETS_DIR, exist_ok=True)
+    
+    # Find all magnet files (magnets_YYYY-MM-DD.txt)
+    magnet_files = glob.glob(os.path.join(MAGNETS_DIR, 'magnets_*.txt'))
+    
+    # Sort by filename (date) descending
+    magnet_files.sort(reverse=True)
     
     try:
-        with open(MAGNETS_FILE, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
+        for file_path in magnet_files:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            for line in lines:
+                line = line.strip()
+                if line and line.startswith('magnet:'):
+                    magnet_info = parse_magnet_link(line)
+                    magnets.append(magnet_info)
+                    
+                    # Limit to MAX_ITEMS
+                    if len(magnets) >= MAX_ITEMS:
+                        return magnets
         
-        for line in lines:
-            line = line.strip()
-            if line and line.startswith('magnet:'):
-                magnet_info = parse_magnet_link(line)
-                magnets.append(magnet_info)
-        
-        # Return most recent first, limit to MAX_ITEMS
-        return magnets[-MAX_ITEMS:][::-1]
+        return magnets
     
     except Exception as e:
-        print(f"Error reading magnets file: {e}")
+        print(f"Error reading magnet files: {e}")
         return []
 
 
@@ -291,11 +300,13 @@ def feed():
 def health():
     """Health check endpoint"""
     magnets = read_magnets()
+    magnet_files = glob.glob(os.path.join(MAGNETS_DIR, 'magnets_*.txt'))
     return {
         'status': 'ok',
         'magnet_count': len(magnets),
-        'magnets_file': MAGNETS_FILE,
-        'magnets_file_exists': os.path.exists(MAGNETS_FILE)
+        'magnets_dir': MAGNETS_DIR,
+        'magnet_files_count': len(magnet_files),
+        'latest_file': os.path.basename(magnet_files[0]) if magnet_files else None
     }
 
 
