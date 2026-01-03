@@ -1,8 +1,12 @@
 # BIND - Book Indexing Network Daemon
 
+[![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.0)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](install/install.sh)
+
 > **Note**: BIND is an audiobook archival tool, NOT the DNS server
 
-**Automated system for creating local, long-term backups of audiobook metadata** from AudioBookBay. Tested and operational in production.
+**v1.0 Release** - Automated audiobook metadata archival system. Stable, tested, and ready to use.
 
 ## Features
 
