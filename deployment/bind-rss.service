@@ -9,7 +9,7 @@ User=root
 WorkingDirectory=/opt/bind
 Environment="PYTHONPATH=/opt/bind"
 Environment="FLASK_ENV=production"
-Environment="MAGNETS_FILE=/opt/bind/magnets.txt"
+Environment="MAGNETS_DIR=/opt/bind/magnets"
 ExecStart=/opt/bind/venv/bin/python -m src.rss_server
 Restart=always
 RestartSec=10
