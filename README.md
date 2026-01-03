@@ -20,6 +20,8 @@
 
 Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and works with all RSS-capable torrent clients.
 
+> **⚠️ Security Note**: BIND has no authentication and is designed for **private LAN use only**. Do not expose port 5000 to the internet. If external access is needed, use a reverse proxy with authentication (nginx, Caddy, Cloudflare Tunnel).
+
 ## Quick Start
 
 ### Proxmox LXC (Recommended)
