@@ -30,7 +30,7 @@ class QBittorrentClient(DownloaderClient):
             logger.error(f"Failed to connect to qBittorrent: {e}")
             self.client = None
 
-    def add_magnet(self, magnet_link, category="ABMG"):
+    def add_magnet(self, magnet_link, category="BIND"):
         if not self.client:
             self.connect()
             
