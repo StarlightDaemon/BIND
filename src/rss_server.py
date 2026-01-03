@@ -7,6 +7,8 @@ Lightweight Flask server that reads magnets.txt and serves it as:
 - Health check at /health
 """
 
+from flask import Flask, Response, render_template_string
+from datetime import datetime
 import os
 from typing import List, Dict
 import re
