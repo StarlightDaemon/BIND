@@ -92,6 +92,8 @@ systemctl restart bind.service bind-rss.service
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 - **[Architecture](docs/ARCHITECTURE.md)** - System design and data flow diagrams
 - **[FAQ](docs/FAQ.md)** - Frequently asked questions
+- **[Roadmap](docs/ROADMAP.md)** - Future enhancements and features
+- **[Releases](docs/RELEASES.md)** - v1.0 release notes and changelog
 - **[Design System](docs/BIND_IMPLEMENTATION_GUIDE.md)** - Web UI theming reference
 
 ---
