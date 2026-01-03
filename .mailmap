@@ -1,0 +1,5 @@
+# .mailmap - Fix author attribution for display
+# Maps old author names to preferred ones
+
+# Map ABMG Developer to real identity
+ABMG Developer <dev@abmg.local> StarlightDaemon <heathsieler@proton.me>
