@@ -1,6 +1,6 @@
 # BIND - Book Indexing Network Daemon
 
-[![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.0)
+[![Version](https://img.shields.io/badge/version-1.1-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.1.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](install/install.sh)
 
@@ -13,8 +13,9 @@
 - 🧲 **Magnet Link Generation** - Complete magnet URIs with comprehensive tracker lists
 - 📡 **RSS 2.0 Feed** - Valid XML feed compatible with all torrent clients
 - 🌐 **Web UI** - Beautiful gradient interface to view collected magnets
-- 🔍 **Health Monitoring** - JSON endpoint for system status
-- 🐳 **Easy Deployment** - One-click Proxmox installer, Docker support
+- 🛡️ **Hybrid Shield** - curl_cffi + Proxy support to bypass Cloudflare protection
+- ♻️ **Self-Healing** - Circuit breakers, auto-cleanup (90 days), and global deduplication
+- 🐳 **Easy Deployment** - One-line Proxmox installer, Docker support
 
 ## Deployment
 
@@ -25,8 +26,9 @@ Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and wor
 ## Quick Start
 
 ### Proxmox LXC (Recommended)
+Run this command in your Proxmox Shell (or any Debian/Ubuntu system):
 ```bash
-bash -c "$(wget -qLO - https://raw.githubusercontent.com/StarlightDaemon/BIND/main/install/install.sh)"
+bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install.sh)
 ```
 
 **Installation takes ~2 minutes** and creates:
@@ -128,17 +130,34 @@ All dependencies are actively maintained and essential to BIND's functionality.
 BIND/
 ├── src/
 │   ├── core/
-│   │   └── scraper.py      # AudioBookBay scraping engine
-│   ├── bind.py             # Main daemon (65 lines)
-│   └── rss_server.py       # RSS + Web UI (324 lines)
+│   │   └── scraper.py      # Scraper with Hybrid Waterfall (cloudscraper -> curl_cffi)
+│   ├── bind.py             # Daemon with Circuit Breaker & Deduplication
+│   └── rss_server.py       # RSS + Web UI
 ├── deployment/
 │   ├── bind.service        # Systemd daemon service
 │   └── bind-rss.service    # Systemd RSS service
-├── install/
-│   └── install.sh          # Proxmox one-click installer
-└── requirements.txt        # 6 dependencies
+├── scripts/
+│   └── install.sh          # One-line installer
+└── requirements.txt        # Pinned dependencies
 ```
 
+</details>
+
+<details>
+<summary><b>⚙️ Configuration (Environment Variables)</b></summary>
+
+BIND is configured via environment variables in `bind.service` or `bind-rss.service`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BIND_PROXY` | `None` | Optional HTTP/SOCKS5 proxy (e.g., `socks5://user:pass@host:1080`) |
+| `ABB_URL` | `http://audiobookbay.lu` | Target domain (change if site moves) |
+| `BASE_URL` | Auto-detected | Override RSS feed base URL |
+| `MAGNETS_DIR` | `/opt/bind/magnets` | Storage directory for magnet files |
+| `CIRCUIT_BREAKER_THRESHOLD` | `3` | Failures before scraper pauses |
+| `CIRCUIT_BREAKER_COOLDOWN` | `300` | Seconds to wait after pausing |
+
+</details>
 </details>
 
 ---
