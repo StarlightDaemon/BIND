@@ -17,6 +17,11 @@ This will:
 - Delete `/opt/bind` directory
 - **Backup** any magnets to `/root/bind_magnets_backup_*/`
 
+**After cleanup, remove the backup** (if you don't need the magnets):
+```bash
+rm -rf /root/bind_magnets_backup_*
+```
+
 ### Step 2: Install in LXC Container (Proper Way)
 Run this on your Proxmox host:
 ```bash
