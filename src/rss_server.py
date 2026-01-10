@@ -45,7 +45,9 @@ def parse_magnet_link(magnet_url: str) -> Dict[str, str]:
     # Extract display name
     dn_match = re.search(r'[&?]dn=([^&]+)', magnet_url)
     if dn_match:
-        info['title'] = dn_match.group(1).replace('+', ' ')
+        # Decode URL encoding (e.g., %3A → :, %2C → ,, %E2%80%99 → ')
+        from urllib.parse import unquote_plus
+        info['title'] = unquote_plus(dn_match.group(1))
     
     # Extract trackers
     trackers = re.findall(r'[&?]tr=([^&]+)', magnet_url)
