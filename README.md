@@ -13,8 +13,8 @@
 - 🧲 **Magnet Link Generation** - Complete magnet URIs with comprehensive tracker lists
 - 📡 **RSS 2.0 Feed** - Valid XML feed compatible with all torrent clients
 - 🌐 **Web UI** - Beautiful gradient interface to view collected magnets
-- 🛡️ **Hybrid Shield** - curl_cffi + Proxy support to bypass Cloudflare protection
-- ♻️ **Self-Healing** - Circuit breakers, auto-cleanup (90 days), and global deduplication
+- 🛡️ **Cloudflare Resistant** - Multi-layer defense against blocking and rate limits
+- ♻️ **Zero Maintenance** - Self-healing with auto-cleanup and deduplication
 - 🐳 **Easy Deployment** - One-line Proxmox installer, Docker support
 
 ## Deployment
