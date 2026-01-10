@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](install/install.sh)
 
-**v1.0 Release** - Automated audiobook metadata archival system. Stable, tested, and ready to use.
+**v1.1 Release** - Production-ready audiobook metadata archival with hybrid Cloudflare defense. Stable, battle-tested, and ready for long-term deployment.
 
 ## Features
 
@@ -37,14 +37,21 @@ bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scri
 - RSS feed at `http://CONTAINER-IP:5000/feed.xml`
 - Web UI at `http://CONTAINER-IP:5000/`
 
-### Docker
+
+<details>
+<summary><b>🐳 Docker Installation</b></summary>
+
 ```bash
 git clone https://github.com/StarlightDaemon/BIND.git
 cd BIND
 docker-compose up -d
 ```
 
-### Manual Installation
+</details>
+
+<details>
+<summary><b>⚙️ Manual Installation</b></summary>
+
 ```bash
 git clone https://github.com/StarlightDaemon/BIND.git
 cd BIND
@@ -57,6 +64,8 @@ python -m src.bind daemon --interval 60 --output-dir magnets/
 # Run RSS server (separate terminal)
 python -m src.rss_server
 ```
+
+</details>
 
 ## Updating BIND
 
@@ -167,10 +176,10 @@ BIND is configured via environment variables in `bind.service` or `bind-rss.serv
 **License**: MIT - For educational, archival, and preservation purposes.
 
 ### What BIND Does
-- ✅ Creates local backups of publicly available metadata
-- ✅ Enables personal audiobook library indexing
-- ✅ Supports digital preservation efforts
-- ✅ Archives magnet links only (no content)
+- ✅ Archives publicly available metadata for digital preservation
+- ✅ Creates local backups of torrent magnet links
+- ✅ Supports audiobook collection management
+- ✅ Stores metadata only (no copyrighted content)
 
 ### What BIND Does NOT Do
 - ❌ Host, provide, or distribute copyrighted content
