@@ -27,23 +27,27 @@ Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and wor
 
 ### Proxmox LXC (Recommended)
 
-**Option 1: Simple Install** (Paste & Go)
+**Creates LXC container + installs BIND automatically:**
+```bash
+bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install-proxmox-lxc.sh)
+```
+
+Prompts for: Container ID, hostname, memory, disk size, IP address.  
+**Takes ~3 minutes**, then shows you the Web UI URL.
+
+---
+
+### Already Have a Container/VM?
+
+**Option 1: Simple Install** (uses defaults)
 ```bash
 bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install.sh)
 ```
-Uses defaults: 60m interval, port 5000, `/opt/bind` directory.
 
-**Option 2: Interactive Install** (Custom Configuration)
+**Option 2: Interactive Install** (custom configuration)
 ```bash
 bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install-interactive.sh)
 ```
-Prompts for: install directory, interval, port, proxy settings, custom domain.
-
-**Installation takes ~2 minutes** and creates:
-- Container with 4GB disk, 512MB RAM, 1 CPU core
-- Auto-start on boot
-- RSS feed at `http://CONTAINER-IP:5000/feed.xml`
-- Web UI at `http://CONTAINER-IP:5000/`
 
 
 <details>
