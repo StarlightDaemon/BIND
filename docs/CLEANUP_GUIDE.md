@@ -8,10 +8,10 @@ You accidentally installed BIND on your Proxmox **host** instead of in an LXC co
 ### Step 1: Clean Up Host Installation
 Run this on your Proxmox host:
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/cleanup-host.sh)
+bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/cleanup-proxmox-host.sh)
 ```
 
-This will:
+This comprehensive cleanup script will:
 - Stop BIND services
 - Remove systemd service files
 - Delete `/opt/bind` directory
