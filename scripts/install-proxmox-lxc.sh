@@ -60,7 +60,7 @@ echo -e "\n ${YW}Loading...${CL}"
 sleep 1
 
 # Configuration with prompts
-prompt "LXC Container ID? [default: next available]"
+echo -e "\n ${YW}LXC Container ID? [default: next available]${CL}"
 read -r CTID_INPUT
 if [ -z "$CTID_INPUT" ]; then
     CTID=$(pvesh get /cluster/nextid)
@@ -68,31 +68,31 @@ else
     CTID="$CTID_INPUT"
 fi
 
-prompt "Container hostname? [bind]"
+echo -e " ${YW}Container hostname? [bind]${CL}"
 read -r HOSTNAME
 HOSTNAME=${HOSTNAME:-bind}
 
-prompt "Memory (MB)? [512]"
+echo -e " ${YW}Memory (MB)? [512]${CL}"
 read -r MEMORY
 MEMORY=${MEMORY:-512}
 
-prompt "Disk size (GB)? [4]"
+echo -e " ${YW}Disk size (GB)? [4]${CL}"
 read -r DISK
 DISK=${DISK:-4}
 
-prompt "Network bridge? [vmbr0]"
+echo -e " ${YW}Network bridge? [vmbr0]${CL}"
 read -r BRIDGE
 BRIDGE=${BRIDGE:-vmbr0}
 
-prompt "IP address (CIDR) or 'dhcp'? [dhcp]"
+echo -e " ${YW}IP address (CIDR) or 'dhcp'? [dhcp]${CL}"
 read -r IP_CONFIG
 IP_CONFIG=${IP_CONFIG:-dhcp}
 
-prompt "Gateway IP? [leave blank for DHCP]"
+echo -e " ${YW}Gateway IP? [leave blank for DHCP]${CL}"
 read -r GATEWAY
 
 echo ""
-log "Configuration Summary:"
+echo -e " ${GN}Configuration Summary:${CL}"
 echo "  Container ID:   $CTID"
 echo "  Hostname:       $HOSTNAME"
 echo "  Memory:         ${MEMORY}MB"
