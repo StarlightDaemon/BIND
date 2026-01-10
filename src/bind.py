@@ -81,16 +81,19 @@ def daemon(interval, output_dir):
     
     scraper = BindScraper()
     
+    # Shutdown flag for graceful termination
+    shutdown_requested = {'flag': False}
+    
     # Define signal handler for graceful shutdown
     def signal_handler(signum, frame):
         """
         Handle shutdown signals gracefully.
+        Sets a flag to stop after current job completes.
         Called when daemon receives SIGTERM (systemctl stop) or SIGINT (Ctrl+C)
         """
         signal_name = signal.Signals(signum).name
-        logger.info(f"Received {signal_name}, shutting down gracefully...")
-        logger.info("Daemon stopped")
-        sys.exit(0)
+        logger.info(f"Received {signal_name}, will shutdown after current job completes...")
+        shutdown_requested['flag'] = True
     
     # Register signal handlers for graceful shutdown
     logger.info("Registering signal handlers for graceful shutdown...")
@@ -221,9 +224,12 @@ def daemon(interval, output_dir):
     job()
     
     logger.info("Daemon running. Press Ctrl+C to stop.")
-    while True:
+    while not shutdown_requested['flag']:
         schedule.run_pending()
         time.sleep(1)
+    
+    logger.info("Shutdown complete. Daemon stopped cleanly.")
+    sys.exit(0)
 
 if __name__ == '__main__':
     cli()
