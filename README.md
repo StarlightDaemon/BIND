@@ -190,6 +190,33 @@ BIND/
 <details>
 <summary><b>⚙️ Configuration (Environment Variables)</b></summary>
 
+BIND is configured via environment variables in systemd service files. See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for complete guide.
+
+**Common settings:**
+- `ABB_URL` - Target domain (default: `http://audiobookbay.lu`)
+- `BIND_PROXY` - HTTP/SOCKS5 proxy for scraping
+- `BASE_URL` - RSS feed base URL override
+- `MAGNETS_DIR` - Magnet files directory
+- `CIRCUIT_BREAKER_THRESHOLD` - Failures before circuit opens (default: 3)
+- `CIRCUIT_BREAKER_COOLDOWN` - Cooldown period in seconds (default: 300)
+
+**To change:**
+```bash
+# Edit service file
+pct enter <CTID>
+nano /etc/systemd/system/bind.service
+
+# Add environment variables under [Service]:
+Environment="ABB_URL=http://new-domain.com"
+Environment="BIND_PROXY=socks5://proxy:1080"
+
+# Apply changes
+systemctl daemon-reload
+systemctl restart bind
+```
+
+## Environment Variables (Reference)
+
 BIND is configured via environment variables in `bind.service` or `bind-rss.service`:
 
 | Variable | Default | Description |
