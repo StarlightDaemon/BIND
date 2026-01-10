@@ -26,10 +26,18 @@ Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and wor
 ## Quick Start
 
 ### Proxmox LXC (Recommended)
-Run this command in your Proxmox Shell (or any Debian/Ubuntu system):
+
+**Option 1: Simple Install** (Paste & Go)
 ```bash
 bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install.sh)
 ```
+Uses defaults: 60m interval, port 5000, `/opt/bind` directory.
+
+**Option 2: Interactive Install** (Custom Configuration)
+```bash
+bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install-interactive.sh)
+```
+Prompts for: install directory, interval, port, proxy settings, custom domain.
 
 **Installation takes ~2 minutes** and creates:
 - Container with 4GB disk, 512MB RAM, 1 CPU core
