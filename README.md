@@ -23,21 +23,44 @@ Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and wor
 
 > **⚠️ Security Note**: BIND has no authentication and is designed for **private LAN use only**. Do not expose port 5000 to the internet. If external access is needed, use a reverse proxy with authentication (nginx, Caddy, Cloudflare Tunnel).
 
-## Quick Start
+## 🚀 Installation
 
 ### Proxmox LXC (Recommended)
 
-**Creates LXC container + installs BIND automatically:**
+The easiest and most reliable way to deploy BIND is through our **automated Proxmox LXC installer**. This single command creates a fully isolated container, installs all dependencies, and configures BIND for production use.
+
+**One-Line Installation:**
 ```bash
 bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install-proxmox-lxc.sh)
 ```
 
-Prompts for: Container ID, hostname, memory, disk size, IP address.  
-**Takes ~3 minutes**, then shows you the Web UI URL.
+**What This Does:**
+1. ✅ Creates a new LXC container with Ubuntu
+2. ✅ Prompts for configuration (Container ID, hostname, RAM, disk, IP address)
+3. ✅ Installs Python 3, Git, and all BIND dependencies
+4. ✅ Configures systemd services for auto-start
+5. ✅ Displays your Web UI and RSS feed URLs
+
+**Installation Time:** ~3 minutes  
+**Default Resources:** 512MB RAM, 4GB disk, 1 CPU core
+
+**After Installation:**
+- 📡 **RSS Feed**: `http://YOUR-CONTAINER-IP:5000/feed.xml`
+- 🌐 **Web UI**: `http://YOUR-CONTAINER-IP:5000/`
+- 📊 **View Logs**: `pct exec <CTID> -- journalctl -u bind -f`
+- 🔧 **Enter Container**: `pct enter <CTID>`
+
+> **Note**: Requires Proxmox VE with an Ubuntu 22.04/24.04 template. Download one with:
+> ```bash
+> pveam update && pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst
+> ```
 
 ---
 
-### Already Have a Container/VM?
+<details>
+<summary><b>📦 Alternative: Already Have a Container/VM?</b></summary>
+
+If you already have an existing LXC container, VM, or bare-metal Debian/Ubuntu system:
 
 **Option 1: Simple Install** (uses defaults)
 ```bash
