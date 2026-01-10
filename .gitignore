@@ -57,3 +57,8 @@ backups/
 
 # Logs
 *.log
+
+old_brain/
+
+# External research artifacts (not part of core project)
+docs/research/
