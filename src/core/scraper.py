@@ -68,7 +68,8 @@ class ScraperMetrics:
                 logger.info(f"📊 {layer}: {rate:.1f}% success ({self.successes[layer]}/{total})")
 
 class BindScraper:
-    BASE_URL = "http://audiobookbay.lu"
+    # Allow override via env var (Issue #1 from Audit)
+    BASE_URL = os.getenv('ABB_URL', "http://audiobookbay.lu")
     
     # Network Configuration
     REQUEST_TIMEOUT = 30  # seconds - prevents indefinite hangs
