@@ -1,13 +1,12 @@
 #!/bin/bash
 
-# Copyright (c) 2026 StarlightDaemon
-# Author: StarlightDaemon
+# Copyright (c) 2026 BIND Developer
 # License: MIT
 # https://github.com/StarlightDaemon/BIND
 
 set -e
 
-# Colors and formatting (tteck style)
+# Colors (Helper Scripts style)
 YW='\033[33m'
 RD='\033[01;31m'
 GN='\033[1;92m'
@@ -17,36 +16,16 @@ BFR="\\r\\033[K"
 HOLD="⏳"
 CM="${GN}✓${CL}"
 CROSS="${RD}✗${CL}"
-WARN="${YW}⚠${CL}"
 
-msg_info() {
-    echo -ne " ${HOLD} ${YW}$1...${CL}"
-}
-
-msg_ok() {
-    echo -e "${BFR} ${CM} ${GN}$1${CL}"
-}
-
-msg_error() {
-    echo -e "${BFR} ${CROSS} ${RD}$1${CL}"
-    exit 1
-}
-
-msg_warn() {
-    echo -e " ${WARN} ${YW}$1${CL}"
-}
+msg_info() { echo -ne " ${HOLD} ${YW}$1...${CL}"; }
+msg_ok() { echo -e "${BFR} ${CM} ${GN}$1${CL}"; }
+msg_error() { echo -e "${BFR} ${CROSS} ${RD}$1${CL}"; exit 1; }
 
 # Check prerequisites
-if ! command -v pct &> /dev/null; then
-    msg_error "This script must be run on a Proxmox host"
-fi
-
-if [ "$EUID" -ne 0 ]; then
-    msg_error "Please run as root"
-fi
+if ! command -v pct &> /dev/null; then msg_error "This script must be run on a Proxmox host"; fi
+if [ "$EUID" -ne 0 ]; then msg_error "Please run as root"; fi
 
 # Header
-header_info() {
 clear
 cat <<"EOF"
  ╔══════════════════════════════════════════╗
@@ -64,66 +43,85 @@ echo -e "${BL}━━━━━━━━━━━━━━━━━━━━━━
 echo -e " ${GN}Book Indexing Network Daemon${CL}"
 echo -e " ${YW}LXC Container Installer v1.1${CL}"
 echo -e "${BL}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${CL}"
-}
-
-header_info
 echo ""
-sleep 1
 
-# Configuration
-echo -e "${GN}Container Configuration${CL}"
+# Simple choice: Default or Advanced
+echo -e "${GN}Installation Mode${CL}"
 echo -e "${BL}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${CL}"
+echo -e " ${GN}[1]${CL} Default Settings (Recommended)"
+echo -e "     ${BL}→${CL} Next available container ID"
+echo -e "     ${BL}→${CL} 512MB RAM, 4GB Disk"
+echo -e "     ${BL}→${CL} DHCP networking"
+echo ""
+echo -e " ${YW}[2]${CL} Advanced (Customize Settings)"
+echo ""
+echo -ne " ${YW}Select [1/2]:${CL} "
+read -r MODE
 
-echo -ne " ${YW}Container ID?${CL} [${GN}next available${CL}]: "
-read -r CTID_INPUT
-CTID=${CTID_INPUT:-$(pvesh get /cluster/nextid)}
-
-echo -ne " ${YW}Hostname?${CL} [${GN}bind${CL}]: "
-read -r HOSTNAME
-HOSTNAME=${HOSTNAME:-bind}
-
-echo -ne " ${YW}Memory (MB)?${CL} [${GN}512${CL}]: "
-read -r MEMORY
-MEMORY=${MEMORY:-512}
-
-echo -ne " ${YW}Disk Size (GB)?${CL} [${GN}4${CL}]: "
-read -r DISK
-DISK=${DISK:-4}
-
-echo -ne " ${YW}Network Bridge?${CL} [${GN}vmbr0${CL}]: "
-read -r BRIDGE
-BRIDGE=${BRIDGE:-vmbr0}
-
-echo -ne " ${YW}IP Address?${CL} [${GN}dhcp${CL}]: "
-read -r IP_CONFIG
-IP_CONFIG=${IP_CONFIG:-dhcp}
-
-if [ "$IP_CONFIG" != "dhcp" ]; then
-    echo -ne " ${YW}Gateway?${CL} [${GN}auto${CL}]: "
-    read -r GATEWAY
+if [[ $MODE == "2" ]]; then
+    # Advanced mode - ask for everything
+    echo ""
+    echo -e "${YW}Advanced Configuration${CL}"
+    echo -e "${BL}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${CL}"
+    
+    echo -ne " ${YW}Container ID?${CL} [${GN}next available${CL}]: "
+    read -r CTID_INPUT
+    CTID=${CTID_INPUT:-$(pvesh get /cluster/nextid)}
+    
+    echo -ne " ${YW}Hostname?${CL} [${GN}bind${CL}]: "
+    read -r HOSTNAME
+    HOSTNAME=${HOSTNAME:-bind}
+    
+    echo -ne " ${YW}Memory (MB)?${CL} [${GN}512${CL}]: "
+    read -r MEMORY
+    MEMORY=${MEMORY:-512}
+    
+    echo -ne " ${YW}Disk Size (GB)?${CL} [${GN}4${CL}]: "
+    read -r DISK
+    DISK=${DISK:-4}
+    
+    echo -ne " ${YW}Network Bridge?${CL} [${GN}vmbr0${CL}]: "
+    read -r BRIDGE
+    BRIDGE=${BRIDGE:-vmbr0}
+    
+    echo -ne " ${YW}IP Address?${CL} [${GN}dhcp${CL}]: "
+    read -r IP_CONFIG
+    IP_CONFIG=${IP_CONFIG:-dhcp}
+    
+    if [ "$IP_CONFIG" != "dhcp" ]; then
+        echo -ne " ${YW}Gateway?${CL} [${GN}auto${CL}]: "
+        read -r GATEWAY
+    fi
+else
+    # Default mode - use all defaults
+    CTID=$(pvesh get /cluster/nextid)
+    HOSTNAME="bind"
+    MEMORY=512
+    DISK=4
+    BRIDGE="vmbr0"
+    IP_CONFIG="dhcp"
+    GATEWAY=""
 fi
 
+# Show configuration
 echo ""
-echo -e "${GN}Summary${CL}"
+echo -e "${GN}Configuration Summary${CL}"
 echo -e "${BL}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${CL}"
-echo -e " ${BL}ID:${CL}       $CTID"
-echo -e " ${BL}Host:${CL}     $HOSTNAME"
-echo -e " ${BL}RAM:${CL}      ${MEMORY}MB"
-echo -e " ${BL}Disk:${CL}     ${DISK}GB"
-echo -e " ${BL}Network:${CL}  $BRIDGE"
-echo -e " ${BL}IP:${CL}       $IP_CONFIG"
-[ -n "$GATEWAY" ] && echo -e " ${BL}Gateway:${CL}  $GATEWAY"
+echo -e " ${BL}Container ID:${CL} $CTID"
+echo -e " ${BL}Hostname:${CL}     $HOSTNAME"
+echo -e " ${BL}Memory:${CL}       ${MEMORY}MB"
+echo -e " ${BL}Disk:${CL}         ${DISK}GB"
+echo -e " ${BL}Network:${CL}      $BRIDGE ($IP_CONFIG)"
+[ -n "$GATEWAY" ] && echo -e " ${BL}Gateway:${CL}      $GATEWAY"
 echo -e "${BL}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${CL}"
 echo ""
-
-echo -ne " ${YW}Proceed with installation? (Y/n):${CL} "
+echo -ne " ${YW}Proceed? [${GN}Y${CL}/n]: ${CL}"
 read -r PROCEED
-if [[ $PROCEED =~ ^[Nn]$ ]]; then
-    msg_error "Installation cancelled"
-fi
+if [[ $PROCEED =~ ^[Nn]$ ]]; then msg_error "Installation cancelled"; fi
 
+# Start installation
 echo ""
-echo -e "${GN}Starting Installation${CL}"
+echo -e "${GN}Installing BIND${CL}"
 echo -e "${BL}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${CL}"
 
 # Check/download template
@@ -132,19 +130,15 @@ TEMPLATE=$(pveam list local 2>/dev/null | grep -E "ubuntu-22.04.*standard" | awk
 
 if [ -z "$TEMPLATE" ]; then
     msg_ok "Template not found - downloading"
-    
     msg_info "Updating template list"
     pveam update >/dev/null 2>&1
     msg_ok "Template list updated"
-    
-    msg_info "Downloading Ubuntu 22.04 (~150MB, 2-3 min)"
+    msg_info "Downloading Ubuntu 22.04 (~150MB)"
     pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst
     msg_ok "Template downloaded"
-    
-    TEMPLATE=$(pveam list local 2>/dev/null | grep -E "ubuntu-22.04.*standard" | awk '{print $2}' | head -1)
+    TEMPLATE=$(pveam list local 2>/dev/null | grep -E "ubuntu-22.04.*standard" | awk '{print $1}' | head -1)
 fi
-
-msg_ok "Using: $TEMPLATE"
+msg_ok "Template ready"
 
 # Network config
 if [ "$IP_CONFIG" = "dhcp" ]; then
@@ -158,7 +152,7 @@ else
 fi
 
 # Create container
-msg_info "Creating LXC container $CTID"
+msg_info "Creating LXC container"
 pct create "$CTID" "$TEMPLATE" \
     --hostname "$HOSTNAME" \
     --memory "$MEMORY" \
@@ -167,9 +161,8 @@ pct create "$CTID" "$TEMPLATE" \
     --net0 "$NET_CONFIG" \
     --onboot 1 \
     --unprivileged 1 \
-    --features nesting=1 \
-    --password "$(openssl rand -base64 32)" >/dev/null 2>&1
-msg_ok "Container $CTID created"
+    --features nesting=1 >/dev/null 2>&1
+msg_ok "LXC container $CTID created"
 
 # Start container
 msg_info "Starting container"
@@ -180,6 +173,7 @@ msg_ok "Container started"
 # Install BIND
 msg_info "Installing BIND (2-3 minutes)"
 pct exec "$CTID" -- bash -c "
+    export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq
     apt-get install -y -qq python3 python3-venv python3-pip git curl
     git clone -q https://github.com/StarlightDaemon/BIND.git /opt/bind
@@ -187,7 +181,6 @@ pct exec "$CTID" -- bash -c "
     python3 -m venv venv
     ./venv/bin/pip install --upgrade pip -q
     ./venv/bin/pip install -r requirements.txt -q
-    ./venv/bin/pip install curl_cffi==0.7.4 -q
     cp deployment/bind.service /etc/systemd/system/
     cp deployment/bind-rss.service /etc/systemd/system/
     systemctl daemon-reload
@@ -200,21 +193,21 @@ msg_ok "BIND installed successfully"
 sleep 2
 CONTAINER_IP=$(pct exec "$CTID" -- hostname -I | awk '{print $1}')
 
-# Success message
+# Success
 echo ""
 echo -e "${GN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${CL}"
-echo -e "${GN}          Installation Complete!${CL}"
+echo -e "${GN}          ✓ Installation Complete!${CL}"
 echo -e "${GN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${CL}"
 echo ""
 echo -e " ${BL}Container:${CL}  $CTID ($HOSTNAME)"
-echo -e " ${BL}IP:${CL}         $CONTAINER_IP"
+echo -e " ${BL}IP Address:${CL} $CONTAINER_IP"
 echo ""
 echo -e " ${GN}📡 RSS Feed:${CL}   http://$CONTAINER_IP:5000/feed.xml"
 echo -e " ${GN}🌐 Web UI:${CL}     http://$CONTAINER_IP:5000/"
 echo ""
-echo -e "${YW}Quick Commands:${CL}"
-echo -e " pct enter $CTID                 # Enter container"
-echo -e " pct exec $CTID -- journalctl -u bind -f  # View logs"
-echo -e " pct stop $CTID                  # Stop container"
+echo -e "${YW}Management Commands:${CL}"
+echo -e " pct enter $CTID"
+echo -e " pct exec $CTID -- journalctl -u bind -f"
+echo -e " pct stop $CTID"
 echo ""
 echo -e "${GN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${CL}"
