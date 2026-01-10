@@ -159,7 +159,7 @@ fi
 
 # Create container
 msg_info "Creating LXC container $CTID"
-pct create "$CTID" "local:vztmpl/$TEMPLATE" \
+pct create "$CTID" "$TEMPLATE" \
     --hostname "$HOSTNAME" \
     --memory "$MEMORY" \
     --cores 1 \

@@ -56,7 +56,7 @@ echo "Creating LXC container..."
 echo "Command: pct create $CTID local:vztmpl/$TEMPLATE --hostname bind --memory 512 --cores 1 --rootfs local-lvm:4 --net0 name=eth0,bridge=vmbr0,ip=dhcp --onboot 1 --unprivileged 1"
 echo ""
 
-pct create "$CTID" "local:vztmpl/$TEMPLATE" \
+pct create "$CTID" "$TEMPLATE" \
     --hostname bind \
     --memory 512 \
     --cores 1 \
