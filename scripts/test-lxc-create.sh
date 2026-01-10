@@ -39,13 +39,13 @@ echo ""
 
 # Check for template
 echo "Checking for Ubuntu template..."
-TEMPLATE=$(pveam list local 2>/dev/null | grep -E "ubuntu-22.04.*standard" | awk '{print $2}' | head -1)
+TEMPLATE=$(pveam list local 2>/dev/null | grep -E "ubuntu-22.04.*standard" | awk '{print $1}' | head -1)
 
 if [ -z "$TEMPLATE" ]; then
     echo "Ubuntu template not found. Downloading..."
     pveam update
     pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst
-    TEMPLATE=$(pveam list local 2>/dev/null | grep -E "ubuntu-22.04.*standard" | awk '{print $2}' | head -1)
+    TEMPLATE=$(pveam list local 2>/dev/null | grep -E "ubuntu-22.04.*standard" | awk '{print $1}' | head -1)
 fi
 
 echo "✓ Using template: $TEMPLATE"
