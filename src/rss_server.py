@@ -7,12 +7,14 @@ Lightweight Flask server that reads magnets.txt and serves it as:
 - Health check at /health
 """
 
-from flask import Flask, Response, render_template_string
+from flask import Flask, Response, render_template_string, request
 from datetime import datetime
 import os
 from typing import List, Dict
 import re
 import glob
+import fcntl
+from xml.sax.saxutils import escape
 
 app = Flask(__name__)
 
@@ -71,7 +73,13 @@ def read_magnets() -> List[Dict[str, str]]:
     try:
         for file_path in magnet_files:
             with open(file_path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
+                # Acquire shared lock to prevent reading partial writes from daemon
+                fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+                try:
+                    lines = f.readlines()
+                finally:
+                    # Release lock (also auto-released on file close)
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
             
             for line in lines:
                 line = line.strip()
@@ -104,7 +112,7 @@ def index():
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             /*!
-             * StarlightDaemon Design System v1.0
+             * Vesper UI Design System v1.0
              * For BIND Web UI Implementation
              */
 
@@ -397,22 +405,31 @@ def feed():
     """RSS 2.0 feed of magnet links"""
     magnets = read_magnets()
     
+    # Get base URL - auto-detect from request or use env override
+    base_url = os.getenv('BASE_URL')
+    if not base_url:
+        # Auto-detect from incoming request (works in Proxmox LXC, Docker, localhost)
+        base_url = f"http://{request.host}"
+    
     # Build RSS 2.0 XML
     rss_items = []
     for magnet in magnets:
         pub_date = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
         guid = magnet['hash']
         
-        # Escape ampersands for valid XML
-        magnet_escaped = magnet['magnet'].replace('&', '&amp;')
+        # Properly escape magnet link for XML (handles &, <, >, ", ')
+        magnet_escaped = escape(magnet['magnet'])
+        
+        # Escape ]]> in CDATA content to prevent breaking CDATA block
+        title_safe = magnet['title'].replace(']]>', ']]]]><![CDATA[>')
         
         item = f"""
         <item>
-            <title><![CDATA[{magnet['title']}]]></title>
+            <title><![CDATA[{title_safe}]]></title>
             <link>{magnet_escaped}</link>
             <guid isPermaLink="false">{guid}</guid>
             <pubDate>{pub_date}</pubDate>
-            <description><![CDATA[Magnet link for: {magnet['title']}]]></description>
+            <description><![CDATA[Magnet link for: {title_safe}]]></description>
             <enclosure url="{magnet_escaped}" type="application/x-bittorrent" />
         </item>
         """
@@ -422,11 +439,11 @@ def feed():
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>{FEED_TITLE}</title>
-        <link>http://localhost:5000</link>
+        <link>{base_url}</link>
         <description>{FEED_DESCRIPTION}</description>
         <language>en-us</language>
         <lastBuildDate>{datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')}</lastBuildDate>
-        <atom:link href="http://localhost:5000/feed.xml" rel="self" type="application/rss+xml" />
+        <atom:link href="{base_url}/feed.xml" rel="self" type="application/rss+xml" />
         
         {''.join(rss_items)}
     </channel>
@@ -440,13 +457,21 @@ def feed():
 def health():
     """Health check endpoint"""
     magnets = read_magnets()
-    magnet_files = glob.glob(os.path.join(MAGNETS_DIR, 'magnets_*.txt'))
+    
+    # Get list of magnet files for stats (sorted by date, newest first)
+    magnet_files = sorted(glob.glob(os.path.join(MAGNETS_DIR, 'magnets_*.txt')), reverse=True)
+    
+    # Safely get latest file (defensive against empty list)
+    latest_file = None
+    if magnet_files:
+        latest_file = os.path.basename(magnet_files[0])
+    
     return {
         'status': 'ok',
         'magnet_count': len(magnets),
         'magnets_dir': MAGNETS_DIR,
         'magnet_files_count': len(magnet_files),
-        'latest_file': os.path.basename(magnet_files[0]) if magnet_files else None
+        'latest_file': latest_file
     }
 
 

@@ -1,4 +1,4 @@
-# StarlightDaemon Design System - BIND Implementation Guide
+# Vesper UI Design System - BIND Implementation Guide
 
 **For:** BIND Web UI  
 **Date:** 2026-01-03  
@@ -69,7 +69,7 @@ Replace existing class names with design system classes:
 
 ```css
 /*!
- * StarlightDaemon Design System v1.0
+ * Vesper UI Design System v1.0
  * For BIND Web UI Implementation
  */
 
@@ -664,6 +664,6 @@ If anything is unclear during implementation:
 
 **Version:** 1.0  
 **Last Updated:** 2026-01-03  
-**Maintained By:** StarlightDaemon Design System
+**Maintained By:** Vesper UI Design System
 
 Good luck with the implementation! 🚀
