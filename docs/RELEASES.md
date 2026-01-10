@@ -1,8 +1,8 @@
-# BIND v1.0 Release Notes
+# BIND v1.0.0 Release Notes
 
-**Release Date**: January 3, 2026  
+**Release Date**: January 9, 2026  
 **Project**: BIND - Book Indexing Network Daemon  
-**Type**: Initial Stable Release
+**Type**: Production Release (v1.0.0)
 
 ---
 
