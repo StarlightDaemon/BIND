@@ -4,7 +4,7 @@ import schedule
 import logging
 import os
 from datetime import datetime
-from src.core.scraper import AbmgScraper
+from src.core.scraper import BindScraper
 
 # Configure Logging
 logging.basicConfig(
@@ -29,7 +29,7 @@ def daemon(interval, output_dir):
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
-    scraper = AbmgScraper()
+    scraper = BindScraper()
     
     def job():
         logger.info("Checking for new uploads...")
@@ -46,7 +46,7 @@ def daemon(interval, output_dir):
             info_hash = scraper.extract_info_hash(book['link'])
             if info_hash:
                 # Use centralized generator with full tracker list
-                magnet = AbmgScraper.generate_magnet(info_hash, book['title'])
+                magnet = BindScraper.generate_magnet(info_hash, book['title'])
                 logger.info(f"Generated Magnet: {magnet}")
                 
                 # Save to date-based file
