@@ -102,24 +102,26 @@ echo "  IP:             $IP_CONFIG"
 echo "  Gateway:        ${GATEWAY:-auto}"
 echo ""
 
-prompt "Proceed? (Y/n)"
-read -r PROCEED
-if [[ $PROCEED =~ ^[Nn]$ ]]; then
-    log "Installation cancelled."
-    exit 0
-fi
-
-# Find Ubuntu template
-log "Searching for Ubuntu template..."
-TEMPLATE=$(pct exec 0 -- ls /var/lib/vz/template/cache/ 2>/dev/null | grep -E "ubuntu-22|ubuntu-24" | head -1 || true)
+# Find or download Ubuntu template
+msg_info "Checking for Ubuntu template"
+TEMPLATE=$(pveam list local | grep -E "ubuntu-22.04.*standard" | awk '{print $2}' | head -1)
 
 if [ -z "$TEMPLATE" ]; then
-    error "No Ubuntu template found. Download one first:
-    pveam update
-    pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+    msg_ok "Ubuntu template not found, downloading now"
+    
+    msg_info "Updating template list"
+    pveam update >/dev/null 2>&1
+    msg_ok "Template list updated"
+    
+    msg_info "Downloading Ubuntu 22.04 template (this may take 2-3 minutes)"
+    pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst
+    msg_ok "Template downloaded successfully"
+    
+    # Get the template name again
+    TEMPLATE=$(pveam list local | grep -E "ubuntu-22.04.*standard" | awk '{print $2}' | head -1)
 fi
 
-log "Using template: $TEMPLATE"
+msg_ok "Using template: $TEMPLATE"
 
 # Build network config
 if [ "$IP_CONFIG" = "dhcp" ]; then
@@ -133,7 +135,7 @@ else
 fi
 
 # Create LXC Container
-log "Creating LXC container $CTID..."
+msg_info "Creating LXC container $CTID"
 pct create "$CTID" "local:vztmpl/$TEMPLATE" \
     --hostname "$HOSTNAME" \
     --memory "$MEMORY" \
