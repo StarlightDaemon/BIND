@@ -55,13 +55,61 @@ This release establishes BIND as a production-ready Proxmox application. No new 
 
 ---
 
-## v2.0 - Multi-Platform Expansion (Future)
+## v2.0 - Feature Expansion (Future)
+
+**Focus**: Enhanced user experience and advanced features
+
+### Planned Features
+
+#### 🎛️ Web UI Configuration Panel
+**Priority**: High  
+**Complexity**: Medium  
+**Description**: Settings page for runtime configuration changes without SSH access
+
+**Features:**
+- Change target URL (ABB_URL)
+- Adjust scraping interval
+- Configure proxy settings  
+- Modify circuit breaker thresholds
+- Set RSS base URL override
+
+**Implementation:**
+- `config.env` file with systemd `EnvironmentFile` directive
+- `/settings` route in Flask with Vesper UI styling
+- Input validation and error handling
+- Auto-restart daemon on save
+
+**Estimated Effort:** 12-15 hours
+
+**See:** `docs/research/web_ui_config_plan.md` for detailed implementation plan
+
+---
+
+#### 📊 Enhanced Metrics Dashboard
+**Priority**: Medium  
+**Complexity**: Medium  
+**Description**: Visual dashboard for monitoring BIND's operation and performance
+
+**Features:**
+- Scrape success/failure rates
+- Last successful scrape timestamp
+- Number of items processed
+- RSS feed generation time
+- System resource usage (CPU, memory)
+
+**Implementation:**
+- Integrate with Prometheus/Grafana or simple Flask-based dashboard
+- Expose metrics via `/metrics` endpoint
+- Historical data visualization
+
+**Estimated Effort:** 8-10 hours
+
+---
 
 **Status**: Planned  
-**Focus**: Docker, Unraid, TrueNAS, Synology, Home Assistant  
 **Goal**: Universal self-hosted application
 
-v2.0 will expand **distribution** (how users install BIND), not features (what BIND does).
+v2.0 will expand **distribution** (how users install BIND) AND features (what BIND does).
 
 See [`docs/ROADMAP_v2.0.md`](ROADMAP_v2.0.md) for detailed multi-platform strategy.
 
