@@ -189,6 +189,57 @@ pct exec "$CTID" -- bash -c "
 " >/dev/null 2>&1
 msg_ok "BIND installed successfully"
 
+# Setup MOTD
+msg_info "Configuring login banner"
+pct exec "$CTID" -- bash -c "
+cat > /etc/motd << 'MOTD_END'
+BIND LXC Container
+
+📡 Provided by: BIND Developer | GitHub: https://github.com/StarlightDaemon/BIND
+
+💻 OS: Debian GNU/Linux - Version: 12
+🏠 Hostname: $(hostname)
+💡 IP Address: $(hostname -I | awk '{print \$1}')
+
+🌐 Web UI:     http://$(hostname -I | awk '{print \$1}'):5000/
+📡 RSS Feed:   http://$(hostname -I | awk '{print \$1}'):5000/feed.xml
+📂 Magnets:    /opt/bind/magnets/
+
+📊 Status:     journalctl -u bind -f
+🔧 Manage:     systemctl status bind bind-rss
+MOTD_END
+" >/dev/null 2>&1
+msg_ok "Login banner configured"
+
+# Set Proxmox Notes
+msg_info "Setting Proxmox container notes"
+pct set "$CTID" --description "# BIND - Book Indexing Network Daemon
+
+**Status**: Running
+**Version**: v1.1.0
+
+## Quick Links
+- 🌐 [Web UI](http://$CONTAINER_IP:5000/)
+- 📡 [RSS Feed](http://$CONTAINER_IP:5000/feed.xml)
+- 📖 [GitHub](https://github.com/StarlightDaemon/BIND)
+- 💬 [Discussions](https://github.com/StarlightDaemon/BIND/discussions)
+- 🐛 [Issues](https://github.com/StarlightDaemon/BIND/issues)
+
+## Container Info
+- **Hostname**: $HOSTNAME
+- **IP Address**: $CONTAINER_IP
+- **Memory**: ${MEMORY}MB
+- **Disk**: ${DISK}GB
+
+## Management Commands
+\`\`\`bash
+pct enter $CTID
+journalctl -u bind -f
+systemctl status bind bind-rss
+\`\`\`
+" >/dev/null 2>&1
+msg_ok "Proxmox notes updated"
+
 # Get IP
 sleep 2
 CONTAINER_IP=$(pct exec "$CTID" -- hostname -I | awk '{print $1}')
