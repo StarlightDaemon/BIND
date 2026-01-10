@@ -8,7 +8,7 @@ import random
 
 logger = logging.getLogger("Scraper")
 
-class AbmgScraper:
+class BindScraper:
     BASE_URL = "http://audiobookbay.lu"
     
     # Trackers from Research (Section 3.4)
