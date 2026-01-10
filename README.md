@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.1-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.1.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](install/install.sh)
+[![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](scripts/install-proxmox-lxc.sh)
 
 **v1.1 Release** - Production-ready audiobook metadata archival with hybrid Cloudflare defense. Stable, battle-tested, and ready for long-term deployment.
 
