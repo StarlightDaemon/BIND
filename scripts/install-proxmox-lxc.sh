@@ -1,41 +1,63 @@
 #!/bin/bash
-# BIND - Proxmox LXC One-Line Installer
-# Creates LXC container and installs BIND automatically
-# Usage: bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install-proxmox-lxc.sh)
+
+# Copyright (c) 2026 StarlightDaemon
+# Author: StarlightDaemon
+# License: MIT
+# https://github.com/StarlightDaemon/BIND
 
 set -e
 
-# Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+# Colors (Proxmox Helper Scripts style)
+YW='\033[33m' # Yellow
+RD='\033[01;31m' # Red  
+GN='\033[1;92m' # Green
+CL='\033[m' # Clear
+BFR="\\r\\033[K"
+HOLD="⏳"
+CM="${GN}✓${CL}"
+CROSS="${RD}✗${CL}"
 
-log() { echo -e "${BLUE}[BIND]${NC} $1"; }
-success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
-prompt() { echo -e "${YELLOW}[INPUT]${NC} $1"; }
+msg_info() {
+    echo -ne " ${HOLD} ${YW}$1...${CL}"
+}
 
-# Check if running on Proxmox host
+msg_ok() {
+    echo -e "${BFR} ${CM} ${GN}$1${CL}"
+}
+
+msg_error() {
+    echo -e "${BFR} ${CROSS} ${RD}$1${CL}"
+}
+
+# Check if running on Proxmox
 if ! command -v pct &> /dev/null; then
-    error "This script must be run on a Proxmox host (pct command not found)"
+    msg_error "This script must be run on a Proxmox host"
+    exit 1
 fi
 
 # Check for root
 if [ "$EUID" -ne 0 ]; then
-  error "Please run as root"
+    msg_error "Please run as root"
+    exit 1
 fi
 
+header_info() {
 clear
-cat << "EOF"
-╔══════════════════════════════════════════════╗
-║   BIND - Proxmox LXC Installer               ║
-║   Creates container + installs BIND          ║
-╚══════════════════════════════════════════════╝
+cat <<"EOF"
+    ____  ______   ________ 
+   / __ )/  _/ | / / __ \ \
+  / __  |/ //    / / / / /
+ / /_/ // // /|  / /_/ /  
+/_____/___/_/ |_/_____/   
+                          
+Book Indexing Network Daemon
+LXC Container Installer
 EOF
+}
 
-echo ""
+header_info
+echo -e "\n ${YW}Loading...${CL}"
+sleep 1
 
 # Configuration with prompts
 prompt "LXC Container ID? [default: next available]"
