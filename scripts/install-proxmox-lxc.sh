@@ -128,7 +128,7 @@ echo -e "${BL}━━━━━━━━━━━━━━━━━━━━━━
 
 # Check/download template
 msg_info "Checking for Ubuntu template"
-TEMPLATE=$(pveam list local 2>/dev/null | grep -E "ubuntu-22.04.*standard" | awk '{print $2}' | head -1)
+TEMPLATE=$(pveam list local 2>/dev/null | grep -E "ubuntu-22.04.*standard" | awk '{print $1}' | head -1)
 
 if [ -z "$TEMPLATE" ]; then
     msg_ok "Template not found - downloading"
