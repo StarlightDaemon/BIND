@@ -12,6 +12,16 @@ We prioritize:
 
 ---
 
+## v1.0 - Proxmox LXC Production Release ✅
+
+**Status**: Feature-complete and production-ready  
+**Focus**: Proxmox LXC deployment with one-line installer  
+**Goal**: Stable, well-documented, single-platform release
+
+This release establishes BIND as a production-ready Proxmox application. No new features planned.
+
+---
+
 ## v1.1 - Polish (Optional)
 
 **Goal**: Minor improvements to user experience
@@ -42,6 +52,26 @@ We prioritize:
 - [ ] Security patches if needed
 
 **No major features planned** - BIND does what it needs to do.
+
+---
+
+## v2.0 - Multi-Platform Expansion (Future)
+
+**Status**: Planned  
+**Focus**: Docker, Unraid, TrueNAS, Synology, Home Assistant  
+**Goal**: Universal self-hosted application
+
+v2.0 will expand **distribution** (how users install BIND), not features (what BIND does).
+
+See [`docs/ROADMAP_v2.0.md`](ROADMAP_v2.0.md) for detailed multi-platform strategy.
+
+**Core Principles**:
+- Keep v1.0 Proxmox deployment supported
+- Container-first architecture
+- No feature bloat - same core functionality
+- Universal Docker image powers most platforms
+
+**Timeline**: TBD based on community demand
 
 ---
 
@@ -82,6 +112,6 @@ We'll likely say no to maintain BIND's focus, but we're happy to discuss!
 
 ---
 
-**BIND is feature-complete at v1.0.**
+**BIND v1.0 is feature-complete.**
 
-Future work is polish, testing, and maintenance only.
+Future work: v1.x = maintenance only, v2.x = multi-platform distribution.
