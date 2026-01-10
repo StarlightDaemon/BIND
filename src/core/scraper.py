@@ -5,11 +5,74 @@ import base64
 import binascii
 import time
 import random
+import os
+from urllib.parse import quote_plus
 
 logger = logging.getLogger("Scraper")
 
+class CircuitBreaker:
+    """Prevents hammering Cloudflare when fully blocked."""
+    def __init__(self, failure_threshold=3, cooldown_seconds=300):
+        self.failures = 0
+        self.threshold = int(os.getenv('CIRCUIT_BREAKER_THRESHOLD', failure_threshold))
+        self.cooldown = int(os.getenv('CIRCUIT_BREAKER_COOLDOWN', cooldown_seconds))
+        self.last_failure = None
+        self.is_open = False
+    
+    def record_success(self):
+        """Reset circuit breaker on successful request."""
+        self.failures = 0
+        self.is_open = False
+    
+    def record_failure(self):
+        """Track failures and open circuit if threshold exceeded."""
+        self.failures += 1
+        self.last_failure = time.time()
+        if self.failures >= self.threshold:
+            self.is_open = True
+            logger.warning(f"⚠️ Circuit breaker OPEN. Pausing {self.cooldown}s...")
+    
+    def can_attempt(self):
+        """Check if we can attempt a request."""
+        if not self.is_open:
+            return True
+        # Check if cooldown expired
+        if time.time() - self.last_failure > self.cooldown:
+            logger.info("Circuit breaker RESET. Resuming...")
+            self.is_open = False
+            self.failures = 0
+            return True
+        return False
+
+class ScraperMetrics:
+    """Track success/failure rates per scraping layer."""
+    def __init__(self):
+        self.attempts = {'curl_cffi': 0, 'curl_cffi_proxy': 0, 'cloudscraper': 0}
+        self.successes = {'curl_cffi': 0, 'curl_cffi_proxy': 0, 'cloudscraper': 0}
+        self.failures = {'curl_cffi': 0, 'curl_cffi_proxy': 0, 'cloudscraper': 0}
+    
+    def record(self, layer, success):
+        """Record attempt outcome."""
+        self.attempts[layer] += 1
+        if success:
+            self.successes[layer] += 1
+        else:
+            self.failures[layer] += 1
+    
+    def report(self):
+        """Log summary statistics."""
+        for layer in self.attempts:
+            total = self.attempts[layer]
+            if total > 0:
+                rate = (self.successes[layer] / total) * 100
+                logger.info(f"📊 {layer}: {rate:.1f}% success ({self.successes[layer]}/{total})")
+
 class BindScraper:
     BASE_URL = "http://audiobookbay.lu"
+    
+    # Network Configuration
+    REQUEST_TIMEOUT = 30  # seconds - prevents indefinite hangs
+    MAX_RETRIES = 3       # attempts before giving up
     
     # Trackers from Research (Section 3.4)
     TRACKERS = [
@@ -28,22 +91,102 @@ class BindScraper:
                 'desktop': True
             }
         )
+        # Phase 2: Proxy and Resilience
+        self.proxy = os.getenv('BIND_PROXY')  # Optional: HTTP/SOCKS5 proxy
+        self.circuit_breaker = CircuitBreaker()
+        self.metrics = ScraperMetrics()
+        
+        if self.proxy:
+            logger.info(f"🔒 Proxy configured: {self.proxy.split('@')[-1] if '@' in self.proxy else self.proxy}")
     
     def _get_page(self, url):
-        try:
-            # Politeness Delay (Research Section 5.3)
-            # Random delay between requests to avoid WAF analysis
-            delay = random.uniform(2.0, 5.0) 
-            logger.debug(f"Sleeping for {delay:.2f}s...")
-            time.sleep(delay)
-            
-            logger.debug(f"Fetching: {url}")
-            response = self.scraper.get(url)
-            response.raise_for_status()
-            return response.text
-        except Exception as e:
-            logger.error(f"Failed to fetch {url}: {e}")
+        """
+        Fetch a page using Phase 2 Waterfall strategy with circuit breaker.
+        
+        Layers:
+        1. curl_cffi (primary - fast TLS masquerading)
+        2. curl_cffi + proxy (IP ban bypass)
+        3. cloudscraper (legacy fallback)
+        
+        Returns HTML text on success, None on failure.
+        """
+        # Circuit breaker check
+        if not self.circuit_breaker.can_attempt():
+            logger.error("⛔ Circuit breaker OPEN. Skipping request.")
             return None
+        
+        # Politeness delay
+        delay = random.uniform(2.0, 5.0)
+        logger.debug(f"Sleeping for {delay:.2f}s...")
+        time.sleep(delay)
+        
+        # LAYER 1: curl_cffi (Primary)
+        try:
+            response = self._attempt_curl_cffi(url, use_proxy=False)
+            self.metrics.record('curl_cffi', True)
+            self.circuit_breaker.record_success()
+            logger.debug(f"✓ Fetched {url} (curl_cffi)")
+            return response
+        except Exception as e:
+            self.metrics.record('curl_cffi', False)
+            logger.warning(f"curl_cffi failed: {type(e).__name__}")
+        
+        # LAYER 2: curl_cffi + Proxy (if configured)
+        if self.proxy:
+            try:
+                response = self._attempt_curl_cffi(url, use_proxy=True)
+                self.metrics.record('curl_cffi_proxy', True)
+                self.circuit_breaker.record_success()
+                logger.info(f"✓ Fetched {url} (curl_cffi + proxy)")
+                return response
+            except Exception as e:
+                self.metrics.record('curl_cffi_proxy', False)
+                logger.warning(f"curl_cffi+proxy failed: {type(e).__name__}")
+        
+        # LAYER 3: cloudscraper (Legacy fallback)
+        try:
+            response = self._attempt_cloudscraper(url)
+            self.metrics.record('cloudscraper', True)
+            self.circuit_breaker.record_success()
+            logger.info(f"✓ Fetched {url} (cloudscraper)")
+            return response
+        except Exception as e:
+            self.metrics.record('cloudscraper', False)
+            logger.error(f"All layers failed for {url}: {type(e).__name__}")
+        
+        # Complete failure
+        self.circuit_breaker.record_failure()
+        return None
+    
+    def _attempt_curl_cffi(self, url, use_proxy=False):
+        """Attempt to fetch using curl_cffi."""
+        from curl_cffi import requests as cffi_requests
+        
+        proxy = self.proxy if use_proxy else None
+        response = cffi_requests.get(
+            url,
+            impersonate="chrome120",
+            proxy=proxy,
+            timeout=self.REQUEST_TIMEOUT
+        )
+        response.raise_for_status()
+        
+        # Detect soft blocks
+        if "Just a moment..." in response.text or "Attention Required" in response.text:
+            raise ValueError("Cloudflare block detected")
+        
+        return response.text
+    
+    def _attempt_cloudscraper(self, url):
+        """Attempt to fetch using cloudscraper."""
+        response = self.scraper.get(url, timeout=self.REQUEST_TIMEOUT)
+        response.raise_for_status()
+        
+        # Detect soft blocks
+        if "Just a moment..." in response.text or "Attention Required" in response.text:
+            raise ValueError("Cloudflare block detected")
+        
+        return response.text
 
     def search(self, term):
         """
@@ -72,6 +215,7 @@ class BindScraper:
     def extract_info_hash(self, detail_page_url):
         """
         Fetches a detail page and extracts the Info Hash.
+        Defensive parsing: handles missing or changed HTML structure.
         """
         if not detail_page_url.startswith('http'):
             detail_page_url = f"{self.BASE_URL}{detail_page_url}"
@@ -82,12 +226,18 @@ class BindScraper:
             
         soup = BeautifulSoup(html, 'html.parser')
         
-        # Look for "Info Hash:" or similar markers
-        # The structure might vary, so we look for the label
+        # Look for "Info Hash:" label in table
         hash_row = soup.find('td', string='Info Hash:')
         if hash_row:
-            raw_hash = hash_row.find_next_sibling('td').text.strip()
-            return self._ensure_hex(raw_hash)
+            # Defensive: check sibling exists before accessing .text
+            sibling = hash_row.find_next_sibling('td')
+            if sibling:
+                raw_hash = sibling.text.strip()
+                return self._ensure_hex(raw_hash)
+            else:
+                logger.warning(f"Found 'Info Hash:' label but no value cell on {detail_page_url}")
+        else:
+            logger.warning(f"Could not find 'Info Hash:' on {detail_page_url}")
         
         return None
 
@@ -100,9 +250,14 @@ class BindScraper:
         soup = BeautifulSoup(xml, 'xml')
         items = []
         for item in soup.find_all('item'):
-            title = item.title.text
-            link = item.link.text
-            items.append({'title': title, 'link': link})
+            # Defensive: check title and link exist before accessing .text
+            if item.title and item.link:
+                title = item.title.text
+                link = item.link.text
+                items.append({'title': title, 'link': link})
+            else:
+                # Log but don't crash - skip malformed items
+                logger.warning(f"Skipping RSS item with missing title or link")
             
         return items
 
@@ -134,8 +289,13 @@ class BindScraper:
     def generate_magnet(cls, info_hash, title):
         """
         Generates a robust magnet link with trackers.
+        Title is URL-encoded to handle special characters (&, +, =, ?, #, spaces, etc.)
         """
-        magnet = f"magnet:?xt=urn:btih:{info_hash}&dn={title}"
+        # URL-encode title to prevent broken links when title contains special characters
+        # quote_plus() encodes spaces as '+' and special chars as '%XX'
+        title_encoded = quote_plus(title)
+        
+        magnet = f"magnet:?xt=urn:btih:{info_hash}&dn={title_encoded}"
         for tr in cls.TRACKERS:
             magnet += f"&tr={tr}"
         return magnet
