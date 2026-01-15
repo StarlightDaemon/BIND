@@ -5,6 +5,25 @@ All notable changes to BIND will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-15 (LTS)
+
+### 🔒 Long-Term Support Release
+This release marks BIND v1.x as feature-complete and enters Long-Term Support mode. Only critical bug fixes and security patches will be backported.
+
+### Fixed
+- **Docker Compose**: Proper dual-service architecture with `bind-daemon` and `bind-rss`
+- **Port Exposure**: RSS server now correctly exposes port 5000
+- **Missing Dependency**: Added `curl_cffi==0.7.4` to requirements.txt
+
+### Removed
+- Development artifacts (`rss_server.py.backup`)
+- Unused placeholder directories (`src/clients/`)
+
+### Changed
+- Docker services use shared `magnets` volume for proper data sharing
+
+---
+
 ## [1.1.0] - 2026-01-09
 
 ### 🎯 Major Stability Overhaul
@@ -66,5 +85,6 @@ This release represents a complete stability transformation, addressing all 10 c
 
 ---
 
+[1.2.0]: https://github.com/StarlightDaemon/BIND/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/StarlightDaemon/BIND/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/StarlightDaemon/BIND/releases/tag/v1.0.0
