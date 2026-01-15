@@ -22,36 +22,35 @@ This release establishes BIND as a production-ready Proxmox application. No new 
 
 ---
 
-## v1.1 - Polish (Optional)
+## v1.1 - Stability Overhaul ✅
 
-**Goal**: Minor improvements to user experience
+**Status**: Complete  
+**Focus**: Hybrid Cloudflare defense and reliability improvements
 
-### Documentation
-- [ ] Add screenshots to README
-- [ ] Add example RSS feed XML in docs
-- [ ] Video walkthrough of setup (optional)
-
-### Testing
-- [ ] Manual testing on different Proxmox versions
-- [ ] Verify on Debian 11 and 13
-- [ ] Test with more torrent clients
-
-**Timeline**: When community feedback arrives  
-**Priority**: Low (v1.0 is feature-complete)
+- ✅ Circuit breaker pattern for rate limiting
+- ✅ curl_cffi TLS masquerading
+- ✅ Global deduplication
+- ✅ Graceful shutdown handling
+- ✅ File retention policy (90-day auto-cleanup)
 
 ---
 
-## v1.2+ - Maintenance Only
+## v1.2 - Long-Term Support (LTS) ✅
 
-**Goal**: Keep BIND working as dependencies update
+**Status**: Current LTS Release  
+**Focus**: Hardening and cleanup for long-term maintenance
 
-### Maintenance Tasks
-- [ ] Update dependencies as needed
-- [ ] Fix bugs if reported
-- [ ] Update docs based on feedback
-- [ ] Security patches if needed
+### Completed
+- ✅ Fixed Docker Compose (dual-service architecture)
+- ✅ Added missing `curl_cffi` dependency
+- ✅ Removed development artifacts
+- ✅ Source directory cleanup
 
-**No major features planned** - BIND does what it needs to do.
+### Maintenance Mode
+BIND v1.x is now in **maintenance-only mode**:
+- ✅ Critical bug fixes only
+- ✅ Security patches as needed
+- ❌ No new features (deferred to v2.0)
 
 ---
 

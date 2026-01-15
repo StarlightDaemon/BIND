@@ -1,10 +1,10 @@
 # BIND - Book Indexing Network Daemon
 
-[![Version](https://img.shields.io/badge/version-1.1-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.1.0)
+[![Version](https://img.shields.io/badge/version-1.2_LTS-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.2.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](scripts/install-proxmox-lxc.sh)
 
-**v1.1 Release** - Production-ready audiobook metadata archival with hybrid Cloudflare defense. Stable, battle-tested, and ready for long-term deployment.
+**v1.2 LTS Release** - Production-ready audiobook metadata archival with hybrid Cloudflare defense. Long-Term Support: stable, battle-tested, and maintained for the foreseeable future.
 
 ## Features
 
@@ -149,19 +149,20 @@ systemctl restart bind.service bind-rss.service
 <details>
 <summary><b>📦 Dependencies</b></summary>
 
-BIND uses only 6 carefully chosen dependencies, totaling ~50MB installed:
+BIND uses only 7 carefully chosen dependencies, totaling ~60MB installed:
 
 | Package | Size | Purpose |
 |---------|------|---------|
-| **cloudscraper** | ~8MB | Bypasses Cloudflare protection on AudioBookBay |
+| **curl_cffi** | ~10MB | TLS fingerprinting for Cloudflare bypass (Layer 1) |
+| **cloudscraper** | ~8MB | Fallback Cloudflare bypass (Layer 3) |
 | **beautifulsoup4** | ~500KB | Parses HTML to extract magnet links |
 | **lxml** | ~15MB | Fast XML/HTML parser backend for BeautifulSoup |
 | **click** | ~800KB | Command-line interface framework |
 | **schedule** | ~50KB | Lightweight daemon scheduling (cron alternative) |
 | **flask** | ~3MB | RSS server and web UI |
 
-**Total installed size**: ~50MB (including dependencies)  
-**Virtual environment**: ~150MB with all packages
+**Total installed size**: ~60MB (including dependencies)  
+**Virtual environment**: ~180MB with all packages
 
 All dependencies are actively maintained and essential to BIND's functionality.
 
@@ -258,6 +259,6 @@ Ensure compliance with copyright laws in your jurisdiction. BIND archives metada
 
 ## About
 
-**Lightweight and focused**: 531 lines of code, 6 dependencies, minimal resource usage.
+**Lightweight and focused**: ~1,000 lines of code, 7 dependencies, minimal resource usage.
 
 BIND archives publicly available audiobook metadata for digital preservation and personal library indexing while respecting intellectual property rights.
