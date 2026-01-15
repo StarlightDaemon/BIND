@@ -1,22 +1,36 @@
 version: '3.8'
 
 services:
-  bind:
+  # Daemon: Scrapes AudioBookBay every 60 minutes
+  bind-daemon:
     build: .
     image: bind:latest
-    container_name: bind
+    container_name: bind-daemon
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
-      - ./config:/config
+      - magnets:/app/magnets
       - ./logs:/app/logs
-    # No ports needed as it's a client
+    command: ["python", "-m", "src.bind", "daemon", "--interval", "60", "--output-dir", "magnets/"]
 
-    # Optional: qBittorrent for testing/all-in-one stack
-    # qbittorrent:
-    #   image: linuxserver/qbittorrent
-    #   ports:
-    #     - 8080:8080
-    #   environment:
-    #     - WEBUI_PORT=8080
+  # RSS Server: Serves Web UI and RSS feed on port 5000
+  bind-rss:
+    build: .
+    image: bind:latest
+    container_name: bind-rss
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MAGNETS_DIR=/app/magnets
+    ports:
+      - "5000:5000"
+    volumes:
+      - magnets:/app/magnets
+    command: ["python", "-m", "src.rss_server"]
+    depends_on:
+      - bind-daemon
+
+volumes:
+  magnets:
+    # Shared volume for magnet files between daemon and RSS server
