@@ -12,9 +12,9 @@ services:
     volumes:
       - magnets:/app/magnets
       - ./logs:/app/logs
-    command: ["python", "-m", "src.bind", "daemon", "--interval", "60", "--output-dir", "magnets/"]
+    command: [ "python", "-m", "src.bind", "daemon", "--interval", "60", "--output-dir", "magnets/" ]
 
-  # RSS Server: Serves Web UI and RSS feed on port 5000
+  # RSS Server: Serves Web UI and RSS feed on port 5050
   bind-rss:
     build: .
     image: bind:latest
@@ -24,13 +24,12 @@ services:
       - PYTHONUNBUFFERED=1
       - MAGNETS_DIR=/app/magnets
     ports:
-      - "5000:5000"
+      - "5050:5050"
     volumes:
       - magnets:/app/magnets
-    command: ["python", "-m", "src.rss_server"]
+    command: [ "python", "-m", "src.rss_server" ]
     depends_on:
       - bind-daemon
 
 volumes:
-  magnets:
-    # Shared volume for magnet files between daemon and RSS server
+  magnets: # Shared volume for magnet files between daemon and RSS server

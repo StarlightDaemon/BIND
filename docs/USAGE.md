@@ -5,7 +5,7 @@
 ### qBittorrent
 1. View → RSS Reader (Alt+S)
 2. Right-click → New subscription
-3. URL: `http://your-server:5000/feed.xml`
+3. URL: `http://your-server:5050/feed.xml`
 4. Set up auto-download rules
 
 ### BiglyBT
@@ -50,7 +50,7 @@ magnets/
 
 **Default Settings**:
 - Daemon interval: 60 minutes
-- RSS port: 5000
+- RSS port: 5050
 - Output directory: `magnets/`
 - Max feed items: 100
 
@@ -66,7 +66,7 @@ ExecStart=... daemon --interval 30 --output-dir /opt/bind/magnets
 
 **Health Check**:
 ```bash
-curl http://localhost:5000/health
+curl http://localhost:5050/health
 ```
 
 **Response**:
