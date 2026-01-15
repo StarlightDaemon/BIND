@@ -33,8 +33,8 @@ pveam update  # Update template list
 ```bash
 pct enter <container-id>
 systemctl status bind-rss.service
-ss -tulpn | grep 5000
-curl http://localhost:5000/feed.xml
+ss -tulpn | grep 5050
+curl http://localhost:5050/feed.xml
 ```
 
 ### No magnets collected
@@ -59,10 +59,10 @@ git checkout backup-YYYYMMDD-HHMMSS
 systemctl restart bind.service bind-rss.service
 ```
 
-### Port 5000 already in use
+### Port 5050 already in use
 ```bash
 # Find what's using it
-ss -tulpn | grep 5000
+ss -tulpn | grep 5050
 
 # Change BIND's port (edit bind-rss.service)
 # Or stop the conflicting service

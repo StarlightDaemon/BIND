@@ -46,9 +46,9 @@ prompt "Scrape interval in minutes? [60]"
 read -r INTERVAL
 INTERVAL=${INTERVAL:-60}
 
-prompt "RSS server port? [5000]"
+prompt "RSS server port? [5050]"
 read -r RSS_PORT
-RSS_PORT=${RSS_PORT:-5000}
+RSS_PORT=${RSS_PORT:-5050}
 
 prompt "Enable proxy support? (y/N)"
 read -r USE_PROXY
