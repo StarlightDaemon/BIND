@@ -33,6 +33,13 @@ Override auto-detected RSS feed URLs:
 Environment="BASE_URL=http://bind.mydomain.com"
 ```
 
+### Web UI / RSS Port
+Change the listening port (default: 5050) if conflicts occur:
+```ini
+# Edit /etc/systemd/system/bind-rss.service
+Environment="PORT=8080"
+```
+
 ### Magnet Storage Directory
 Change where magnet files are saved:
 ```ini

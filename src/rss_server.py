@@ -478,7 +478,7 @@ def health():
 
 
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', 5050))
     host = os.getenv('HOST', '0.0.0.0')
     
     print(f"Starting BIND RSS Server on {host}:{port}")
