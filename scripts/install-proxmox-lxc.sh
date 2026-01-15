@@ -201,8 +201,8 @@ BIND LXC Container
 🏠 Hostname: $(hostname)
 💡 IP Address: $(hostname -I | awk '{print \$1}')
 
-🌐 Web UI:     http://$(hostname -I | awk '{print \$1}'):5000/
-📡 RSS Feed:   http://$(hostname -I | awk '{print \$1}'):5000/feed.xml
+🌐 Web UI:     http://$(hostname -I | awk '{print \$1}'):5050/
+📡 RSS Feed:   http://$(hostname -I | awk '{print \$1}'):5050/feed.xml
 📂 Magnets:    /opt/bind/magnets/
 
 📊 Status:     journalctl -u bind -f
@@ -219,8 +219,8 @@ pct set "$CTID" --description "# BIND - Book Indexing Network Daemon
 **Version**: v1.1.0
 
 ## Quick Links
-- 🌐 [Web UI](http://$CONTAINER_IP:5000/)
-- 📡 [RSS Feed](http://$CONTAINER_IP:5000/feed.xml)
+- 🌐 [Web UI](http://$CONTAINER_IP:5050/)
+- 📡 [RSS Feed](http://$CONTAINER_IP:5050/feed.xml)
 - 📖 [GitHub](https://github.com/StarlightDaemon/BIND)
 - 💬 [Discussions](https://github.com/StarlightDaemon/BIND/discussions)
 - 🐛 [Issues](https://github.com/StarlightDaemon/BIND/issues)
@@ -253,8 +253,8 @@ echo ""
 echo -e " ${BL}Container:${CL}  $CTID ($HOSTNAME)"
 echo -e " ${BL}IP Address:${CL} $CONTAINER_IP"
 echo ""
-echo -e " ${GN}📡 RSS Feed:${CL}   http://$CONTAINER_IP:5000/feed.xml"
-echo -e " ${GN}🌐 Web UI:${CL}     http://$CONTAINER_IP:5000/"
+echo -e " ${GN}📡 RSS Feed:${CL}   http://$CONTAINER_IP:5050/feed.xml"
+echo -e " ${GN}🌐 Web UI:${CL}     http://$CONTAINER_IP:5050/"
 echo ""
 echo -e "${YW}Management Commands:${CL}"
 echo -e " pct enter $CTID"

@@ -21,7 +21,7 @@
 
 Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and works with all RSS-capable torrent clients.
 
-> **⚠️ Security Note**: BIND has no authentication and is designed for **private LAN use only**. Do not expose port 5000 to the internet. If external access is needed, use a reverse proxy with authentication (nginx, Caddy, Cloudflare Tunnel).
+> **⚠️ Security Note**: BIND has no authentication and is designed for **private LAN use only**. Do not expose port 5050 to the internet. If external access is needed, use a reverse proxy with authentication (nginx, Caddy, Cloudflare Tunnel).
 
 ## 🚀 Installation
 
@@ -45,8 +45,8 @@ bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scri
 **Default Resources:** 512MB RAM, 4GB disk, 1 CPU core
 
 **After Installation:**
-- 📡 **RSS Feed**: `http://YOUR-CONTAINER-IP:5000/feed.xml`
-- 🌐 **Web UI**: `http://YOUR-CONTAINER-IP:5000/`
+- 📡 **RSS Feed**: `http://YOUR-CONTAINER-IP:5050/feed.xml`
+- 🌐 **Web UI**: `http://YOUR-CONTAINER-IP:5050/`
 - 📊 **View Logs**: `pct exec <CTID> -- journalctl -u bind -f`
 - 🔧 **Enter Container**: `pct enter <CTID>`
 
@@ -226,6 +226,7 @@ BIND is configured via environment variables in `bind.service` or `bind-rss.serv
 | `ABB_URL` | `http://audiobookbay.lu` | Target domain (change if site moves) |
 | `BASE_URL` | Auto-detected | Override RSS feed base URL |
 | `MAGNETS_DIR` | `/opt/bind/magnets` | Storage directory for magnet files |
+| `PORT` | `5050` | Web UI and RSS feed port (change if conflicting) |
 | `CIRCUIT_BREAKER_THRESHOLD` | `3` | Failures before scraper pauses |
 | `CIRCUIT_BREAKER_COOLDOWN` | `300` | Seconds to wait after pausing |
 

@@ -38,7 +38,7 @@ bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scri
 bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install.sh)
 ```
 
-Uses default settings (60m interval, port 5000, `/opt/bind`).
+Uses default settings (60m interval, port 5050, `/opt/bind`).
 
 ### `install-interactive.sh`
 **Interactive installer** with full customization prompts.

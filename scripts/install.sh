@@ -77,8 +77,8 @@ if systemctl is-active --quiet bind && systemctl is-active --quiet bind-rss; the
     echo ""
     success "BIND installed and running successfully!"
     echo "-----------------------------------------------------"
-    echo -e "RSS Feed:    http://$IP:5000/feed.xml"
-    echo -e "Web UI:      http://$IP:5000/"
+    echo -e "RSS Feed:    http://$IP:5050/feed.xml"
+    echo -e "Web UI:      http://$IP:5050/"
     echo -e "Logs:        journalctl -u bind -f"
     echo "-----------------------------------------------------"
 else

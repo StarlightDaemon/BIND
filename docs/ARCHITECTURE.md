@@ -131,7 +131,7 @@ magnets/
 │  │  ├─ bind.service          │  │
 │  │  └─ bind-rss.service      │  │
 │  └───────────┬───────────────┘  │
-│              │ Port 5000        │
+│              │ Port 5050        │
 └──────────────┼──────────────────┘
                │
                ▼
@@ -158,7 +158,7 @@ magnets/
 │  │ bind_rss              │  │
 │  │ (runs src.rss_server) │  │
 │  └───────────┬───────────┘  │
-│              │ Port 5000    │
+│              │ Port 5050    │
 └──────────────┼──────────────┘
                ▼
          Network bridge
@@ -172,9 +172,9 @@ magnets/
 
 **Recommended Setup**:
 - Keep LXC on private VLAN
-- Do not expose port 5000 to internet
+- Do not expose port 5050 to internet
 - Use firewall rules to restrict access
-- Only Proxmox host and LAN clients should reach port 5000
+- Only Proxmox host and LAN clients should reach port 5050
 
 ## Resource Usage
 
@@ -212,7 +212,7 @@ journalctl -u bind.service -f
 
 **Health Endpoint**:
 ```bash
-curl http://localhost:5000/health
+curl http://localhost:5050/health
 ```
 
 **Response**:

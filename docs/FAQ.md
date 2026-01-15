@@ -52,7 +52,7 @@ In the `magnets/` directory as daily text files:
 - etc.
 
 ### How do I access the RSS feed?
-Navigate to `http://YOUR-CONTAINER-IP:5000/feed.xml` in your torrent client's RSS reader.
+Navigate to `http://YOUR-CONTAINER-IP:5050/feed.xml` in your torrent client's RSS reader.
 
 ### Can I change the RSS port?
 Yes. Edit `/etc/systemd/system/bind-rss.service` and change the port, then:
@@ -62,9 +62,9 @@ systemctl restart bind-rss.service
 ```
 
 ### How do I view collected magnets?
-- **Web UI**: http://YOUR-CONTAINER-IP:5000/
+- **Web UI**: http://YOUR-CONTAINER-IP:5050/
 - **Files**: `ls /opt/bind/magnets/`
-- **RSS Feed**: http://YOUR-CONTAINER-IP:5000/feed.xml
+- **RSS Feed**: http://YOUR-CONTAINER-IP:5050/feed.xml
 
 ---
 
@@ -129,13 +129,13 @@ pct snapshot <container-id> before-update
 
 ### Web UI not accessible
 1. Check RSS service: `systemctl status bind-rss.service`
-2. Check port is open: `ss -tulpn | grep 5000`
+2. Check port is open: `ss -tulpn | grep 5050`
 3. Check firewall rules (if any)
 
-### Port 5000 already in use
+### Port 5050 already in use
 Find what's using it:
 ```bash
-ss -tulpn | grep 5000
+ss -tulpn | grep 5050
 ```
 Either stop that service or change BIND's port.
 
@@ -185,7 +185,7 @@ Any client with RSS support:
 ### How do I set up auto-download in qBittorrent?
 1. View → RSS Reader (Alt+S)
 2. Right-click → New subscription
-3. Add feed URL: `http://BIND-IP:5000/feed.xml`
+3. Add feed URL: `http://BIND-IP:5050/feed.xml`
 4. Right-click feed → Download Rule
 5. Set filters and auto-download
 
