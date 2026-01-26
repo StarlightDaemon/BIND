@@ -1,11 +1,12 @@
 """Shared pytest fixtures for BIND tests."""
+
 import os
 import sys
 
 import pytest
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 @pytest.fixture
@@ -57,7 +58,8 @@ def sample_detail_html():
 def flask_app():
     """Create Flask test application."""
     from src.rss_server import app
-    app.config['TESTING'] = True
+
+    app.config["TESTING"] = True
     return app
 
 
@@ -71,5 +73,4 @@ def client(flask_app):
 def mock_setup_complete(monkeypatch):
     """Bypass setup check by default for all tests."""
     # Patch the function where it is used in rss_server
-    monkeypatch.setattr('src.rss_server.is_setup_complete', lambda: True)
-
+    monkeypatch.setattr("src.rss_server.is_setup_complete", lambda: True)

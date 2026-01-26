@@ -1,4 +1,5 @@
 """Tests for HistoryManager class - global deduplication of magnet hashes."""
+
 import os
 
 from src.bind import HistoryManager
