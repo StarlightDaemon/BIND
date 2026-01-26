@@ -7,21 +7,26 @@ Lightweight Flask server that reads magnets.txt and serves it as:
 - Health check at /health
 """
 
-import math
 import fcntl
 import glob
+import math
 import os
 import re
+import secrets
 from datetime import datetime
-import time
 from xml.sax.saxutils import escape
 
-import secrets
-
-from flask import Flask, Response, render_template, request, redirect, url_for, session, abort
+from flask import Flask, Response, abort, redirect, render_template, request, session
 
 from src.config_manager import ConfigManager
-from src.security import ip_allowlist_middleware, requires_auth, is_setup_complete, save_credentials, change_password, get_security_log_path
+from src.security import (
+    change_password,
+    get_security_log_path,
+    ip_allowlist_middleware,
+    is_setup_complete,
+    requires_auth,
+    save_credentials,
+)
 
 # Get the directory where this file is located for template path
 _current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -75,7 +80,7 @@ def validate_csrf_token():
     if request.method == 'POST':
         token = session.get('csrf_token')
         form_token = request.form.get('csrf_token')
-        
+
         if not token or token != form_token:
             abort(403, description='CSRF token missing or invalid.')
 
@@ -91,10 +96,10 @@ def check_setup_required():
     # Allow setup route and static assets without setup
     if request.path in ['/setup', '/health']:
         return None
-    
+
     if not is_setup_complete():
         return redirect('/setup')
-    
+
     return None
 
 
@@ -186,10 +191,10 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
     Returns (magnets_page, total_count).
     """
     all_magnets = []
-    
+
     # Create directory if it doesn't exist
     os.makedirs(MAGNETS_DIR, exist_ok=True)
-    
+
     # Find all magnet files
     magnet_files = glob.glob(os.path.join(MAGNETS_DIR, 'magnets_*.txt'))
     magnet_files.sort(reverse=True) # Newest first
@@ -211,7 +216,7 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
                     lines = f.readlines()
                 finally:
                     fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-            
+
             for line in lines:
                 line = line.strip()
                 if line and line.startswith('magnet:'):
@@ -221,7 +226,7 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
                     if dn_match:
                         from urllib.parse import unquote_plus
                         title = unquote_plus(dn_match.group(1))
-                    
+
                     # Filter if query exists
                     if query:
                         if query.lower() not in title.lower():
@@ -240,9 +245,9 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
     total_count = len(all_magnets)
     start = (page - 1) * per_page
     end = start + per_page
-    
+
     paginated_items = all_magnets[start:end]
-    
+
     return paginated_items, total_count
 
 
@@ -269,16 +274,16 @@ def magnets_view():
     query = request.args.get('q', '').strip()
     try:
         page = int(request.args.get('page', 1))
-        if page < 1: 
+        if page < 1:
             page = 1
     except ValueError:
         page = 1
-        
+
     per_page = 50
     magnets, total_count = search_magnets(query=query, page=page, per_page=per_page)
-    
+
     total_pages = math.ceil(total_count / per_page)
-    
+
     return render_template(
         'magnets.html',
         magnets=magnets,
@@ -418,7 +423,7 @@ def settings():
 def logs_view():
     """System logs view"""
     log_type = request.args.get('log', 'security')
-    
+
     # map log type to filename
     if log_type == 'daemon':
         filename = 'bind.log'
@@ -435,10 +440,10 @@ def logs_view():
 
     logs = []
     MAX_LINES = 1000
-    
+
     if os.path.exists(filepath):
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, encoding='utf-8') as f:
                 # Read all lines and take the last MAX_LINES
                 lines = f.readlines()
                 # Reverse to show newest first
@@ -463,15 +468,15 @@ def setup():
     # If setup is already complete, redirect to dashboard
     if is_setup_complete():
         return redirect('/')
-    
+
     error = None
     username = ''
-    
+
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
-        
+
         # Validate passwords match
         if password != confirm_password:
             error = "Passwords do not match."
@@ -482,7 +487,7 @@ def setup():
                 return redirect('/')
             else:
                 error = message
-    
+
     return render_template('setup.html', error=error, username=username)
 
 
@@ -493,20 +498,20 @@ def change_password_route():
     current_password = request.form.get('current_password', '')
     new_password = request.form.get('new_password', '')
     confirm_password = request.form.get('confirm_new_password', '')
-    
+
     password_message = None
     password_success = False
-    
+
     if new_password != confirm_password:
         password_message = "New passwords do not match."
     else:
         success, message = change_password(current_password, new_password)
         password_message = message
         password_success = success
-    
+
     # Re-render settings page with password message
     config = config_manager.read_config()
-    
+
     return render_template(
         'settings.html',
         config=config,
@@ -528,24 +533,24 @@ def check_daemon_status():
         # If we can read config, even better.
         config = config_manager.read_config()
         interval = int(config.get('SCRAPE_INTERVAL', 60))
-        
+
         # Path to bind.log (assumed in CWD as per logs_view)
         log_path = os.path.join(os.getcwd(), 'bind.log')
-        
+
         if not os.path.exists(log_path):
             return "unknown", "Log file not found", 0
-            
+
         mtime = os.path.getmtime(log_path)
         last_active = datetime.fromtimestamp(mtime)
         now = datetime.now()
-        
+
         diff_minutes = (now - last_active).total_seconds() / 60
-        
+
         if diff_minutes < (interval * 2) + 5: # Small buffer
             return "online", f"Active (Last job: {int(diff_minutes)}m ago)", mtime
         else:
             return "offline", f"Stalled (Last job: {int(diff_minutes)}m ago)", mtime
-            
+
     except Exception as e:
         return "unknown", f"Error checking status: {str(e)}", 0
 
@@ -557,14 +562,14 @@ def api_stats():
     Returns JSON with system status and magnet counts.
     """
     status, message, _ = check_daemon_status()
-    
+
     # Get magnet counts
-    # Optimization: read_magnets reads all files. 
+    # Optimization: read_magnets reads all files.
     # For a simple count, we can just count lines in files if perf is an issue,
     # but read_magnets is safe for now (~1k items).
     magnets = read_magnets()
     count = len(magnets)
-    
+
     # Get recent magnets for dashboard list (limit 5 for "Recent Index" widget, or 20 if we want to fill the page)
     # The dashboard currently shows 20, let's return 20 to match.
     recent_magnets = magnets[:20]

@@ -11,8 +11,8 @@ from datetime import datetime
 import click
 import schedule
 
-from src.core.scraper import BindScraper
 from src.config_manager import ConfigManager
+from src.core.scraper import BindScraper
 
 # Configure Logging
 logging.basicConfig(
@@ -101,7 +101,7 @@ def daemon(interval, output_dir):
             # If the value in config.env differs from env, we might want to log it
             elif os.environ[key] != str(value):
                 logger.debug(f"Config mismatch for {key}: Env={os.environ[key]} vs File={value}")
-        
+
         logger.info(f"Loaded {loaded_count} configuration values from config.env")
     except Exception as e:
         logger.warning(f"Failed to load config.env: {e}")
