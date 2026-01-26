@@ -105,6 +105,20 @@ BIND v1.x is now in **maintenance-only mode**:
 
 ---
 
+#### 📈 Codecov Integration
+**Priority**: Low
+**Complexity**: Low
+**Description**: Public code coverage reporting and PR integration
+
+**Implementation:**
+- Requires Codecov account setup (deferred from v1.2)
+- GitHub Actions workflow update
+- Badge integration
+
+**Estimated Effort**: 1 hour
+
+---
+
 **Status**: Planned  
 **Goal**: Universal self-hosted application
 

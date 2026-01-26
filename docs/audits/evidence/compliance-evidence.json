@@ -1,0 +1,36 @@
+{
+    "timestamp": "2026-01-21T10:25:10.120Z",
+    "project_metadata": {
+        "name": "BIND",
+        "version": "0.0.0"
+    },
+    "validator_output": "Validator available - run 'npm run validate' for full check",
+    "token_usage_summary": {
+        "total_tokens_identified": 0,
+        "compliance_percentage": 100
+    },
+    "forensic_analysis": {
+        "hardcoded_hex_count": 0,
+        "detached_tokens_detected": 0,
+        "suspicious_files": []
+    },
+    "font_analysis": {
+        "non_carbon_fonts_count": 0,
+        "forbidden_fonts": [],
+        "files_with_font_violations": []
+    },
+    "spacing_analysis": {
+        "invalid_spacing_count": 0,
+        "invalid_spacings": [],
+        "files_with_spacing_violations": []
+    },
+    "typography_analysis": {
+        "invalid_typography_count": 0,
+        "invalid_sizes": [],
+        "files_with_typography_violations": []
+    },
+    "law_integrity": {
+        "validator_exists": true,
+        "tokens_hash": "SHA256:460d081a237189f739bacbfc0f1c9c30adcaab9fed927aa2a90b7b4891afc05b"
+    }
+}

@@ -1,0 +1,22 @@
+{
+    "name": "@starlight/governance",
+    "version": "1.0.0",
+    "description": "Starlight Carbon Architect - Governance Validation Tools",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "validate": "ts-node validate-tokens.ts",
+        "export": "ts-node export-kit.ts",
+        "collect-audit": "ts-node audit-collector.ts"
+    },
+    "dependencies": {
+        "chalk": "^4.1.2",
+        "zod": "^3.22.4"
+    },
+    "devDependencies": {
+        "@types/node": "^18.0.0",
+        "ts-node": "^10.9.1",
+        "typescript": "^5.0.0"
+    },
+    "private": true
+}

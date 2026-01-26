@@ -1,0 +1,61 @@
+{
+  "meta": {
+    "auditor": "Agent (Builder)",
+    "timestamp": "2026-01-20T06:42:41.910992Z",
+    "generator": "custom-collect_audit.py"
+  },
+  "dependency_manifest": {
+    "framework": "flask (python)",
+    "design_system": "starlight-governance-kit (manual injection)"
+  },
+  "calculated_token_usage": {
+    "total_references": 45,
+    "sample": [
+      {
+        "file": "src/templates/index.html",
+        "token": "colors-white"
+      },
+      {
+        "file": "src/templates/index.html",
+        "token": "colors-gray-100"
+      },
+      {
+        "file": "src/templates/index.html",
+        "token": "colors-gray-70"
+      },
+      {
+        "file": "src/templates/index.html",
+        "token": "colors-white"
+      },
+      {
+        "file": "src/templates/index.html",
+        "token": "colors-gray-10"
+      },
+      {
+        "file": "src/templates/index.html",
+        "token": "colors-white"
+      },
+      {
+        "file": "src/templates/index.html",
+        "token": "colors-blue-60"
+      },
+      {
+        "file": "src/templates/index.html",
+        "token": "colors-gray-20"
+      },
+      {
+        "file": "src/templates/index.html",
+        "token": "colors-alert-green"
+      },
+      {
+        "file": "src/templates/index.html",
+        "token": "font-sans"
+      }
+    ]
+  },
+  "validator_receipt": {
+    "passed": true,
+    "log": "\n> @starlight/governance@1.0.0 validate\n> ts-node validate-tokens.ts\n\n\n\ud83d\udd0d Starlight Governance Validator\nChecking directory: /mnt/e/BIND/scripts/tokens\n\nResults:\n\u2714 PASS  1-primitives.json\n\u2714 PASS  2-semantic.json\n\u2714 PASS  3-component.json\n\n----------------------------------------\n\n\u2728 All Systems Nominal. Governance validation passed.\n"
+  },
+  "structure_digest": "55f3cc4a8dfb7b72d25a9604087c2777f167642f65caca8f24de3be4ba2ecd39"
+}
