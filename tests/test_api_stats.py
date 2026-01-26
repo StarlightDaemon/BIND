@@ -1,6 +1,8 @@
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from src.rss_server import app
+
 
 @pytest.fixture
 def client():

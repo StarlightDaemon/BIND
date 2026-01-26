@@ -65,3 +65,11 @@ def flask_app():
 def client(flask_app):
     """Flask test client."""
     return flask_app.test_client()
+
+
+@pytest.fixture(autouse=True)
+def mock_setup_complete(monkeypatch):
+    """Bypass setup check by default for all tests."""
+    # Patch the function where it is used in rss_server
+    monkeypatch.setattr('src.rss_server.is_setup_complete', lambda: True)
+
