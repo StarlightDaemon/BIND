@@ -17,13 +17,11 @@ from src.core.scraper import BindScraper
 # Configure Logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("bind.log", encoding='utf-8')
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler("bind.log", encoding="utf-8")],
 )
 logger = logging.getLogger("BIND")
+
 
 class HistoryManager:
     """Manages a persistent history of seen info hashes to prevent duplicates forever."""
@@ -40,7 +38,7 @@ class HistoryManager:
         """Load existing hashes from history file into memory."""
         if os.path.exists(self.filepath):
             try:
-                with open(self.filepath, encoding='utf-8') as f:
+                with open(self.filepath, encoding="utf-8") as f:
                     self.seen = {line.strip().lower() for line in f if line.strip()}
                 logger.info(f"Loaded {len(self.seen)} hashes from history.")
             except Exception as e:
@@ -56,29 +54,44 @@ class HistoryManager:
         if clean_hash not in self.seen:
             self.seen.add(clean_hash)
             try:
-                with open(self.filepath, 'a', encoding='utf-8') as f:
+                with open(self.filepath, "a", encoding="utf-8") as f:
                     f.write(f"{clean_hash}\n")
             except Exception as e:
                 logger.error(f"Failed to append to history file: {e}")
+
 
 @click.group()
 def cli():
     """Book Indexing Network Daemon (BIND)"""
     pass
 
+
 @cli.command()
-@click.option('--interval', envvar='SCRAPE_INTERVAL', default=60, help='Check interval in minutes')
-@click.option('--output-dir', envvar='MAGNETS_DIR', default='data/magnets', help='Directory to store magnet files')
+@click.option("--interval", envvar="SCRAPE_INTERVAL", default=60, help="Check interval in minutes")
+@click.option(
+    "--output-dir",
+    envvar="MAGNETS_DIR",
+    default="data/magnets",
+    help="Directory to store magnet files",
+)
 def daemon(interval, output_dir):
     """Run in daemon mode to auto-grab new torrents"""
     logger.info(f"Starting BIND Daemon (Interval: {interval}m)")
 
     # [REMEDIATION RUNTIME-01] Legacy Fallback Support
     # If the canonical path is requested (default) but missing, and legacy exists, fallback.
-    if output_dir == 'data/magnets' and not os.path.exists(output_dir) and os.path.exists('magnets'):
-        logger.warning("Canonical directory 'data/magnets/' not found, but legacy 'magnets/' exists.")
-        logger.warning("FALLBACK: Using legacy 'magnets/' directory. Please migrate to 'data/magnets/'.")
-        output_dir = 'magnets'
+    if (
+        output_dir == "data/magnets"
+        and not os.path.exists(output_dir)
+        and os.path.exists("magnets")
+    ):
+        logger.warning(
+            "Canonical directory 'data/magnets/' not found, but legacy 'magnets/' exists."
+        )
+        logger.warning(
+            "FALLBACK: Using legacy 'magnets/' directory. Please migrate to 'data/magnets/'."
+        )
+        output_dir = "magnets"
 
     logger.info(f"Output directory: {output_dir}/")
 
@@ -122,7 +135,7 @@ def daemon(interval, output_dir):
     scraper = BindScraper()
 
     # Shutdown flag for graceful termination
-    shutdown_requested = {'flag': False}
+    shutdown_requested = {"flag": False}
 
     # Define signal handler for graceful shutdown
     def signal_handler(signum, frame):
@@ -133,7 +146,7 @@ def daemon(interval, output_dir):
         """
         signal_name = signal.Signals(signum).name
         logger.info(f"Received {signal_name}, will shutdown after current job completes...")
-        shutdown_requested['flag'] = True
+        shutdown_requested["flag"] = True
 
     # Register signal handlers for graceful shutdown
     logger.info("Registering signal handlers for graceful shutdown...")
@@ -194,8 +207,8 @@ def daemon(interval, output_dir):
         logger.info(f"Found {len(books)} recent books.")
 
         # Date-based filename for daily rotation
-        today = datetime.now().strftime('%Y-%m-%d')
-        magnet_file = os.path.join(output_dir, f'magnets_{today}.txt')
+        today = datetime.now().strftime("%Y-%m-%d")
+        magnet_file = os.path.join(output_dir, f"magnets_{today}.txt")
 
         # Track save statistics
         successful_saves = 0
@@ -208,7 +221,7 @@ def daemon(interval, output_dir):
             # We need to fetch detail page for each book
 
             # Note: extract_info_hash does the fetching + delay
-            info_hash = scraper.extract_info_hash(book['link'])
+            info_hash = scraper.extract_info_hash(book["link"])
 
             if info_hash:
                 # Check Global History
@@ -217,11 +230,11 @@ def daemon(interval, output_dir):
                     skipped_dupes += 1
                     continue
 
-                magnet = BindScraper.generate_magnet(info_hash, book['title'])
+                magnet = BindScraper.generate_magnet(info_hash, book["title"])
 
                 # Save to date-based file with comprehensive error handling
                 try:
-                    with open(magnet_file, "a", encoding='utf-8') as f:
+                    with open(magnet_file, "a", encoding="utf-8") as f:
                         # Acquire exclusive lock to prevent RSS server reading partial writes
                         fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                         try:
@@ -231,7 +244,7 @@ def daemon(interval, output_dir):
                         finally:
                             # Release lock (also auto-released on file close)
                             fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-                    logger.info(f"✓ Saved ({successful_saves+1}): {book['title'][:50]}...")
+                    logger.info(f"✓ Saved ({successful_saves + 1}): {book['title'][:50]}...")
                     successful_saves += 1
 
                 except PermissionError:
@@ -246,7 +259,9 @@ def daemon(interval, output_dir):
 
         # Summary log
         if successful_saves > 0 or failed_saves > 0:
-            logger.info(f"Job finished: {successful_saves} saved, {skipped_dupes} duplicates, {failed_saves} failed.")
+            logger.info(
+                f"Job finished: {successful_saves} saved, {skipped_dupes} duplicates, {failed_saves} failed."
+            )
         else:
             logger.info("Job finished: No new magnets found.")
         if failed_saves > 0:
@@ -261,12 +276,13 @@ def daemon(interval, output_dir):
     job()
 
     logger.info("Daemon running. Press Ctrl+C to stop.")
-    while not shutdown_requested['flag']:
+    while not shutdown_requested["flag"]:
         schedule.run_pending()
         time.sleep(1)
 
     logger.info("Shutdown complete. Daemon stopped cleanly.")
     sys.exit(0)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     cli()
