@@ -31,11 +31,11 @@ from src.security import (
 # Get the directory where this file is located for template path
 _current_dir = os.path.dirname(os.path.abspath(__file__))
 
-app = Flask(__name__, template_folder=os.path.join(_current_dir, 'templates'))
+app = Flask(__name__, template_folder=os.path.join(_current_dir, "templates"))
 
 # Secret key for sessions (CSRF tokens)
 # Generate a stable key from credentials file path or use random
-app.secret_key = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(32))
+app.secret_key = os.getenv("FLASK_SECRET_KEY", secrets.token_hex(32))
 
 # Configuration
 # [REMEDIATION CONF-01] Load config.env into environment
@@ -49,13 +49,13 @@ except Exception as e:
     print(f"Warning: Failed to load config.env: {e}")
 
 # Configuration
-MAGNETS_DIR = os.getenv('MAGNETS_DIR', 'data/magnets')
+MAGNETS_DIR = os.getenv("MAGNETS_DIR", "data/magnets")
 
 # [REMEDIATION RUNTIME-01] Legacy Fallback Support
-if MAGNETS_DIR == 'data/magnets' and not os.path.exists(MAGNETS_DIR) and os.path.exists('magnets'):
+if MAGNETS_DIR == "data/magnets" and not os.path.exists(MAGNETS_DIR) and os.path.exists("magnets"):
     print("WARNING: Canonical directory 'data/magnets/' not found, but legacy 'magnets/' exists.")
     print("FALLBACK: Using legacy 'magnets/' directory. Please migrate to 'data/magnets/'.")
-    MAGNETS_DIR = 'magnets'
+    MAGNETS_DIR = "magnets"
 FEED_TITLE = "BIND - Book Indexing Network"
 FEED_DESCRIPTION = "Automatically collected audiobook magnet links"
 MAX_ITEMS = 100
@@ -68,25 +68,26 @@ ip_allowlist_middleware(app)
 # CSRF Protection
 # =============================================================================
 
+
 def generate_csrf_token():
     """Generate or retrieve CSRF token from session."""
-    if 'csrf_token' not in session:
-        session['csrf_token'] = secrets.token_hex(32)
-    return session['csrf_token']
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_hex(32)
+    return session["csrf_token"]
 
 
 def validate_csrf_token():
     """Validate CSRF token on POST requests."""
-    if request.method == 'POST':
-        token = session.get('csrf_token')
-        form_token = request.form.get('csrf_token')
+    if request.method == "POST":
+        token = session.get("csrf_token")
+        form_token = request.form.get("csrf_token")
 
         if not token or token != form_token:
-            abort(403, description='CSRF token missing or invalid.')
+            abort(403, description="CSRF token missing or invalid.")
 
 
 # Make csrf_token available to all templates
-app.jinja_env.globals['csrf_token'] = generate_csrf_token
+app.jinja_env.globals["csrf_token"] = generate_csrf_token
 
 
 # Setup redirect middleware
@@ -94,11 +95,11 @@ app.jinja_env.globals['csrf_token'] = generate_csrf_token
 def check_setup_required():
     """Redirect to setup if first-time setup not complete."""
     # Allow setup route and static assets without setup
-    if request.path in ['/setup', '/health']:
+    if request.path in ["/setup", "/health"]:
         return None
 
     if not is_setup_complete():
-        return redirect('/setup')
+        return redirect("/setup")
 
     return None
 
@@ -106,7 +107,7 @@ def check_setup_required():
 @app.before_request
 def csrf_protect():
     """Validate CSRF token on all POST requests."""
-    if request.method == 'POST':
+    if request.method == "POST":
         validate_csrf_token()
 
 
@@ -115,28 +116,24 @@ def parse_magnet_link(magnet_url: str) -> dict[str, str]:
     Extract information from a magnet link.
     Returns dict with hash, title, and trackers.
     """
-    info = {
-        'magnet': magnet_url,
-        'hash': '',
-        'title': 'Unknown',
-        'trackers': []
-    }
+    info = {"magnet": magnet_url, "hash": "", "title": "Unknown", "trackers": []}
 
     # Extract info hash
-    hash_match = re.search(r'urn:btih:([a-fA-F0-9]+)', magnet_url)
+    hash_match = re.search(r"urn:btih:([a-fA-F0-9]+)", magnet_url)
     if hash_match:
-        info['hash'] = hash_match.group(1)
+        info["hash"] = hash_match.group(1)
 
     # Extract display name
-    dn_match = re.search(r'[&?]dn=([^&]+)', magnet_url)
+    dn_match = re.search(r"[&?]dn=([^&]+)", magnet_url)
     if dn_match:
         # Decode URL encoding (e.g., %3A → :, %2C → ,, %E2%80%99 → ')
         from urllib.parse import unquote_plus
-        info['title'] = unquote_plus(dn_match.group(1))
+
+        info["title"] = unquote_plus(dn_match.group(1))
 
     # Extract trackers
-    trackers = re.findall(r'[&?]tr=([^&]+)', magnet_url)
-    info['trackers'] = trackers
+    trackers = re.findall(r"[&?]tr=([^&]+)", magnet_url)
+    info["trackers"] = trackers
 
     return info
 
@@ -152,14 +149,14 @@ def read_magnets() -> list[dict[str, str]]:
     os.makedirs(MAGNETS_DIR, exist_ok=True)
 
     # Find all magnet files (magnets_YYYY-MM-DD.txt)
-    magnet_files = glob.glob(os.path.join(MAGNETS_DIR, 'magnets_*.txt'))
+    magnet_files = glob.glob(os.path.join(MAGNETS_DIR, "magnets_*.txt"))
 
     # Sort by filename (date) descending
     magnet_files.sort(reverse=True)
 
     try:
         for file_path in magnet_files:
-            with open(file_path, encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 # Acquire shared lock to prevent reading partial writes from daemon
                 fcntl.flock(f.fileno(), fcntl.LOCK_SH)
                 try:
@@ -170,7 +167,7 @@ def read_magnets() -> list[dict[str, str]]:
 
             for line in lines:
                 line = line.strip()
-                if line and line.startswith('magnet:'):
+                if line and line.startswith("magnet:"):
                     magnet_info = parse_magnet_link(line)
                     magnets.append(magnet_info)
 
@@ -196,8 +193,8 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
     os.makedirs(MAGNETS_DIR, exist_ok=True)
 
     # Find all magnet files
-    magnet_files = glob.glob(os.path.join(MAGNETS_DIR, 'magnets_*.txt'))
-    magnet_files.sort(reverse=True) # Newest first
+    magnet_files = glob.glob(os.path.join(MAGNETS_DIR, "magnets_*.txt"))
+    magnet_files.sort(reverse=True)  # Newest first
 
     # Read ALL magnets (finding the total set)
     # Note: In a larger system, we would index this. For flat files, we read all.
@@ -206,10 +203,10 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
             # Extract date from filename for display (magnets_YYYY-MM-DD.txt)
             date_str = "Unknown"
             filename = os.path.basename(file_path)
-            if filename.startswith('magnets_') and filename.endswith('.txt'):
+            if filename.startswith("magnets_") and filename.endswith(".txt"):
                 date_str = filename[8:-4]
 
-            with open(file_path, encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 # Shared lock for reading
                 fcntl.flock(f.fileno(), fcntl.LOCK_SH)
                 try:
@@ -219,12 +216,13 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
 
             for line in lines:
                 line = line.strip()
-                if line and line.startswith('magnet:'):
+                if line and line.startswith("magnet:"):
                     # Basic parsing first to check query match (optimization)
                     title = "Unknown"
-                    dn_match = re.search(r'[&?]dn=([^&]+)', line)
+                    dn_match = re.search(r"[&?]dn=([^&]+)", line)
                     if dn_match:
                         from urllib.parse import unquote_plus
+
                         title = unquote_plus(dn_match.group(1))
 
                     # Filter if query exists
@@ -234,7 +232,7 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
 
                     # If match, fully parse and add
                     info = parse_magnet_link(line)
-                    info['date'] = date_str
+                    info["date"] = date_str
                     all_magnets.append(info)
 
     except Exception as e:
@@ -251,7 +249,7 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
     return paginated_items, total_count
 
 
-@app.route('/')
+@app.route("/")
 def index():
     """Simple web UI showing recent magnet links"""
     magnets = read_magnets()
@@ -261,19 +259,19 @@ def index():
     total_count = len(magnets)
 
     return render_template(
-        'index.html',
+        "index.html",
         magnets=display_magnets,
         magnet_count=total_count,
-        display_count=len(display_magnets)
+        display_count=len(display_magnets),
     )
 
 
-@app.route('/magnets')
+@app.route("/magnets")
 def magnets_view():
     """Magnets management view with search and pagination"""
-    query = request.args.get('q', '').strip()
+    query = request.args.get("q", "").strip()
     try:
-        page = int(request.args.get('page', 1))
+        page = int(request.args.get("page", 1))
         if page < 1:
             page = 1
     except ValueError:
@@ -285,22 +283,22 @@ def magnets_view():
     total_pages = math.ceil(total_count / per_page)
 
     return render_template(
-        'magnets.html',
+        "magnets.html",
         magnets=magnets,
         query=query,
         page=page,
         total_pages=total_pages,
-        total_count=total_count
+        total_count=total_count,
     )
 
 
-@app.route('/feed.xml')
+@app.route("/feed.xml")
 def feed():
     """RSS 2.0 feed of magnet links"""
     magnets = read_magnets()
 
     # Get base URL - auto-detect from request or use env override
-    base_url = os.getenv('BASE_URL')
+    base_url = os.getenv("BASE_URL")
     if not base_url:
         # Auto-detect from incoming request (works in Proxmox LXC, Docker, localhost)
         base_url = f"http://{request.host}"
@@ -308,14 +306,14 @@ def feed():
     # Build RSS 2.0 XML
     rss_items = []
     for magnet in magnets:
-        pub_date = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
-        guid = magnet['hash']
+        pub_date = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+        guid = magnet["hash"]
 
         # Properly escape magnet link for XML (handles &, <, >, ", ')
-        magnet_escaped = escape(magnet['magnet'])
+        magnet_escaped = escape(magnet["magnet"])
 
         # Escape ]]> in CDATA content to prevent breaking CDATA block
-        title_safe = magnet['title'].replace(']]>', ']]]]><![CDATA[>')
+        title_safe = magnet["title"].replace("]]>", "]]]]><![CDATA[>")
 
         item = f"""
         <item>
@@ -336,24 +334,24 @@ def feed():
         <link>{base_url}</link>
         <description>{FEED_DESCRIPTION}</description>
         <language>en-us</language>
-        <lastBuildDate>{datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')}</lastBuildDate>
+        <lastBuildDate>{datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
         <atom:link href="{base_url}/feed.xml" rel="self" type="application/rss+xml" />
 
-        {''.join(rss_items)}
+        {"".join(rss_items)}
     </channel>
 </rss>
 """
 
-    return Response(rss_xml, mimetype='application/rss+xml')
+    return Response(rss_xml, mimetype="application/rss+xml")
 
 
-@app.route('/health')
+@app.route("/health")
 def health():
     """Health check endpoint"""
     magnets = read_magnets()
 
     # Get list of magnet files for stats (sorted by date, newest first)
-    magnet_files = sorted(glob.glob(os.path.join(MAGNETS_DIR, 'magnets_*.txt')), reverse=True)
+    magnet_files = sorted(glob.glob(os.path.join(MAGNETS_DIR, "magnets_*.txt")), reverse=True)
 
     # Safely get latest file (defensive against empty list)
     latest_file = None
@@ -361,11 +359,11 @@ def health():
         latest_file = os.path.basename(magnet_files[0])
 
     return {
-        'status': 'ok',
-        'magnet_count': len(magnets),
-        'magnets_dir': MAGNETS_DIR,
-        'magnet_files_count': len(magnet_files),
-        'latest_file': latest_file
+        "status": "ok",
+        "magnet_count": len(magnets),
+        "magnets_dir": MAGNETS_DIR,
+        "magnet_files_count": len(magnet_files),
+        "latest_file": latest_file,
     }
 
 
@@ -373,22 +371,22 @@ def health():
 config_manager = ConfigManager()
 
 
-@app.route('/settings', methods=['GET', 'POST'])
+@app.route("/settings", methods=["GET", "POST"])
 @requires_auth
 def settings():
     """Settings page for BIND configuration"""
     message = None
     success = False
 
-    if request.method == 'POST':
+    if request.method == "POST":
         # Collect form data
         new_config = {
-            'ABB_URL': request.form.get('ABB_URL', '').strip(),
-            'SCRAPE_INTERVAL': request.form.get('SCRAPE_INTERVAL', '60').strip(),
-            'BIND_PROXY': request.form.get('BIND_PROXY', '').strip(),
-            'BASE_URL': request.form.get('BASE_URL', '').strip(),
-            'CIRCUIT_BREAKER_THRESHOLD': request.form.get('CIRCUIT_BREAKER_THRESHOLD', '3').strip(),
-            'CIRCUIT_BREAKER_COOLDOWN': request.form.get('CIRCUIT_BREAKER_COOLDOWN', '300').strip(),
+            "ABB_URL": request.form.get("ABB_URL", "").strip(),
+            "SCRAPE_INTERVAL": request.form.get("SCRAPE_INTERVAL", "60").strip(),
+            "BIND_PROXY": request.form.get("BIND_PROXY", "").strip(),
+            "BASE_URL": request.form.get("BASE_URL", "").strip(),
+            "CIRCUIT_BREAKER_THRESHOLD": request.form.get("CIRCUIT_BREAKER_THRESHOLD", "3").strip(),
+            "CIRCUIT_BREAKER_COOLDOWN": request.form.get("CIRCUIT_BREAKER_COOLDOWN", "300").strip(),
         }
 
         # Save configuration
@@ -410,32 +408,27 @@ def settings():
     # Read current config for form
     config = config_manager.read_config()
 
-    return render_template(
-        'settings.html',
-        config=config,
-        message=message,
-        success=success
-    )
+    return render_template("settings.html", config=config, message=message, success=success)
 
 
-@app.route('/logs')
+@app.route("/logs")
 @requires_auth
 def logs_view():
     """System logs view"""
-    log_type = request.args.get('log', 'security')
+    log_type = request.args.get("log", "security")
 
     # map log type to filename
-    if log_type == 'daemon':
-        filename = 'bind.log'
+    if log_type == "daemon":
+        filename = "bind.log"
         # Assume bind.log is in the current working directory
         filepath = os.path.join(os.getcwd(), filename)
-    elif log_type == 'history':
-        filename = 'history.log'
+    elif log_type == "history":
+        filename = "history.log"
         filepath = os.path.join(MAGNETS_DIR, filename)
     else:
         # Default to security
-        log_type = 'security'
-        filename = 'security.log'
+        log_type = "security"
+        filename = "security.log"
         filepath = get_security_log_path()
 
     logs = []
@@ -443,7 +436,7 @@ def logs_view():
 
     if os.path.exists(filepath):
         try:
-            with open(filepath, encoding='utf-8') as f:
+            with open(filepath, encoding="utf-8") as f:
                 # Read all lines and take the last MAX_LINES
                 lines = f.readlines()
                 # Reverse to show newest first
@@ -454,28 +447,24 @@ def logs_view():
         logs = [f"Log file not found: {filepath}"]
 
     return render_template(
-        'logs.html',
-        current_log=log_type,
-        log_file=filename,
-        logs=logs,
-        line_count=len(logs)
+        "logs.html", current_log=log_type, log_file=filename, logs=logs, line_count=len(logs)
     )
 
 
-@app.route('/setup', methods=['GET', 'POST'])
+@app.route("/setup", methods=["GET", "POST"])
 def setup():
     """First-time setup page for creating admin account."""
     # If setup is already complete, redirect to dashboard
     if is_setup_complete():
-        return redirect('/')
+        return redirect("/")
 
     error = None
-    username = ''
+    username = ""
 
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        confirm_password = request.form.get('confirm_password', '')
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
 
         # Validate passwords match
         if password != confirm_password:
@@ -484,20 +473,20 @@ def setup():
             # Attempt to save credentials
             success, message = save_credentials(username, password)
             if success:
-                return redirect('/')
+                return redirect("/")
             else:
                 error = message
 
-    return render_template('setup.html', error=error, username=username)
+    return render_template("setup.html", error=error, username=username)
 
 
-@app.route('/settings/password', methods=['POST'])
+@app.route("/settings/password", methods=["POST"])
 @requires_auth
 def change_password_route():
     """Handle password change form submission."""
-    current_password = request.form.get('current_password', '')
-    new_password = request.form.get('new_password', '')
-    confirm_password = request.form.get('confirm_new_password', '')
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_new_password", "")
 
     password_message = None
     password_success = False
@@ -513,12 +502,12 @@ def change_password_route():
     config = config_manager.read_config()
 
     return render_template(
-        'settings.html',
+        "settings.html",
         config=config,
         message=None,
         success=False,
         password_message=password_message,
-        password_success=password_success
+        password_success=password_success,
     )
 
 
@@ -532,10 +521,10 @@ def check_daemon_status():
         # Ideally we'd read this from config, but for now we'll assume standard behavior.
         # If we can read config, even better.
         config = config_manager.read_config()
-        interval = int(config.get('SCRAPE_INTERVAL', 60))
+        interval = int(config.get("SCRAPE_INTERVAL", 60))
 
         # Path to bind.log (assumed in CWD as per logs_view)
-        log_path = os.path.join(os.getcwd(), 'bind.log')
+        log_path = os.path.join(os.getcwd(), "bind.log")
 
         if not os.path.exists(log_path):
             return "unknown", "Log file not found", 0
@@ -546,7 +535,7 @@ def check_daemon_status():
 
         diff_minutes = (now - last_active).total_seconds() / 60
 
-        if diff_minutes < (interval * 2) + 5: # Small buffer
+        if diff_minutes < (interval * 2) + 5:  # Small buffer
             return "online", f"Active (Last job: {int(diff_minutes)}m ago)", mtime
         else:
             return "offline", f"Stalled (Last job: {int(diff_minutes)}m ago)", mtime
@@ -555,7 +544,7 @@ def check_daemon_status():
         return "unknown", f"Error checking status: {str(e)}", 0
 
 
-@app.route('/api/stats')
+@app.route("/api/stats")
 def api_stats():
     """
     API Endpoint for real-time dashboard statistics.
@@ -579,12 +568,13 @@ def api_stats():
         "status_message": message,
         "magnet_count": count,
         "recent_magnets": recent_magnets,
-        "server_time": datetime.utcnow().isoformat() + "Z"
+        "server_time": datetime.utcnow().isoformat() + "Z",
     }
 
-if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5050))
-    host = os.getenv('HOST', '0.0.0.0')
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5050))
+    host = os.getenv("HOST", "0.0.0.0")
 
     print(f"Starting BIND RSS Server on {host}:{port}")
     print(f"RSS Feed: http://{host}:{port}/feed.xml")

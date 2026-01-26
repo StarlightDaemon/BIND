@@ -14,23 +14,23 @@ class ConfigManager:
 
     # Default configuration values
     DEFAULTS = {
-        'ABB_URL': 'http://audiobookbay.lu',
-        'SCRAPE_INTERVAL': '60',
-        'BIND_PROXY': '',
-        'BASE_URL': '',
-        'CIRCUIT_BREAKER_THRESHOLD': '3',
-        'CIRCUIT_BREAKER_COOLDOWN': '300',
-        'MAGNETS_DIR': 'data/magnets',
+        "ABB_URL": "http://audiobookbay.lu",
+        "SCRAPE_INTERVAL": "60",
+        "BIND_PROXY": "",
+        "BASE_URL": "",
+        "CIRCUIT_BREAKER_THRESHOLD": "3",
+        "CIRCUIT_BREAKER_COOLDOWN": "300",
+        "MAGNETS_DIR": "data/magnets",
     }
 
     # Validation rules: (min, max) for integers, 'url' for URLs, 'proxy' for proxy URLs
     VALIDATORS = {
-        'ABB_URL': 'url',
-        'SCRAPE_INTERVAL': (15, 1440),
-        'BIND_PROXY': 'proxy',
-        'BASE_URL': 'url_optional',
-        'CIRCUIT_BREAKER_THRESHOLD': (1, 10),
-        'CIRCUIT_BREAKER_COOLDOWN': (60, 3600),
+        "ABB_URL": "url",
+        "SCRAPE_INTERVAL": (15, 1440),
+        "BIND_PROXY": "proxy",
+        "BASE_URL": "url_optional",
+        "CIRCUIT_BREAKER_THRESHOLD": (1, 10),
+        "CIRCUIT_BREAKER_COOLDOWN": (60, 3600),
     }
 
     def __init__(self, config_path: str | None = None):
@@ -43,12 +43,12 @@ class ConfigManager:
         """
         if config_path:
             self.config_path = config_path
-        elif os.path.exists('/opt/bind/config.env'):
-            self.config_path = '/opt/bind/config.env'
+        elif os.path.exists("/opt/bind/config.env"):
+            self.config_path = "/opt/bind/config.env"
         else:
             # Local development fallback
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            self.config_path = os.path.join(base_dir, 'config.env')
+            self.config_path = os.path.join(base_dir, "config.env")
 
     def read_config(self) -> dict:
         """
@@ -63,17 +63,17 @@ class ConfigManager:
             return config
 
         try:
-            with open(self.config_path, encoding='utf-8') as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 fcntl.flock(f.fileno(), fcntl.LOCK_SH)
                 try:
                     for line in f:
                         line = line.strip()
                         # Skip comments and empty lines
-                        if not line or line.startswith('#'):
+                        if not line or line.startswith("#"):
                             continue
                         # Parse KEY=VALUE
-                        if '=' in line:
-                            key, value = line.split('=', 1)
+                        if "=" in line:
+                            key, value = line.split("=", 1)
                             key = key.strip()
                             value = value.strip()
                             if key in self.DEFAULTS:
@@ -114,10 +114,10 @@ class ConfigManager:
             value = settings.get(key, self.DEFAULTS[key])
             lines.append(f"{key}={value}")
 
-        content = '\n'.join(lines) + '\n'
+        content = "\n".join(lines) + "\n"
 
         try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                 try:
                     f.write(content)
@@ -151,23 +151,26 @@ class ConfigManager:
             return True, ""
 
         # URL validation
-        if validator == 'url':
+        if validator == "url":
             if not value:
                 return False, f"{key} cannot be empty."
-            if not re.match(r'^https?://', value):
+            if not re.match(r"^https?://", value):
                 return False, f"{key} must be a valid HTTP/HTTPS URL."
             return True, ""
 
         # Optional URL validation
-        if validator == 'url_optional':
-            if value and not re.match(r'^https?://', value):
+        if validator == "url_optional":
+            if value and not re.match(r"^https?://", value):
                 return False, f"{key} must be a valid HTTP/HTTPS URL or empty."
             return True, ""
 
         # Proxy validation (http, https, socks4, socks5)
-        if validator == 'proxy':
-            if value and not re.match(r'^(https?|socks[45])://', value):
-                return False, f"{key} must be a valid proxy URL (http/https/socks4/socks5) or empty."
+        if validator == "proxy":
+            if value and not re.match(r"^(https?|socks[45])://", value):
+                return (
+                    False,
+                    f"{key} must be a valid proxy URL (http/https/socks4/socks5) or empty.",
+                )
             return True, ""
 
         return True, ""
@@ -182,25 +185,22 @@ class ConfigManager:
         try:
             # Reload systemd to pick up any service file changes
             subprocess.run(
-                ['systemctl', 'daemon-reload'],
-                capture_output=True,
-                timeout=10,
-                check=False
+                ["systemctl", "daemon-reload"], capture_output=True, timeout=10, check=False
             )
 
             # Restart the BIND service
             # Restart the BIND service
             subprocess.run(
-                ['systemctl', 'restart', 'bind.service'],
+                ["systemctl", "restart", "bind.service"],
                 capture_output=True,
                 timeout=30,
-                check=True
+                check=True,
             )
             return True, "Daemon restarted successfully."
         except subprocess.TimeoutExpired:
             return False, "Daemon restart timed out."
         except subprocess.CalledProcessError as e:
-            stderr = e.stderr.decode('utf-8', errors='replace') if e.stderr else ''
+            stderr = e.stderr.decode("utf-8", errors="replace") if e.stderr else ""
             return False, f"Failed to restart daemon: {stderr}"
         except FileNotFoundError:
             return False, "systemctl not found. Running in development mode?"
