@@ -1,6 +1,8 @@
 # BIND - Book Indexing Network Daemon
 
+[![CI](https://github.com/StarlightDaemon/BIND/actions/workflows/ci.yml/badge.svg)](https://github.com/StarlightDaemon/BIND/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-1.2_LTS-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.2.0)
+[![Python](https://img.shields.io/badge/python-3.10+-yellow.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](scripts/install-proxmox-lxc.sh)
 
@@ -21,7 +23,7 @@
 
 Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and works with all RSS-capable torrent clients.
 
-> **⚠️ Security Note**: BIND has no authentication and is designed for **private LAN use only**. Do not expose port 5050 to the internet. If external access is needed, use a reverse proxy with authentication (nginx, Caddy, Cloudflare Tunnel).
+> **⚠️ Security Note**: BIND includes a built-in authentication system (Setup Wizard, Password Protection, Bruteforce Lockout). However, for maximum security, we still recommend running behind a reverse proxy (nginx, Caddy, Cloudflare Tunnel) if exposing to the public internet.
 
 ## 🚀 Installation
 
@@ -201,20 +203,21 @@ BIND is configured via environment variables in systemd service files. See [`doc
 - `CIRCUIT_BREAKER_THRESHOLD` - Failures before circuit opens (default: 3)
 - `CIRCUIT_BREAKER_COOLDOWN` - Cooldown period in seconds (default: 300)
 
-**To change:**
-```bash
-# Edit service file
-pct enter <CTID>
-nano /etc/systemd/system/bind.service
+**Configuration Sources (Precedence Order):**
+1. **CLI Flags** (e.g. `--interval 120` manually) - Highest priority
+2. **Environment Variables** (from `config.env` or systemd)
+3. **Defaults** (Hardcoded fallback)
 
-# Add environment variables under [Service]:
-Environment="ABB_URL=http://new-domain.com"
-Environment="BIND_PROXY=socks5://proxy:1080"
+**To change configuration:**
+- 🌐 **Web UI**: Go to `http://YOUR-IP:5050/settings` (Recommended)
+- 📝 **File**: Edit `/opt/bind/config.env` and run `systemctl restart bind`
+- 🖥️ **Systemd**: Override via `systemctl edit bind` (Advanced)
 
-# Apply changes
-systemctl daemon-reload
-systemctl restart bind
-```
+### Operational Defaults (v1.2 Standard)
+- **Runtime Data**: `data/magnets/` (Canonical storage path)
+- **Config Key**: `MAGNETS_DIR`
+- **Precedence**: Environment Variables > `config.env` > Hardcoded Defaults
+- **Security**: `credentials.json` and logs are ignored by git. Do not commit secrets.
 
 ## Environment Variables (Reference)
 
@@ -225,7 +228,7 @@ BIND is configured via environment variables in `bind.service` or `bind-rss.serv
 | `BIND_PROXY` | `None` | Optional HTTP/SOCKS5 proxy (e.g., `socks5://user:pass@host:1080`) |
 | `ABB_URL` | `http://audiobookbay.lu` | Target domain (change if site moves) |
 | `BASE_URL` | Auto-detected | Override RSS feed base URL |
-| `MAGNETS_DIR` | `/opt/bind/magnets` | Storage directory for magnet files |
+| `MAGNETS_DIR` | `data/magnets` | Storage directory for magnet files (Packaged: `/opt/bind/data/magnets`) |
 | `PORT` | `5050` | Web UI and RSS feed port (change if conflicting) |
 | `CIRCUIT_BREAKER_THRESHOLD` | `3` | Failures before scraper pauses |
 | `CIRCUIT_BREAKER_COOLDOWN` | `300` | Seconds to wait after pausing |
@@ -255,6 +258,26 @@ BIND is configured via environment variables in `bind.service` or `bind-rss.serv
 Ensure compliance with copyright laws in your jurisdiction. BIND archives metadata only - not copyrighted works. Use only for public domain and legally distributable content.
 
 **By using BIND, you agree to use it solely for legal, educational, and archival purposes in accordance with applicable laws.**
+
+---
+
+## Development
+
+```bash
+# Setup
+git clone https://github.com/StarlightDaemon/BIND.git && cd BIND
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+pip install pytest pytest-cov pytest-mock ruff
+
+# Run Tests
+pytest -v                    # All tests
+pytest --cov=src             # With coverage
+
+# Linting
+ruff check src/ tests/       # Check issues
+ruff format src/ tests/      # Auto-format
+```
 
 ---
 
