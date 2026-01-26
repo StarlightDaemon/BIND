@@ -51,12 +51,17 @@ class TestCircuitBreaker:
 
     def test_cooldown_allows_retry(self):
         """After cooldown period, circuit should allow retry."""
-        # Use short cooldown for this test
-        cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=0.2)
+        import os
+        from unittest import mock
 
-        cb.record_failure()  # First failure
-        cb.record_failure()  # Second failure - opens circuit
-        assert cb.is_open is True
+        # Ensure env var doesn't override our explicit low cooldown
+        with mock.patch.dict(os.environ, {}, clear=True):
+             # Use short cooldown for this test
+            cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=0.2)
+
+            cb.record_failure()  # First failure
+            cb.record_failure()  # Second failure - opens circuit
+            assert cb.is_open is True
 
         # Immediately after opening, should block attempts
         # Note: can_attempt() may return True if cooldown already expired
@@ -64,7 +69,7 @@ class TestCircuitBreaker:
 
         # Wait for cooldown to expire
         import time
-        time.sleep(0.25)
+        time.sleep(0.35)
 
         # Should now allow attempt (cooldown expired)
         assert cb.can_attempt() is True
