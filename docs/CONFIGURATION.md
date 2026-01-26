@@ -87,7 +87,7 @@ Environment="CIRCUIT_BREAKER_COOLDOWN=600"     # Seconds to wait
 Edit the service file and modify the `ExecStart` line:
 ```ini
 # Default: scrapes every 60 minutes
-ExecStart=/opt/bind/venv/bin/python -m src.bind daemon --interval 30 --output-dir /opt/bind/magnets
+ExecStart=/opt/bind/venv/bin/python -m src.bind daemon --interval 30 --output-dir /opt/bind/data/magnets
 ```
 
 ### Enable Proxy

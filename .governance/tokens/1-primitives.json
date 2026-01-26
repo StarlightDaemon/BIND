@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Starlight Carbon Architect - Tier 1 Primitive Tokens. RAW VALUES ONLY.",
+  "tokens": {
+    "colors": {
+      "blue": {
+        "10": "#edf5ff",
+        "20": "#d0e2ff",
+        "30": "#a6c8ff",
+        "40": "#78a9ff",
+        "50": "#4589ff",
+        "60": "#0f62fe",
+        "70": "#0043ce",
+        "80": "#002d9c",
+        "90": "#001d6f",
+        "100": "#001141"
+      },
+      "gray": {
+        "10": "#f4f4f4",
+        "20": "#e0e0e0",
+        "30": "#c6c6c6",
+        "40": "#a8a8a8",
+        "50": "#8d8d8d",
+        "60": "#6f6f6f",
+        "70": "#525252",
+        "80": "#393939",
+        "90": "#262626",
+        "100": "#161616"
+      },
+      "white": "#ffffff",
+      "black": "#000000",
+      "alert": {
+        "red": "#da1e28",
+        "orange": "#ff832b",
+        "yellow": "#f1c21b",
+        "green": "#198038"
+      }
+    },
+    "spacing": {
+      "01": "0.125rem",
+      "02": "0.25rem",
+      "03": "0.5rem",
+      "04": "0.75rem",
+      "05": "1rem",
+      "06": "1.5rem",
+      "07": "2rem",
+      "08": "2.5rem",
+      "09": "3rem",
+      "10": "4rem",
+      "11": "5rem",
+      "12": "6rem",
+      "13": "10rem"
+    },
+    "typography": {
+      "fontFamily": {
+        "sans": "'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif",
+        "mono": "'IBM Plex Mono', 'Menlo', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', Courier, monospace"
+      }
+    }
+  }
+}

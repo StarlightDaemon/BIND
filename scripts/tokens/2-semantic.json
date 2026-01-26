@@ -1,0 +1,70 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "description": "Starlight Carbon Architect - Tier 2 Semantic Tokens. CONTEXT/INTENT MAPPING.",
+    "themes": {
+        "white": {
+            "background": "{colors.white}",
+            "text": {
+                "primary": "{colors.gray.100}",
+                "secondary": "{colors.gray.70}",
+                "placeholder": "{colors.gray.40}",
+                "onColor": "{colors.white}",
+                "error": "{colors.alert.red}"
+            },
+            "layer": {
+                "01": "{colors.gray.10}",
+                "02": "{colors.white}",
+                "03": "{colors.gray.10}"
+            },
+            "interactive": {
+                "01": "{colors.blue.60}",
+                "02": "{colors.gray.80}",
+                "03": "{colors.blue.60}",
+                "04": "{colors.blue.60}"
+            },
+            "border": {
+                "subtle": "{colors.gray.20}",
+                "strong": "{colors.gray.50}",
+                "interactive": "{colors.blue.60}"
+            },
+            "support": {
+                "error": "{colors.alert.red}",
+                "success": "{colors.alert.green}",
+                "warning": "{colors.alert.yellow}",
+                "info": "{colors.blue.60}"
+            }
+        },
+        "gray100": {
+            "background": "{colors.gray.100}",
+            "text": {
+                "primary": "{colors.gray.10}",
+                "secondary": "{colors.gray.30}",
+                "placeholder": "{colors.gray.60}",
+                "onColor": "{colors.auth.white}",
+                "error": "{colors.alert.red}"
+            },
+            "layer": {
+                "01": "{colors.gray.90}",
+                "02": "{colors.gray.80}",
+                "03": "{colors.gray.70}"
+            },
+            "interactive": {
+                "01": "{colors.blue.50}",
+                "02": "{colors.gray.60}",
+                "03": "{colors.blue.50}",
+                "04": "{colors.blue.50}"
+            },
+            "border": {
+                "subtle": "{colors.gray.80}",
+                "strong": "{colors.gray.60}",
+                "interactive": "{colors.blue.50}"
+            },
+            "support": {
+                "error": "{colors.alert.red}",
+                "success": "{colors.alert.green}",
+                "warning": "{colors.alert.yellow}",
+                "info": "{colors.blue.50}"
+            }
+        }
+    }
+}

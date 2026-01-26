@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Magnets - BIND</title>
+    <link rel="stylesheet" href="/static/css/carbon.css?v=1">
+</head>
+
+<body class="page-magnets">
+    <!-- UI Shell -->
+    <header class="ui-shell">
+        <span class="shell-name"><strong>BIND</strong> / System Daemon</span>
+    </header>
+
+    <div class="layout-wrapper">
+        <aside class="left-nav">
+            <nav>
+                <ul>
+                    <li><a href="/">Dashboard</a></li>
+                    <li><a href="/magnets" class="active">Magnets</a></li>
+                    <li><a href="/settings">Settings</a></li>
+                    <li><a href="/logs">System Logs</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="content-area">
+            <header>
+                <h1>Magnets</h1>
+                <p class="subtitle">Search and manage indexed audiobook magnet links.</p>
+            </header>
+
+            <!-- Search Bar -->
+            <section class="search-container">
+                <form action="/magnets" method="GET" class="search-form">
+                    <input type="text" name="q" class="search-input" placeholder="Search by title..."
+                        value="{{ query }}">
+                    <button type="submit" class="btn btn-primary">Search</button>
+                    {% if query %}
+                    <a href="/magnets" class="btn btn-secondary">Clear</a>
+                    {% endif %}
+                </form>
+            </section>
+
+            <!-- Results List -->
+            <section>
+                {% if magnets %}
+                <div class="magnet-list">
+                    {% for magnet in magnets %}
+                    <div class="magnet-row">
+                        <div class="magnet-info">
+                            <span class="magnet-title">{{ magnet.title }}</span>
+                            <div class="magnet-meta">
+                                <span>{{ magnet.date }}</span>
+                                <span>{{ magnet.hash[:8] }}...</span>
+                            </div>
+                        </div>
+                        <div class="magnet-actions">
+                            <a href="{{ magnet.magnet }}" class="btn btn-primary btn-sm">Download</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination">
+                    <div class="pagination-info">
+                        Showing page {{ page }} of {{ total_pages }} ({{ total_count }} total)
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        {% if page > 1 %}
+                        <a href="/magnets?page={{ page - 1 }}{{ '&q=' + query if query else '' }}"
+                            class="btn btn-secondary btn-sm">Previous</a>
+                        {% else %}
+                        <button class="btn btn-secondary btn-sm" disabled
+                            style="opacity: 0.5; cursor: not-allowed;">Previous</button>
+                        {% endif %}
+
+                        {% if page < total_pages %} <a
+                            href="/magnets?page={{ page + 1 }}{{ '&q=' + query if query else '' }}"
+                            class="btn btn-secondary btn-sm">Next</a>
+                            {% else %}
+                            <button class="btn btn-secondary btn-sm" disabled
+                                style="opacity: 0.5; cursor: not-allowed;">Next</button>
+                            {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <h3>No Results Found</h3>
+                    <p>Try adjusting your search terms or checking back later.</p>
+                </div>
+                {% endif %}
+            </section>
+        </main>
+    </div>
+</body>
+
+</html>

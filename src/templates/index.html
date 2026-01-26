@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BIND - Book Indexing Network Daemon</title>
+  <link rel="stylesheet" href="/static/css/carbon.css?v=1">
+</head>
+
+<body class="page-dashboard">
+  <!-- UI Shell (Fixed Header) -->
+  <header class="ui-shell">
+    <span class="shell-name"><strong>BIND</strong> / System Daemon</span>
+  </header>
+
+  <div class="layout-wrapper">
+    <aside class="left-nav">
+      <nav>
+        <ul>
+          <li><a href="#" class="active">Dashboard</a></li>
+          <li><a href="/magnets">Magnets</a></li>
+          <li><a href="/settings">Settings</a></li>
+          <li><a href="/logs">System Logs</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="content-area">
+      <!-- Page Lead -->
+      <header>
+        <p class="subtitle">Book Indexing Network Daemon</p>
+      </header>
+
+      <!-- Dashboard Widgets -->
+      <section class="dashboard-grid">
+        <div class="tile">
+          <span class="tile-label">Total Magnets</span>
+          <span class="tile-value" id="magnet-count">{{ magnet_count }}</span>
+        </div>
+        <div class="tile">
+          <span class="tile-label">System Status</span>
+          <div class="status-container">
+            <span class="tile-value tile-value-sm status-active" id="system-status">● Active</span>
+          </div>
+        </div>
+        <div class="tile">
+          <span class="tile-label">Feed Access</span>
+          <div>
+            <a href="/feed.xml" class="btn btn-primary">RSS Feed</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recent Lists -->
+      <section>
+        <div class="section-header">
+          <h2>Recent Index</h2>
+          <span class="section-count" id="last-updated-text"
+            style="font-size: 0.75rem; color: var(--text-secondary); margin-left: auto;"></span>
+          {% if display_count < magnet_count %} <span class="section-count" style="display: none;">
+            <!-- Hidden but kept for potential structure -->
+            Displaying {{ display_count }} / {{ magnet_count }}
+            </span>
+            {% endif %}
+        </div>
+
+        <div id="magnet-list-container">
+          {% if magnets %}
+          <div class="magnet-list">
+            {% for magnet in magnets %}
+            <div class="magnet-row">
+              <div class="magnet-info">
+                <h3>{{ magnet.title }}</h3>
+                <span class="magnet-hash">{{ magnet.hash }}</span>
+              </div>
+              <div class="magnet-actions">
+                <a href="{{ magnet.magnet }}" class="btn btn-primary btn-sm">Download</a>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <h3>No Magnets Indexed</h3>
+            <p>The daemon is running. Check back later for updates.</p>
+          </div>
+          {% endif %}
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const magnetCountEl = document.getElementById('magnet-count');
+      const systemStatusEl = document.getElementById('system-status');
+      const magnetListContainer = document.getElementById('magnet-list-container');
+      const lastUpdatedText = document.getElementById('last-updated-text');
+
+      let lastContentHash = '';
+
+      const escapeHtml = (unsafe) => {
+        return unsafe
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      const updateStats = async () => {
+        try {
+          const res = await fetch('/api/stats');
+          if (!res.ok) throw new Error('API Error');
+          const data = await res.json();
+
+          // Update Count
+          if (magnetCountEl) {
+            magnetCountEl.textContent = data.magnet_count;
+          }
+
+          // Update Status
+          if (systemStatusEl) {
+            if (data.system_status === 'online') {
+              systemStatusEl.innerHTML = '● Active';
+              systemStatusEl.className = 'tile-value tile-value-sm status-active';
+              systemStatusEl.title = data.status_message;
+              systemStatusEl.style.color = ''; // Reset inline style
+            } else {
+              systemStatusEl.innerHTML = '● Offline';
+              systemStatusEl.className = 'tile-value tile-value-sm'; // Removes status-active
+              systemStatusEl.style.color = '#525252'; // Gray 70
+              systemStatusEl.title = data.status_message;
+            }
+          }
+
+          // Update Last Checked
+          if (lastUpdatedText) {
+            const now = new Date();
+            lastUpdatedText.textContent = `Last checked: ${now.toLocaleTimeString()}`;
+          }
+
+          // Update Magnet List if changed
+          if (data.recent_magnets && magnetListContainer) {
+            // Simple hash check or just JSON stringify comparison to avoid repaint
+            const currentHash = JSON.stringify(data.recent_magnets);
+            if (currentHash !== lastContentHash) {
+              lastContentHash = currentHash;
+
+              if (data.recent_magnets.length === 0) {
+                magnetListContainer.innerHTML = `
+                    <div class="empty-state">
+                      <h3>No Magnets Indexed</h3>
+                      <p>The daemon is running. Check back later for updates.</p>
+                    </div>`;
+              } else {
+                const listHtml = data.recent_magnets.map(magnet => `
+                  <div class="magnet-row">
+                    <div class="magnet-info">
+                      <h3>${escapeHtml(magnet.title)}</h3>
+                      <span class="magnet-hash">${escapeHtml(magnet.hash)}</span>
+                    </div>
+                    <div class="magnet-actions">
+                      <a href="${escapeHtml(magnet.magnet)}" class="btn btn-primary btn-sm">Download</a>
+                    </div>
+                  </div>
+                `).join('');
+
+                magnetListContainer.innerHTML = `<div class="magnet-list">${listHtml}</div>`;
+              }
+            }
+          }
+
+        } catch (e) {
+          console.error("Failed to fetch stats", e);
+        }
+      };
+
+      // Poll every 10 seconds
+      setInterval(updateStats, 10000);
+
+      // Initial call
+      updateStats();
+    });
+  </script>
+</body>
+
+</html>

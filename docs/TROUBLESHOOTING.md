@@ -41,6 +41,8 @@ curl http://localhost:5050/feed.xml
 ```bash
 pct enter <container-id>
 journalctl -u bind.service -n 50
+# Or inspect the log file directly:
+tail -f /opt/bind/bind.log
 ls -lh /opt/bind/magnets/
 ```
 
