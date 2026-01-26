@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Settings - BIND</title>
+    <link rel="stylesheet" href="/static/css/carbon.css?v=1">
+</head>
+
+<body class="page-settings">
+    <!-- UI Shell -->
+    <header class="ui-shell">
+        <span class="shell-name"><strong>BIND</strong> / System Daemon</span>
+    </header>
+
+    <div class="layout-wrapper">
+        <aside class="left-nav">
+            <nav>
+                <ul>
+                    <li><a href="/">Dashboard</a></li>
+                    <li><a href="/magnets">Magnets</a></li>
+                    <li><a href="/settings" class="active">Settings</a></li>
+                    <li><a href="/logs">System Logs</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="content-area">
+            <header>
+                <h1>Settings</h1>
+                <p class="subtitle">Configure BIND daemon behavior</p>
+            </header>
+
+            {% if message %}
+            <div class="flash-message {{ 'flash-success' if success else 'flash-error' }}">
+                {{ message }}
+            </div>
+            {% endif %}
+
+            <form method="POST" action="/settings" class="form-card">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h2>Target Configuration</h2>
+
+                <div class="form-group">
+                    <label for="abb_url">Target URL</label>
+                    <input type="url" id="abb_url" name="ABB_URL" value="{{ config.ABB_URL }}" required>
+                    <span class="helper-text">AudioBookBay domain (e.g., http://audiobookbay.lu)</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="scrape_interval">Scraping Interval (minutes)</label>
+                    <input type="number" id="scrape_interval" name="SCRAPE_INTERVAL"
+                        value="{{ config.SCRAPE_INTERVAL }}" min="15" max="1440" required>
+                    <span class="helper-text">How often to check for new content (15-1440 minutes)</span>
+                </div>
+
+                <h2>Network Settings</h2>
+
+                <div class="form-group">
+                    <label for="bind_proxy">Proxy (optional)</label>
+                    <input type="text" id="bind_proxy" name="BIND_PROXY" value="{{ config.BIND_PROXY }}"
+                        placeholder="socks5://user:pass@proxy:1080">
+                    <span class="helper-text">HTTP/SOCKS5 proxy for scraping</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="base_url">RSS Base URL Override (optional)</label>
+                    <input type="text" id="base_url" name="BASE_URL" value="{{ config.BASE_URL }}"
+                        placeholder="http://bind.mydomain.com">
+                    <span class="helper-text">Override auto-detected RSS feed URL</span>
+                </div>
+
+                <h2>Circuit Breaker</h2>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cb_threshold">Failure Threshold</label>
+                        <input type="number" id="cb_threshold" name="CIRCUIT_BREAKER_THRESHOLD"
+                            value="{{ config.CIRCUIT_BREAKER_THRESHOLD }}" min="1" max="10" required>
+                        <span class="helper-text">Failures before cooldown (1-10)</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cb_cooldown">Cooldown (seconds)</label>
+                        <input type="number" id="cb_cooldown" name="CIRCUIT_BREAKER_COOLDOWN"
+                            value="{{ config.CIRCUIT_BREAKER_COOLDOWN }}" min="60" max="3600" required>
+                        <span class="helper-text">Wait time after failures (60-3600)</span>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save &amp; Restart</button>
+                    <a href="/" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+
+            <!-- Password Change Section -->
+            <form method="POST" action="/settings/password" class="form-card" style="margin-top: var(--spacing-07);">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h2 style="margin-top: 0;">Change Password</h2>
+
+                {% if password_message %}
+                <div class="flash-message {{ 'flash-success' if password_success else 'flash-error' }}">
+                    {{ password_message }}
+                </div>
+                {% endif %}
+
+                <div class="form-group">
+                    <label for="current_password">Current Password</label>
+                    <input type="password" id="current_password" name="current_password" required
+                        autocomplete="current-password">
+                </div>
+
+                <div class="form-group">
+                    <label for="new_password">New Password</label>
+                    <input type="password" id="new_password" name="new_password" required minlength="8"
+                        autocomplete="new-password">
+                    <span class="helper-text">Min 8 characters, must include a number or special character</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_new_password">Confirm New Password</label>
+                    <input type="password" id="confirm_new_password" name="confirm_new_password" required minlength="8"
+                        autocomplete="new-password">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Change Password</button>
+                </div>
+            </form>
+        </main>
+    </div>
+</body>
+
+</html>

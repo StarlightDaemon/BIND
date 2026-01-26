@@ -62,3 +62,11 @@ old_brain/
 
 # External research artifacts (not part of core project)
 docs/research/
+
+# Hygiene Audit 2026-01-26
+*.out
+.coverage
+.pytest_cache/
+.ruff_cache/
+data/
+credentials.json

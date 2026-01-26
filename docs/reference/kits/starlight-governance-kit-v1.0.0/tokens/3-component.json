@@ -1,0 +1,45 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "description": "Starlight Carbon Architect - Tier 3 Component Tokens. SPECIFIC OVERRIDES.",
+    "components": {
+        "button": {
+            "primary": {
+                "background": "{interactive.01}",
+                "text": "{text.onColor}",
+                "hover": "{interactive.01} + brightness(-10%)"
+            },
+            "secondary": {
+                "background": "{interactive.02}",
+                "text": "{text.onColor}"
+            }
+        },
+        "ai-label": {
+            "sizes": {
+                "mini": "16px",
+                "xs": "20px",
+                "sm": "24px",
+                "md": "32px",
+                "lg": "40px",
+                "xl": "48px",
+                "2xl": "64px"
+            },
+            "colors": {
+                "background": "linear-gradient(45deg, {interactive.01}, #8a3ffc)",
+                "text": "{text.onColor}"
+            }
+        },
+        "chat": {
+            "bubble": {
+                "user": {
+                    "background": "{interactive.01}",
+                    "text": "{text.onColor}"
+                },
+                "agent": {
+                    "background": "{layer.01}",
+                    "text": "{text.primary}",
+                    "border": "1px solid {border.subtle}"
+                }
+            }
+        }
+    }
+}

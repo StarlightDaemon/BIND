@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>System Logs - BIND</title>
+    <link rel="stylesheet" href="/static/css/carbon.css?v=1">
+</head>
+
+<body class="page-logs">
+    <!-- UI Shell -->
+    <header class="ui-shell">
+        <span class="shell-name"><strong>BIND</strong> / System Daemon</span>
+    </header>
+
+    <div class="layout-wrapper">
+        <aside class="left-nav">
+            <nav>
+                <ul>
+                    <li><a href="/">Dashboard</a></li>
+                    <li><a href="/magnets">Magnets</a></li>
+                    <li><a href="/settings">Settings</a></li>
+                    <li><a href="/logs" class="active">System Logs</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="content-area">
+            <header>
+                <h1>System Logs</h1>
+                <p class="subtitle">Monitor system activity, security events, and scraper history.</p>
+            </header>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <a href="?log=security" class="tab {% if current_log == 'security' %}active{% endif %}">Security Log</a>
+                <a href="?log=daemon" class="tab {% if current_log == 'daemon' %}active{% endif %}">Daemon Log</a>
+                <a href="?log=history" class="tab {% if current_log == 'history' %}active{% endif %}">Scraper
+                    History</a>
+            </div>
+
+            <!-- Log Viewer -->
+            <div class="log-container">
+                <div class="log-header">
+                    <span>File: {{ log_file }}</span>
+                    <span>Last {{ line_count }} lines (Newest First)</span>
+                </div>
+                <div class="log-content">
+                    {% if logs %}
+                    {% for line in logs %}
+                    <div class="log-entry">{{ line }}</div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="log-entry">No logs found or file is empty.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </main>
+    </div>
+</body>
+
+</html>

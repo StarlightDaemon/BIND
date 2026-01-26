@@ -1,0 +1,744 @@
+/*!
+ * IBM Carbon Design System — BIND Web UI
+ * Governance: TRON Design Standards
+ * Theme: White
+ * Refactor: Centralized stylesheet extracted from legacy inline template CSS (2026-01-25).
+ */
+
+/* ==========================================================================
+   1. TOKENS & RESET (Merged)
+   ========================================================================== */
+:root {
+  /* Primitive Tokens */
+  --colors-blue-60: #0f62fe;
+  --colors-gray-10: #f4f4f4;
+  --colors-gray-20: #e0e0e0;
+  --colors-gray-70: #525252;
+  --colors-gray-100: #161616;
+  --colors-white: #ffffff;
+  --colors-alert-green: #198038;
+  --colors-alert-red: #da1e28; /* Added from Deltas */
+  --colors-gray-90: #262626;
+
+  --spacing-02: 0.25rem;
+  --spacing-03: 0.5rem; /* 8px */
+  --spacing-04: 0.75rem; /* 12px */
+  --spacing-05: 1rem;    /* 16px */
+  --spacing-06: 1.5rem;  /* 24px */
+  --spacing-07: 2rem;    /* 32px */
+  --spacing-08: 2.5rem;  /* 40px */
+  --spacing-09: 3rem;    /* 48px */
+  --spacing-11: 4rem;    /* 64px */
+
+  /* Semantic Tokens (Theme: White) */
+  --background: var(--colors-white);
+  --text-primary: var(--colors-gray-100);
+  --text-secondary: var(--colors-gray-70);
+  --text-on-color: var(--colors-white);
+
+  --layer-01: var(--colors-gray-10);
+  --layer-02: var(--colors-white);
+
+  --interactive-01: var(--colors-blue-60);
+  --interactive-hover: #0353e9; /* brightness(-10%) approx */
+
+  --border-subtle: var(--colors-gray-20);
+  --support-success: var(--colors-alert-green);
+  --support-error: var(--colors-alert-red);
+
+  --font-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Menlo', 'DejaVu Sans Mono', Courier, monospace;
+}
+
+/* Reset & Base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--layer-01);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   2. LAYOUT & SHELL (Base)
+   ========================================================================== */
+
+/* Layout Wrapper */
+.layout-wrapper {
+  padding-top: 3rem;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* SideNav */
+.left-nav {
+  position: fixed;
+  top: 3rem;
+  bottom: 0;
+  left: 0;
+  width: 256px;
+  background-color: var(--colors-gray-90);
+  z-index: 900;
+}
+
+.left-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.left-nav li a {
+  display: block;
+  text-decoration: none;
+  padding: 0.875rem 1rem 0.875rem 2rem;
+  /* Carbon spacing */
+  color: #c6c6c6;
+  /* Gray 30 on Dark */
+  font-size: 0.875rem;
+  border-left: 3px solid transparent;
+  /* Selection indicator */
+  transition: all 0.1s ease;
+}
+
+.left-nav li a:hover {
+  background-color: #353535;
+  color: var(--colors-white);
+}
+
+.left-nav li a.active {
+  background-color: #353535;
+  color: var(--colors-white);
+  border-left-color: var(--colors-blue-60);
+  font-weight: 600;
+}
+
+/* Main Content Area */
+.content-area {
+  margin-left: 256px;
+  width: calc(100% - 256px);
+  background-color: var(--colors-gray-10);
+  padding: var(--spacing-07);
+  /* 2rem */
+  min-height: calc(100vh - 3rem);
+}
+
+/* Container for content width (optional) */
+.container-fluid {
+  width: 100%;
+}
+
+@media (max-width: 672px) {
+  .left-nav {
+    display: none;
+  }
+
+  .content-area {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+/* UI Shell (Global Header) */
+.ui-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3rem;
+  /* 48px */
+  background-color: var(--colors-gray-100);
+  color: var(--colors-white);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-05);
+  z-index: 1000;
+  font-size: 0.875rem;
+}
+
+.shell-name {
+  font-weight: 400;
+}
+
+.shell-name strong {
+  font-weight: 600;
+}
+
+/* Typography */
+h1 {
+  font-size: 2.625rem;
+  /* 42px */
+  font-weight: 300;
+  margin-bottom: var(--spacing-03);
+}
+
+h2 {
+  font-size: 2rem;
+  /* 32px */
+  font-weight: 400;
+  margin-bottom: var(--spacing-05);
+}
+
+h3 {
+  font-size: 1.25rem;
+  /* 20px */
+  font-weight: 600;
+  margin-bottom: var(--spacing-02);
+  line-height: 1.4;
+}
+
+p {
+  margin-bottom: var(--spacing-05);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin-bottom: var(--spacing-08);
+}
+
+/* Components */
+
+/* Button (Primary) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--spacing-05) var(--spacing-11) var(--spacing-05) var(--spacing-05);
+  /* Carbon Button padding */
+  font-size: 0.875rem;
+  font-weight: 400;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 70ms cubic-bezier(0, 0, 0.38, 0.9);
+  border: none;
+  position: relative;
+  font-family: var(--font-sans); /* Added from Magnets delta for safety */
+}
+
+.btn-primary {
+  background-color: var(--interactive-01);
+  color: var(--text-on-color);
+}
+
+.btn-primary:hover {
+  background-color: var(--interactive-hover);
+}
+
+/* Button Icon Arrow (Default - Dashboard) */
+.btn::after {
+  content: "→";
+  position: absolute;
+  right: 16px;
+}
+
+.btn-sm {
+  padding: 0.5rem 1rem;
+  /* Smaller padding */
+  min-height: 32px;
+}
+
+.btn-sm::after {
+  display: none;
+  /* No arrow for small buttons */
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-05);
+  margin-bottom: var(--spacing-09);
+}
+
+/* Tile / Card */
+.tile {
+  background-color: var(--layer-02);
+  padding: var(--spacing-05);
+  border: 1px solid var(--border-subtle);
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.tile-label {
+  font-size: 0.75rem;
+  /* 12px */
+  font-weight: 400;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.32px;
+}
+
+.tile-value {
+  font-size: 3.375rem;
+  /* 54px */
+  font-weight: 300;
+}
+
+.status-active {
+  color: var(--support-success);
+}
+
+/* Data Table / List (Dashboard Version) */
+.magnet-list {
+  display: grid;
+  gap: var(--spacing-01);
+  /* Tight gap for list rows */
+}
+
+.magnet-row {
+  background-color: var(--layer-02);
+  padding: var(--spacing-05);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.1s;
+}
+
+@media (min-width: 768px) {
+  .magnet-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.magnet-row:hover {
+  background-color: #e5e5e5;
+  /* Hover row color approx */
+}
+
+.magnet-info {
+  flex: 1;
+  margin-right: var(--spacing-05);
+}
+
+.magnet-hash {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background-color: var(--layer-01);
+  padding: 2px 4px;
+  display: inline-block;
+  margin-top: var(--spacing-02);
+}
+
+.empty-state {
+  padding: var(--spacing-09);
+  text-align: center;
+  background-color: var(--layer-02);
+  border: 1px dashed var(--border-subtle);
+}
+
+/* Refactor Utilities (Dashboard) */
+.status-container {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-03);
+}
+
+.tile-value-sm {
+  font-size: 2rem;
+  /* 32px - Equivalent to h2 */
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--spacing-05);
+}
+
+.section-count {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-05);
+}
+
+.magnet-actions {
+  margin-top: var(--spacing-04);
+}
+
+
+/* ==========================================================================
+   3. DELTAS & PAGE SPECIFIC (Magnets, Settings, Logs, Setup)
+   ========================================================================== */
+
+/* --- Magnets Page Overrides & Additions --- */
+/* Scoped to .page-magnets where conflicts exist inside selectors */
+
+.page-magnets h1 {
+    font-size: 2rem; /* Override base 2.625rem */
+    font-weight: 400;
+    margin-bottom: var(--spacing-05);
+}
+
+.page-magnets h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-05);
+}
+
+.page-magnets .subtitle {
+    margin-bottom: var(--spacing-07); /* Override base spacing-08 */
+}
+
+/* Button Secondary */
+.btn-secondary {
+    background-color: transparent;
+    color: var(--interactive-01);
+    border: 1px solid var(--interactive-01);
+    display: inline-flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    transition: background 70ms cubic-bezier(0, 0, 0.38, 0.9);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn-secondary:hover {
+    background-color: rgba(15, 98, 254, 0.1);
+}
+
+/* Magnets Search Bar */
+.search-container {
+    background-color: var(--layer-02);
+    padding: var(--spacing-05);
+    border: 1px solid var(--border-subtle);
+    margin-bottom: var(--spacing-05);
+}
+
+.search-form {
+    display: flex;
+    gap: var(--spacing-05);
+}
+
+.search-input {
+    flex: 1;
+    height: 3rem;
+    padding: 0 var(--spacing-05);
+    border: none;
+    border-bottom: 1px solid var(--border-subtle);
+    background-color: var(--layer-01);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.1s;
+}
+
+.search-input:focus {
+    border-bottom: 2px solid var(--interactive-01);
+}
+
+/* Magnets List Overrides (Scoped) */
+.page-magnets .magnet-list {
+    display: grid;
+    gap: 1px; /* Override base spacing-01 */
+    background-color: var(--border-subtle);
+    border: 1px solid var(--border-subtle);
+}
+
+.page-magnets .magnet-row {
+    background-color: var(--layer-02);
+    padding: var(--spacing-04) var(--spacing-05); /* Override base padding */
+    display: flex;
+    flex-direction: column;
+    transition: background-color 0.1s;
+    border-bottom: none; /* Override base border */
+}
+
+.page-magnets .magnet-row:hover {
+    background-color: #e5e5e5;
+}
+
+/* Magnets Components */
+.magnet-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+    display: block;
+    word-break: break-all;
+}
+
+.magnet-meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    display: flex;
+    gap: var(--spacing-05);
+}
+
+.page-magnets .magnet-actions {
+    margin-top: var(--spacing-03);
+    white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+    .page-magnets .magnet-actions {
+        margin-top: 0;
+        margin-left: var(--spacing-05);
+    }
+}
+
+/* Magnets Pagination */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--spacing-05);
+    padding-top: var(--spacing-05);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.pagination-info {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* --- Settings Page Overrides & Additions --- */
+
+.page-settings h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-05);
+    margin-top: var(--spacing-07);
+}
+
+.page-settings h2:first-of-type {
+    margin-top: 0;
+}
+
+.page-settings .subtitle {
+    margin-bottom: var(--spacing-07);
+}
+
+/* Settings Forms */
+.form-card {
+    background-color: var(--layer-02);
+    padding: var(--spacing-06);
+    border: 1px solid var(--border-subtle);
+    max-width: 640px;
+}
+
+.form-group {
+    margin-bottom: var(--spacing-06);
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.32px;
+    margin-bottom: var(--spacing-02);
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="url"],
+.form-group input[type="password"] {
+    width: 100%;
+    padding: 0 var(--spacing-05);
+    height: 2.5rem;
+    font-size: 0.875rem;
+    font-family: var(--font-sans);
+    border: none;
+    border-bottom: 1px solid var(--border-subtle);
+    background-color: var(--layer-01);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.1s;
+}
+
+.form-group input:focus {
+    border-bottom-color: var(--interactive-01);
+    border-bottom-width: 2px;
+}
+
+.form-group .helper-text {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: var(--spacing-02);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-05);
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--spacing-05);
+    margin-top: var(--spacing-07);
+}
+
+/* Settings Flash Messages */
+.flash-message {
+    padding: var(--spacing-05);
+    margin-bottom: var(--spacing-06);
+    border-left: 3px solid;
+    font-size: 0.875rem; /* Added from Setup delta */
+}
+
+.flash-success {
+    background-color: #defbe6;
+    border-color: var(--support-success);
+    color: #044317;
+}
+
+.flash-error {
+    background-color: #fff1f1;
+    border-color: var(--support-error);
+    color: #750e13;
+}
+
+/* --- Logs Page Overrides & Additions --- */
+
+/* Tabs */
+.tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: var(--spacing-05);
+    background-color: var(--layer-01);
+}
+
+.tab {
+    padding: var(--spacing-04) var(--spacing-06);
+    text-decoration: none;
+    color: var(--text-secondary);
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+
+.tab:hover {
+    color: var(--interactive-01);
+    background-color: #e5e5e5;
+}
+
+.tab.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--interactive-01);
+    font-weight: 600;
+}
+
+/* Log Viewer */
+.log-container {
+    background-color: var(--layer-02);
+    border: 1px solid var(--border-subtle);
+    padding: 0;
+    height: 600px;
+    display: flex;
+    flex-direction: column;
+}
+
+.log-header {
+    padding: var(--spacing-03) var(--spacing-05);
+    border-bottom: 1px solid var(--border-subtle);
+    background-color: var(--layer-01);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.log-content {
+    padding: var(--spacing-05);
+    overflow-y: auto;
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+    color: var(--text-primary);
+}
+
+.log-entry {
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 4px 0;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+/* Scrollbar styling */
+.log-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.log-content::-webkit-scrollbar-track {
+    background: var(--layer-01);
+}
+
+.log-content::-webkit-scrollbar-thumb {
+    background-color: #8d8d8d;
+    border-radius: 4px;
+}
+
+/* --- Setup Page Overrides & Additions --- */
+
+.page-setup h1 {
+    font-size: 1.75rem;
+    font-weight: 400;
+    margin-bottom: var(--spacing-03);
+}
+
+.page-setup .subtitle {
+    font-size: 0.875rem;
+}
+
+/* Setup Container */
+.setup-container {
+    min-height: 100vh;
+    padding-top: 3rem;
+    /* Clear header */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem var(--spacing-05) var(--spacing-05);
+}
+
+.setup-card {
+    background-color: var(--layer-02);
+    padding: var(--spacing-07);
+    border: 1px solid var(--border-subtle);
+    max-width: 400px;
+    width: 100%;
+}
+
+.setup-header {
+    text-align: center;
+    margin-bottom: var(--spacing-07);
+}
+
+/* Carbon Pictogram Style Icon */
+.setup-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto var(--spacing-05);
+    display: block;
+}
+
+.setup-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: var(--interactive-01);
+}
+
+/* Update Button for Setup (full width) */
+.page-setup .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 3rem;
+}

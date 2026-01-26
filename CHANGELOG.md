@@ -5,13 +5,23 @@ All notable changes to BIND will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.1] - 2026-01-15
+## [1.2.1] - 2026-01-15 (Verified 2026-01-26)
+
+### 🚀 Status Update
+Version 1.2.1 is confirmed as the stable baseline for the BIND 1.0 governance canon. Codebase hygiene and runtime paths have been finalized.
 
 ### ⚠️ Breaking Change: Default Port Changed
-The default port has been changed from **5000 to 5050** to avoid conflicts with common homelab services (Synology DSM, macOS AirPlay, Docker Registry).
+The default port has been changed from **5000 to 5050** to avoid conflicts with common homelab services.
 
 ### Changed
-- **Default Port**: Web UI and RSS feed now run on port 5050
+- **Default Port**: Web UI and RSS feed now run on port 5050.
+- **Runtime Finalization (2026-01-26)**:
+    - Data path canonicalized to `data/magnets/` (with legacy fallback).
+    - Config precedence enforced (Env > Config > Defaults).
+    - Repository root canonicalized and cleaned.
+    - Security logs and credentials strictly ignored.
+
+### Migration Notes
 
 ### Migration Notes
 If upgrading from v1.2.0:
