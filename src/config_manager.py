@@ -7,7 +7,6 @@ import fcntl
 import os
 import re
 import subprocess
-from typing import Optional
 
 
 class ConfigManager:
@@ -34,10 +33,10 @@ class ConfigManager:
         'CIRCUIT_BREAKER_COOLDOWN': (60, 3600),
     }
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: str | None = None):
         """
         Initialize ConfigManager.
-        
+
         Args:
             config_path: Path to config.env file. Defaults to /opt/bind/config.env
                          or ./config.env if running locally.
@@ -54,17 +53,17 @@ class ConfigManager:
     def read_config(self) -> dict:
         """
         Read configuration from config.env file.
-        
+
         Returns:
             Dict of configuration values with defaults for missing keys.
         """
         config = self.DEFAULTS.copy()
-        
+
         if not os.path.exists(self.config_path):
             return config
-        
+
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+            with open(self.config_path, encoding='utf-8') as f:
                 fcntl.flock(f.fileno(), fcntl.LOCK_SH)
                 try:
                     for line in f:
@@ -81,18 +80,18 @@ class ConfigManager:
                                 config[key] = value
                 finally:
                     fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-        except (IOError, OSError) as e:
+        except OSError as e:
             print(f"Warning: Could not read config file: {e}")
-        
+
         return config
 
     def write_config(self, settings: dict) -> tuple[bool, str]:
         """
         Write configuration to config.env file.
-        
+
         Args:
             settings: Dict of configuration values to save.
-            
+
         Returns:
             Tuple of (success: bool, message: str)
         """
@@ -102,7 +101,7 @@ class ConfigManager:
                 is_valid, error = self._validate(key, value)
                 if not is_valid:
                     return False, error
-        
+
         # Build config file content
         lines = [
             "# BIND Configuration",
@@ -110,13 +109,13 @@ class ConfigManager:
             "# Or edit manually and restart: systemctl restart bind",
             "",
         ]
-        
+
         for key in self.DEFAULTS:
             value = settings.get(key, self.DEFAULTS[key])
             lines.append(f"{key}={value}")
-        
+
         content = '\n'.join(lines) + '\n'
-        
+
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
@@ -125,21 +124,21 @@ class ConfigManager:
                 finally:
                     fcntl.flock(f.fileno(), fcntl.LOCK_UN)
             return True, "Configuration saved successfully."
-        except (IOError, OSError) as e:
+        except OSError as e:
             return False, f"Failed to write config: {e}"
 
     def _validate(self, key: str, value: str) -> tuple[bool, str]:
         """
         Validate a configuration value.
-        
+
         Returns:
             Tuple of (is_valid: bool, error_message: str)
         """
         validator = self.VALIDATORS.get(key)
-        
+
         if validator is None:
             return True, ""
-        
+
         # Integer range validation
         if isinstance(validator, tuple):
             min_val, max_val = validator
@@ -150,7 +149,7 @@ class ConfigManager:
             except ValueError:
                 return False, f"{key} must be a valid integer."
             return True, ""
-        
+
         # URL validation
         if validator == 'url':
             if not value:
@@ -158,25 +157,25 @@ class ConfigManager:
             if not re.match(r'^https?://', value):
                 return False, f"{key} must be a valid HTTP/HTTPS URL."
             return True, ""
-        
+
         # Optional URL validation
         if validator == 'url_optional':
             if value and not re.match(r'^https?://', value):
                 return False, f"{key} must be a valid HTTP/HTTPS URL or empty."
             return True, ""
-        
+
         # Proxy validation (http, https, socks4, socks5)
         if validator == 'proxy':
             if value and not re.match(r'^(https?|socks[45])://', value):
                 return False, f"{key} must be a valid proxy URL (http/https/socks4/socks5) or empty."
             return True, ""
-        
+
         return True, ""
 
     def restart_daemon(self) -> tuple[bool, str]:
         """
         Restart the BIND daemon via systemctl.
-        
+
         Returns:
             Tuple of (success: bool, message: str)
         """
@@ -188,9 +187,10 @@ class ConfigManager:
                 timeout=10,
                 check=False
             )
-            
+
             # Restart the BIND service
-            result = subprocess.run(
+            # Restart the BIND service
+            subprocess.run(
                 ['systemctl', 'restart', 'bind.service'],
                 capture_output=True,
                 timeout=30,
