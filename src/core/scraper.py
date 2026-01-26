@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger("Scraper")
 
+
 class CircuitBreaker:
     """Prevents hammering Cloudflare when fully blocked."""
 
@@ -20,10 +21,21 @@ class CircuitBreaker:
     last_failure: float | None
     is_open: bool
 
-    def __init__(self, failure_threshold: int = 3, cooldown_seconds: int = 300) -> None:
+    def __init__(
+        self, failure_threshold: int | None = None, cooldown_seconds: int | None = None
+    ) -> None:
         self.failures = 0
-        self.threshold = int(os.getenv('CIRCUIT_BREAKER_THRESHOLD', failure_threshold))
-        self.cooldown = int(os.getenv('CIRCUIT_BREAKER_COOLDOWN', cooldown_seconds))
+        # Precedence: Explicit Arg > Env Var > Default
+        if failure_threshold is not None:
+            self.threshold = failure_threshold
+        else:
+            self.threshold = int(os.getenv("CIRCUIT_BREAKER_THRESHOLD", 3))
+
+        if cooldown_seconds is not None:
+            self.cooldown = cooldown_seconds
+        else:
+            self.cooldown = int(os.getenv("CIRCUIT_BREAKER_COOLDOWN", 300))
+
         self.last_failure: float | None = None
         self.is_open = False
 
@@ -61,9 +73,9 @@ class ScraperMetrics:
     failures: dict[str, int]
 
     def __init__(self) -> None:
-        self.attempts = {'curl_cffi': 0, 'curl_cffi_proxy': 0, 'cloudscraper': 0}
-        self.successes = {'curl_cffi': 0, 'curl_cffi_proxy': 0, 'cloudscraper': 0}
-        self.failures = {'curl_cffi': 0, 'curl_cffi_proxy': 0, 'cloudscraper': 0}
+        self.attempts = {"curl_cffi": 0, "curl_cffi_proxy": 0, "cloudscraper": 0}
+        self.successes = {"curl_cffi": 0, "curl_cffi_proxy": 0, "cloudscraper": 0}
+        self.failures = {"curl_cffi": 0, "curl_cffi_proxy": 0, "cloudscraper": 0}
 
     def record(self, layer: str, success: bool) -> None:
         """Record attempt outcome."""
@@ -84,11 +96,11 @@ class ScraperMetrics:
 
 class BindScraper:
     # Allow override via env var (Issue #1 from Audit)
-    BASE_URL = os.getenv('ABB_URL', "http://audiobookbay.lu")
+    BASE_URL = os.getenv("ABB_URL", "http://audiobookbay.lu")
 
     # Network Configuration
     REQUEST_TIMEOUT = 30  # seconds - prevents indefinite hangs
-    MAX_RETRIES = 3       # attempts before giving up
+    MAX_RETRIES = 3  # attempts before giving up
 
     # Trackers from Research (Section 3.4)
     TRACKERS = [
@@ -96,24 +108,22 @@ class BindScraper:
         "udp://tracker.openbittorrent.com:80/announce",
         "udp://9.rarbg.to:2710/announce",
         "http://tracker.openbittorrent.com:80/announce",
-        "udp://tracker.coppersurfer.tk:6969/announce"
+        "udp://tracker.coppersurfer.tk:6969/announce",
     ]
 
     def __init__(self):
         self.scraper = cloudscraper.create_scraper(
-            browser={
-                'browser': 'chrome',
-                'platform': 'windows',
-                'desktop': True
-            }
+            browser={"browser": "chrome", "platform": "windows", "desktop": True}
         )
         # Phase 2: Proxy and Resilience
-        self.proxy = os.getenv('BIND_PROXY')  # Optional: HTTP/SOCKS5 proxy
+        self.proxy = os.getenv("BIND_PROXY")  # Optional: HTTP/SOCKS5 proxy
         self.circuit_breaker = CircuitBreaker()
         self.metrics = ScraperMetrics()
 
         if self.proxy:
-            logger.info(f"🔒 Proxy configured: {self.proxy.split('@')[-1] if '@' in self.proxy else self.proxy}")
+            logger.info(
+                f"🔒 Proxy configured: {self.proxy.split('@')[-1] if '@' in self.proxy else self.proxy}"
+            )
 
     def _get_page(self, url):
         """
@@ -139,35 +149,35 @@ class BindScraper:
         # LAYER 1: curl_cffi (Primary)
         try:
             response = self._attempt_curl_cffi(url, use_proxy=False)
-            self.metrics.record('curl_cffi', True)
+            self.metrics.record("curl_cffi", True)
             self.circuit_breaker.record_success()
             logger.debug(f"✓ Fetched {url} (curl_cffi)")
             return response
         except Exception as e:
-            self.metrics.record('curl_cffi', False)
+            self.metrics.record("curl_cffi", False)
             logger.warning(f"curl_cffi failed: {type(e).__name__}")
 
         # LAYER 2: curl_cffi + Proxy (if configured)
         if self.proxy:
             try:
                 response = self._attempt_curl_cffi(url, use_proxy=True)
-                self.metrics.record('curl_cffi_proxy', True)
+                self.metrics.record("curl_cffi_proxy", True)
                 self.circuit_breaker.record_success()
                 logger.info(f"✓ Fetched {url} (curl_cffi + proxy)")
                 return response
             except Exception as e:
-                self.metrics.record('curl_cffi_proxy', False)
+                self.metrics.record("curl_cffi_proxy", False)
                 logger.warning(f"curl_cffi+proxy failed: {type(e).__name__}")
 
         # LAYER 3: cloudscraper (Legacy fallback)
         try:
             response = self._attempt_cloudscraper(url)
-            self.metrics.record('cloudscraper', True)
+            self.metrics.record("cloudscraper", True)
             self.circuit_breaker.record_success()
             logger.info(f"✓ Fetched {url} (cloudscraper)")
             return response
         except Exception as e:
-            self.metrics.record('cloudscraper', False)
+            self.metrics.record("cloudscraper", False)
             logger.error(f"All layers failed for {url}: {type(e).__name__}")
 
         # Complete failure
@@ -180,10 +190,7 @@ class BindScraper:
 
         proxy = self.proxy if use_proxy else None
         response = cffi_requests.get(
-            url,
-            impersonate="chrome120",
-            proxy=proxy,
-            timeout=self.REQUEST_TIMEOUT
+            url, impersonate="chrome120", proxy=proxy, timeout=self.REQUEST_TIMEOUT
         )
         response.raise_for_status()
 
@@ -213,19 +220,15 @@ class BindScraper:
         if not html:
             return []
 
-        soup = BeautifulSoup(html, 'html.parser')
+        soup = BeautifulSoup(html, "html.parser")
         results = []
 
-        for item in soup.select('.post'):
-            title_elem = item.select_one('.postTitle h2 a')
+        for item in soup.select(".post"):
+            title_elem = item.select_one(".postTitle h2 a")
             if title_elem:
                 title = title_elem.text.strip()
-                link = title_elem['href']
-                results.append({
-                    'title': title,
-                    'link': link,
-                    'hash': None
-                })
+                link = title_elem["href"]
+                results.append({"title": title, "link": link, "hash": None})
         return results
 
     def extract_info_hash(self, detail_page_url):
@@ -233,20 +236,20 @@ class BindScraper:
         Fetches a detail page and extracts the Info Hash.
         Defensive parsing: handles missing or changed HTML structure.
         """
-        if not detail_page_url.startswith('http'):
+        if not detail_page_url.startswith("http"):
             detail_page_url = f"{self.BASE_URL}{detail_page_url}"
 
         html = self._get_page(detail_page_url)
         if not html:
             return None
 
-        soup = BeautifulSoup(html, 'html.parser')
+        soup = BeautifulSoup(html, "html.parser")
 
         # Look for "Info Hash:" label in table
-        hash_row = soup.find('td', string='Info Hash:')
+        hash_row = soup.find("td", string="Info Hash:")
         if hash_row:
             # Defensive: check sibling exists before accessing .text
-            sibling = hash_row.find_next_sibling('td')
+            sibling = hash_row.find_next_sibling("td")
             if sibling:
                 raw_hash = sibling.text.strip()
                 return self._ensure_hex(raw_hash)
@@ -263,14 +266,14 @@ class BindScraper:
         if not xml:
             return []
 
-        soup = BeautifulSoup(xml, 'xml')
+        soup = BeautifulSoup(xml, "xml")
         items = []
-        for item in soup.find_all('item'):
+        for item in soup.find_all("item"):
             # Defensive: check title and link exist before accessing .text
             if item.title and item.link:
                 title = item.title.text
                 link = item.link.text
-                items.append({'title': title, 'link': link})
+                items.append({"title": title, "link": link})
             else:
                 # Log but don't crash - skip malformed items
                 logger.warning("Skipping RSS item with missing title or link")
@@ -294,7 +297,7 @@ class BindScraper:
         elif len(clean_hash) == 32:
             try:
                 logger.info(f"Detected Base32 hash: {clean_hash}, converting to Hex.")
-                return base64.b16encode(base64.b32decode(clean_hash)).decode('utf-8').lower()
+                return base64.b16encode(base64.b32decode(clean_hash)).decode("utf-8").lower()
             except binascii.Error:
                 logger.warning(f"Invalid Base32 hash encountered: {clean_hash}")
                 return None

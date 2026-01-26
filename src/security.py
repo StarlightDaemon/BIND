@@ -22,33 +22,34 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 CREDENTIALS_VERSION = 2
 PASSWORD_MIN_LENGTH = 8
-PASSWORD_PATTERN = r'^(?=.*[0-9!@#$%^&*()\-_=+\[\]{}|;:,.<>?]).{8,}$'
+PASSWORD_PATTERN = r"^(?=.*[0-9!@#$%^&*()\-_=+\[\]{}|;:,.<>?]).{8,}$"
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 15
 
 # Security logger
-security_logger = logging.getLogger('BIND.security')
+security_logger = logging.getLogger("BIND.security")
 
 
 # =============================================================================
 # File Paths
 # =============================================================================
 
+
 def get_base_dir() -> str:
     """Get BIND base directory."""
-    if os.path.exists('/opt/bind'):
-        return '/opt/bind'
+    if os.path.exists("/opt/bind"):
+        return "/opt/bind"
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def get_credentials_path() -> str:
     """Get path to credentials.json file."""
-    return os.path.join(get_base_dir(), 'credentials.json')
+    return os.path.join(get_base_dir(), "credentials.json")
 
 
 def get_security_log_path() -> str:
     """Get path to security.log file."""
-    return os.path.join(get_base_dir(), 'security.log')
+    return os.path.join(get_base_dir(), "security.log")
 
 
 CREDENTIALS_FILE = get_credentials_path()
@@ -58,13 +59,14 @@ CREDENTIALS_FILE = get_credentials_path()
 # Audit Logging
 # =============================================================================
 
-def log_security_event(event_type: str, username: str, ip: str, details: str = ''):
+
+def log_security_event(event_type: str, username: str, ip: str, details: str = ""):
     """
     Log a security event to security.log.
 
     Event types: LOGIN_SUCCESS, LOGIN_FAILED, ACCOUNT_LOCKED, PASSWORD_CHANGED, ACCOUNT_CREATED
     """
-    timestamp = datetime.utcnow().isoformat() + 'Z'
+    timestamp = datetime.utcnow().isoformat() + "Z"
     log_line = f"{timestamp} {event_type} {username} {ip}"
     if details:
         log_line += f" {details}"
@@ -74,10 +76,10 @@ def log_security_event(event_type: str, username: str, ip: str, details: str = '
     # Also write to dedicated security log file
     try:
         log_path = get_security_log_path()
-        with open(log_path, 'a', encoding='utf-8') as f:
+        with open(log_path, "a", encoding="utf-8") as f:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
             try:
-                f.write(log_line + '\n')
+                f.write(log_line + "\n")
             finally:
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
@@ -90,11 +92,11 @@ def log_security_event(event_type: str, username: str, ip: str, details: str = '
 def _rotate_log_if_needed(log_path: str, max_lines: int = 1000):
     """Rotate log file if it exceeds max_lines."""
     try:
-        with open(log_path, encoding='utf-8') as f:
+        with open(log_path, encoding="utf-8") as f:
             lines = f.readlines()
 
         if len(lines) > max_lines:
-            with open(log_path, 'w', encoding='utf-8') as f:
+            with open(log_path, "w", encoding="utf-8") as f:
                 f.writelines(lines[-max_lines:])
     except OSError:
         pass
@@ -103,6 +105,7 @@ def _rotate_log_if_needed(log_path: str, max_lines: int = 1000):
 # =============================================================================
 # Credentials Storage
 # =============================================================================
+
 
 def is_setup_complete() -> bool:
     """Check if first-time setup has been completed."""
@@ -115,7 +118,7 @@ def load_credentials() -> dict:
         return {}
 
     try:
-        with open(CREDENTIALS_FILE, encoding='utf-8') as f:
+        with open(CREDENTIALS_FILE, encoding="utf-8") as f:
             fcntl.flock(f.fileno(), fcntl.LOCK_SH)
             try:
                 creds = json.load(f)
@@ -123,7 +126,7 @@ def load_credentials() -> dict:
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
         # Migrate v1 to v2 if needed
-        if creds.get('version', 1) < CREDENTIALS_VERSION:
+        if creds.get("version", 1) < CREDENTIALS_VERSION:
             creds = _migrate_credentials(creds)
 
         return creds
@@ -133,16 +136,16 @@ def load_credentials() -> dict:
 
 def _migrate_credentials(creds: dict) -> dict:
     """Migrate credentials to latest version."""
-    version = creds.get('version', 1)
+    version = creds.get("version", 1)
 
     if version < 2:
         # Add v2 fields
-        creds['version'] = 2
-        creds.setdefault('updated_at', creds.get('created_at'))
-        creds.setdefault('failed_attempts', 0)
-        creds.setdefault('locked_until', None)
-        creds.setdefault('last_login', None)
-        creds.setdefault('last_login_ip', None)
+        creds["version"] = 2
+        creds.setdefault("updated_at", creds.get("created_at"))
+        creds.setdefault("failed_attempts", 0)
+        creds.setdefault("locked_until", None)
+        creds.setdefault("last_login", None)
+        creds.setdefault("last_login_ip", None)
 
         # Save migrated credentials
         _save_credentials_raw(creds)
@@ -153,7 +156,7 @@ def _migrate_credentials(creds: dict) -> dict:
 def _save_credentials_raw(creds: dict) -> bool:
     """Save credentials dict directly to file."""
     try:
-        with open(CREDENTIALS_FILE, 'w', encoding='utf-8') as f:
+        with open(CREDENTIALS_FILE, "w", encoding="utf-8") as f:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
             try:
                 json.dump(creds, f, indent=2)
@@ -193,7 +196,7 @@ def save_credentials(username: str, password: str) -> tuple[bool, str]:
         Tuple of (success: bool, message: str)
     """
     # Validate username
-    if not re.match(r'^[a-zA-Z0-9_]{3,32}$', username):
+    if not re.match(r"^[a-zA-Z0-9_]{3,32}$", username):
         return False, "Username must be 3-32 characters, alphanumeric or underscore."
 
     # Validate password
@@ -201,22 +204,22 @@ def save_credentials(username: str, password: str) -> tuple[bool, str]:
     if not is_valid:
         return False, error
 
-    now = datetime.utcnow().isoformat() + 'Z'
+    now = datetime.utcnow().isoformat() + "Z"
 
     credentials = {
-        'version': CREDENTIALS_VERSION,
-        'username': username,
-        'password_hash': generate_password_hash(password),
-        'created_at': now,
-        'updated_at': now,
-        'failed_attempts': 0,
-        'locked_until': None,
-        'last_login': None,
-        'last_login_ip': None,
+        "version": CREDENTIALS_VERSION,
+        "username": username,
+        "password_hash": generate_password_hash(password),
+        "created_at": now,
+        "updated_at": now,
+        "failed_attempts": 0,
+        "locked_until": None,
+        "last_login": None,
+        "last_login_ip": None,
     }
 
     if _save_credentials_raw(credentials):
-        log_security_event('ACCOUNT_CREATED', username, get_client_ip(request))
+        log_security_event("ACCOUNT_CREATED", username, get_client_ip(request))
         return True, "Account created successfully."
     else:
         return False, "Failed to save credentials."
@@ -239,9 +242,13 @@ def change_password(current_password: str, new_password: str) -> tuple[bool, str
         return False, "No credentials found."
 
     # Verify current password
-    if not check_password_hash(creds.get('password_hash', ''), current_password):
-        log_security_event('PASSWORD_CHANGE_FAILED', creds.get('username', 'unknown'),
-                          get_client_ip(request), 'invalid_current_password')
+    if not check_password_hash(creds.get("password_hash", ""), current_password):
+        log_security_event(
+            "PASSWORD_CHANGE_FAILED",
+            creds.get("username", "unknown"),
+            get_client_ip(request),
+            "invalid_current_password",
+        )
         return False, "Current password is incorrect."
 
     # Validate new password
@@ -250,12 +257,13 @@ def change_password(current_password: str, new_password: str) -> tuple[bool, str
         return False, error
 
     # Update password
-    creds['password_hash'] = generate_password_hash(new_password)
-    creds['updated_at'] = datetime.utcnow().isoformat() + 'Z'
+    creds["password_hash"] = generate_password_hash(new_password)
+    creds["updated_at"] = datetime.utcnow().isoformat() + "Z"
 
     if _save_credentials_raw(creds):
-        log_security_event('PASSWORD_CHANGED', creds.get('username', 'unknown'),
-                          get_client_ip(request))
+        log_security_event(
+            "PASSWORD_CHANGED", creds.get("username", "unknown"), get_client_ip(request)
+        )
         return True, "Password changed successfully."
     else:
         return False, "Failed to save new password."
@@ -270,12 +278,12 @@ def is_account_locked() -> tuple[bool, int | None]:
     """
     creds = load_credentials()
 
-    locked_until = creds.get('locked_until')
+    locked_until = creds.get("locked_until")
     if not locked_until:
         return False, None
 
     try:
-        locked_time = datetime.fromisoformat(locked_until.replace('Z', '+00:00'))
+        locked_time = datetime.fromisoformat(locked_until.replace("Z", "+00:00"))
         now = datetime.now(locked_time.tzinfo)
 
         if now < locked_time:
@@ -283,8 +291,8 @@ def is_account_locked() -> tuple[bool, int | None]:
             return True, int(remaining) + 1
         else:
             # Lockout expired, clear it
-            creds['locked_until'] = None
-            creds['failed_attempts'] = 0
+            creds["locked_until"] = None
+            creds["failed_attempts"] = 0
             _save_credentials_raw(creds)
             return False, None
     except (ValueError, TypeError):
@@ -297,17 +305,22 @@ def record_failed_login(ip: str):
     if not creds:
         return
 
-    creds['failed_attempts'] = creds.get('failed_attempts', 0) + 1
+    creds["failed_attempts"] = creds.get("failed_attempts", 0) + 1
 
-    log_security_event('LOGIN_FAILED', creds.get('username', 'unknown'), ip,
-                      f"attempt={creds['failed_attempts']}")
+    log_security_event(
+        "LOGIN_FAILED", creds.get("username", "unknown"), ip, f"attempt={creds['failed_attempts']}"
+    )
 
-    if creds['failed_attempts'] >= MAX_FAILED_ATTEMPTS:
+    if creds["failed_attempts"] >= MAX_FAILED_ATTEMPTS:
         # Lock account
         lock_time = datetime.utcnow() + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
-        creds['locked_until'] = lock_time.isoformat() + 'Z'
-        log_security_event('ACCOUNT_LOCKED', creds.get('username', 'unknown'), ip,
-                          f"duration={LOCKOUT_DURATION_MINUTES}min")
+        creds["locked_until"] = lock_time.isoformat() + "Z"
+        log_security_event(
+            "ACCOUNT_LOCKED",
+            creds.get("username", "unknown"),
+            ip,
+            f"duration={LOCKOUT_DURATION_MINUTES}min",
+        )
 
     _save_credentials_raw(creds)
 
@@ -319,17 +332,17 @@ def record_successful_login(ip: str):
         return
 
     # Clear failed attempts
-    creds['failed_attempts'] = 0
-    creds['locked_until'] = None
-    creds['last_login'] = datetime.utcnow().isoformat() + 'Z'
-    creds['last_login_ip'] = ip
+    creds["failed_attempts"] = 0
+    creds["locked_until"] = None
+    creds["last_login"] = datetime.utcnow().isoformat() + "Z"
+    creds["last_login_ip"] = ip
 
-    log_security_event('LOGIN_SUCCESS', creds.get('username', 'unknown'), ip)
+    log_security_event("LOGIN_SUCCESS", creds.get("username", "unknown"), ip)
 
     _save_credentials_raw(creds)
 
 
-def verify_credentials(username: str, password: str, ip: str = '') -> bool:
+def verify_credentials(username: str, password: str, ip: str = "") -> bool:
     """Verify username and password against stored credentials."""
     creds = load_credentials()
 
@@ -341,11 +354,11 @@ def verify_credentials(username: str, password: str, ip: str = '') -> bool:
     if is_locked:
         return False
 
-    if creds.get('username') != username:
+    if creds.get("username") != username:
         record_failed_login(ip)
         return False
 
-    if check_password_hash(creds.get('password_hash', ''), password):
+    if check_password_hash(creds.get("password_hash", ""), password):
         record_successful_login(ip)
         return True
     else:
@@ -358,10 +371,10 @@ def verify_credentials(username: str, password: str, ip: str = '') -> bool:
 # =============================================================================
 
 DEFAULT_ALLOWED_NETWORKS = [
-    '127.0.0.0/8',      # Localhost
-    '10.0.0.0/8',       # Class A private
-    '172.16.0.0/12',    # Class B private
-    '192.168.0.0/16',   # Class C private
+    "127.0.0.0/8",  # Localhost
+    "10.0.0.0/8",  # Class A private
+    "172.16.0.0/12",  # Class B private
+    "192.168.0.0/16",  # Class C private
 ]
 
 
@@ -372,10 +385,10 @@ def get_allowed_networks():
     Environment variable BIND_ALLOWED_IPS accepts comma-separated CIDR notation.
     Example: "192.168.1.0/24,10.0.0.0/8"
     """
-    env_networks = os.getenv('BIND_ALLOWED_IPS', '')
+    env_networks = os.getenv("BIND_ALLOWED_IPS", "")
 
     if env_networks:
-        return [n.strip() for n in env_networks.split(',') if n.strip()]
+        return [n.strip() for n in env_networks.split(",") if n.strip()]
 
     return DEFAULT_ALLOWED_NETWORKS
 
@@ -414,13 +427,13 @@ def get_client_ip(req) -> str:
     then falls back to remote_addr.
     """
     if req is None:
-        return '0.0.0.0'
+        return "0.0.0.0"
 
-    forwarded = req.headers.get('X-Forwarded-For', '')
+    forwarded = req.headers.get("X-Forwarded-For", "")
     if forwarded:
-        return forwarded.split(',')[0].strip()
+        return forwarded.split(",")[0].strip()
 
-    return req.remote_addr or '0.0.0.0'
+    return req.remote_addr or "0.0.0.0"
 
 
 def ip_allowlist_middleware(app):
@@ -429,18 +442,19 @@ def ip_allowlist_middleware(app):
 
     If BIND_IP_FILTER is set to 'false', filtering is disabled.
     """
+
     @app.before_request
     def check_ip_allowlist():
-        if os.getenv('BIND_IP_FILTER', 'true').lower() == 'false':
+        if os.getenv("BIND_IP_FILTER", "true").lower() == "false":
             return None
 
         client_ip = get_client_ip(request)
 
         if not is_ip_allowed(client_ip):
             return Response(
-                f'Access denied. Your IP ({client_ip}) is not in the allowlist.',
+                f"Access denied. Your IP ({client_ip}) is not in the allowlist.",
                 status=403,
-                mimetype='text/plain'
+                mimetype="text/plain",
             )
 
         return None
@@ -449,6 +463,7 @@ def ip_allowlist_middleware(app):
 # =============================================================================
 # Authentication
 # =============================================================================
+
 
 def check_auth(username: str, password: str) -> bool:
     """
@@ -469,8 +484,8 @@ def check_auth(username: str, password: str) -> bool:
         return verify_credentials(username, password, client_ip)
 
     # Fallback to environment variables (legacy mode)
-    expected_user = os.getenv('BIND_USER', 'admin')
-    expected_pass = os.getenv('BIND_PASS', 'bind')
+    expected_user = os.getenv("BIND_USER", "admin")
+    expected_pass = os.getenv("BIND_PASS", "bind")
 
     return username == expected_user and password == expected_pass
 
@@ -487,27 +502,28 @@ def requires_auth(f):
         def settings():
             ...
     """
+
     @wraps(f)
     def decorated(*args, **kwargs):
-        if os.getenv('BIND_AUTH_ENABLED', 'true').lower() == 'false':
+        if os.getenv("BIND_AUTH_ENABLED", "true").lower() == "false":
             return f(*args, **kwargs)
 
         # Check if locked
         is_locked, minutes = is_account_locked()
         if is_locked:
             return Response(
-                f'Account locked. Try again in {minutes} minutes.',
+                f"Account locked. Try again in {minutes} minutes.",
                 status=403,
-                mimetype='text/plain'
+                mimetype="text/plain",
             )
 
         auth = request.authorization
 
         if not auth or not check_auth(auth.username, auth.password):
             return Response(
-                'Authentication required.',
+                "Authentication required.",
                 status=401,
-                headers={'WWW-Authenticate': 'Basic realm="BIND Settings"'}
+                headers={"WWW-Authenticate": 'Basic realm="BIND Settings"'},
             )
 
         return f(*args, **kwargs)
