@@ -14,11 +14,14 @@ import os
 import re
 import secrets
 from datetime import datetime
+from typing import Any, cast
 from xml.sax.saxutils import escape
 
 from flask import Flask, Response, abort, redirect, render_template, request, session
 
 from src.config_manager import ConfigManager
+from src.core.scraper import BindScraper
+from src.core.tracker_manager import TrackerManager
 from src.security import (
     change_password,
     get_security_log_path,
@@ -60,6 +63,9 @@ FEED_TITLE = "BIND - Book Indexing Network"
 FEED_DESCRIPTION = "Automatically collected audiobook magnet links"
 MAX_ITEMS = 100
 
+# Initialize Tracker Manager
+tracker_manager = TrackerManager(MAGNETS_DIR)
+
 # Register security middleware
 ip_allowlist_middleware(app)
 
@@ -69,14 +75,14 @@ ip_allowlist_middleware(app)
 # =============================================================================
 
 
-def generate_csrf_token():
+def generate_csrf_token() -> str:
     """Generate or retrieve CSRF token from session."""
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_hex(32)
-    return session["csrf_token"]
+    return cast(str, session["csrf_token"])
 
 
-def validate_csrf_token():
+def validate_csrf_token() -> None:
     """Validate CSRF token on POST requests."""
     if request.method == "POST":
         token = session.get("csrf_token")
@@ -92,7 +98,7 @@ app.jinja_env.globals["csrf_token"] = generate_csrf_token
 
 # Setup redirect middleware
 @app.before_request
-def check_setup_required():
+def check_setup_required() -> Any:
     """Redirect to setup if first-time setup not complete."""
     # Allow setup route and static assets without setup
     if request.path in ["/setup", "/health"]:
@@ -105,18 +111,18 @@ def check_setup_required():
 
 
 @app.before_request
-def csrf_protect():
+def csrf_protect() -> None:
     """Validate CSRF token on all POST requests."""
     if request.method == "POST":
         validate_csrf_token()
 
 
-def parse_magnet_link(magnet_url: str) -> dict[str, str]:
+def parse_magnet_link(magnet_url: str) -> dict[str, Any]:
     """
     Extract information from a magnet link.
     Returns dict with hash, title, and trackers.
     """
-    info = {"magnet": magnet_url, "hash": "", "title": "Unknown", "trackers": []}
+    info: dict[str, Any] = {"magnet": magnet_url, "hash": "", "title": "Unknown", "trackers": []}
 
     # Extract info hash
     hash_match = re.search(r"urn:btih:([a-fA-F0-9]+)", magnet_url)
@@ -138,7 +144,7 @@ def parse_magnet_link(magnet_url: str) -> dict[str, str]:
     return info
 
 
-def read_magnets() -> list[dict[str, str]]:
+def read_magnets() -> list[dict[str, Any]]:
     """
     Read magnets from all date-based files in magnets directory.
     Returns list of magnet info dicts, most recent first.
@@ -169,6 +175,13 @@ def read_magnets() -> list[dict[str, str]]:
                 line = line.strip()
                 if line and line.startswith("magnet:"):
                     magnet_info = parse_magnet_link(line)
+
+                    # [V1.2.3] Regenerate magnet link using CURRENT trackers
+                    current_trackers = tracker_manager.get_trackers()
+                    magnet_info["magnet"] = BindScraper.generate_magnet(
+                        magnet_info["hash"], magnet_info["title"], current_trackers
+                    )
+
                     magnets.append(magnet_info)
 
                     # Limit to MAX_ITEMS
@@ -182,7 +195,9 @@ def read_magnets() -> list[dict[str, str]]:
         return []
 
 
-def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]], int]:
+def search_magnets(
+    query: str | None = None, page: int = 1, per_page: int = 50
+) -> tuple[list[dict[str, Any]], int]:
     """
     Search and paginate magnets.
     Returns (magnets_page, total_count).
@@ -232,6 +247,13 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
 
                     # If match, fully parse and add
                     info = parse_magnet_link(line)
+
+                    # [V1.2.3] Regenerate magnet link using CURRENT trackers
+                    current_trackers = tracker_manager.get_trackers()
+                    info["magnet"] = BindScraper.generate_magnet(
+                        info["hash"], info["title"], current_trackers
+                    )
+
                     info["date"] = date_str
                     all_magnets.append(info)
 
@@ -250,7 +272,7 @@ def search_magnets(query=None, page=1, per_page=50) -> tuple[list[dict[str, str]
 
 
 @app.route("/")
-def index():
+def index() -> str:
     """Simple web UI showing recent magnet links"""
     magnets = read_magnets()
 
@@ -267,7 +289,7 @@ def index():
 
 
 @app.route("/magnets")
-def magnets_view():
+def magnets_view() -> str:
     """Magnets management view with search and pagination"""
     query = request.args.get("q", "").strip()
     try:
@@ -293,7 +315,7 @@ def magnets_view():
 
 
 @app.route("/feed.xml")
-def feed():
+def feed() -> Response:
     """RSS 2.0 feed of magnet links"""
     magnets = read_magnets()
 
@@ -346,7 +368,7 @@ def feed():
 
 
 @app.route("/health")
-def health():
+def health() -> dict[str, Any]:
     """Health check endpoint"""
     magnets = read_magnets()
 
@@ -373,7 +395,7 @@ config_manager = ConfigManager()
 
 @app.route("/settings", methods=["GET", "POST"])
 @requires_auth
-def settings():
+def settings() -> str:
     """Settings page for BIND configuration"""
     message = None
     success = False
@@ -408,12 +430,47 @@ def settings():
     # Read current config for form
     config = config_manager.read_config()
 
-    return render_template("settings.html", config=config, message=message, success=success)
+    # Read current trackers
+    trackers = tracker_manager.get_trackers()
+    trackers_text = "\n".join(trackers)
+
+    return render_template(
+        "settings.html",
+        config=config,
+        trackers_text=trackers_text,
+        message=message,
+        success=success,
+    )
+
+
+@app.route("/settings/trackers", methods=["POST"])
+@requires_auth
+def settings_trackers() -> str:
+    """Update tracker list from settings page."""
+    trackers_text = request.form.get("trackers", "").strip()
+
+    try:
+        tracker_manager.set_trackers_from_text(trackers_text)
+        message = "Trackers updated successfully."
+        success = True
+    except Exception as e:
+        message = f"Failed to update trackers: {e}"
+        success = False
+
+    config = config_manager.read_config()
+    trackers = tracker_manager.get_trackers()
+    return render_template(
+        "settings.html",
+        config=config,
+        trackers_text="\n".join(trackers),
+        message=message,
+        success=success,
+    )
 
 
 @app.route("/logs")
 @requires_auth
-def logs_view():
+def logs_view() -> str:
     """System logs view"""
     log_type = request.args.get("log", "security")
 
@@ -452,7 +509,7 @@ def logs_view():
 
 
 @app.route("/setup", methods=["GET", "POST"])
-def setup():
+def setup() -> Any:
     """First-time setup page for creating admin account."""
     # If setup is already complete, redirect to dashboard
     if is_setup_complete():
@@ -482,7 +539,7 @@ def setup():
 
 @app.route("/settings/password", methods=["POST"])
 @requires_auth
-def change_password_route():
+def change_password_route() -> str:
     """Handle password change form submission."""
     current_password = request.form.get("current_password", "")
     new_password = request.form.get("new_password", "")
@@ -511,7 +568,7 @@ def change_password_route():
     )
 
 
-def check_daemon_status():
+def check_daemon_status() -> tuple[str, str, float]:
     """
     Check if the BIND daemon is active by inspecting bind.log modification time.
     Returns (status_enum, status_message, last_active_ts)
@@ -545,7 +602,7 @@ def check_daemon_status():
 
 
 @app.route("/api/stats")
-def api_stats():
+def api_stats() -> dict[str, Any]:
     """
     API Endpoint for real-time dashboard statistics.
     Returns JSON with system status and magnet counts.

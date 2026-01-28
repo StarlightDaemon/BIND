@@ -10,11 +10,15 @@ import json
 import logging
 import os
 import re
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
+from typing import Any, TypeVar, cast
 
-from flask import Response, request
+from flask import Flask, Response, request
 from werkzeug.security import check_password_hash, generate_password_hash
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 # =============================================================================
 # Constants
@@ -60,7 +64,7 @@ CREDENTIALS_FILE = get_credentials_path()
 # =============================================================================
 
 
-def log_security_event(event_type: str, username: str, ip: str, details: str = ""):
+def log_security_event(event_type: str, username: str, ip: str, details: str = "") -> None:
     """
     Log a security event to security.log.
 
@@ -89,7 +93,7 @@ def log_security_event(event_type: str, username: str, ip: str, details: str = "
         pass  # Don't fail on log write errors
 
 
-def _rotate_log_if_needed(log_path: str, max_lines: int = 1000):
+def _rotate_log_if_needed(log_path: str, max_lines: int = 1000) -> None:
     """Rotate log file if it exceeds max_lines."""
     try:
         with open(log_path, encoding="utf-8") as f:
@@ -112,10 +116,10 @@ def is_setup_complete() -> bool:
     return os.path.exists(CREDENTIALS_FILE)
 
 
-def load_credentials() -> dict:
+def load_credentials() -> dict[str, Any]:
     """Load credentials from JSON file with migration support."""
     if not is_setup_complete():
-        return {}
+        return cast(dict[str, Any], {})
 
     try:
         with open(CREDENTIALS_FILE, encoding="utf-8") as f:
@@ -129,12 +133,12 @@ def load_credentials() -> dict:
         if creds.get("version", 1) < CREDENTIALS_VERSION:
             creds = _migrate_credentials(creds)
 
-        return creds
+        return cast(dict[str, Any], creds)
     except (OSError, json.JSONDecodeError):
-        return {}
+        return cast(dict[str, Any], {})
 
 
-def _migrate_credentials(creds: dict) -> dict:
+def _migrate_credentials(creds: dict[str, Any]) -> dict[str, Any]:
     """Migrate credentials to latest version."""
     version = creds.get("version", 1)
 
@@ -153,7 +157,7 @@ def _migrate_credentials(creds: dict) -> dict:
     return creds
 
 
-def _save_credentials_raw(creds: dict) -> bool:
+def _save_credentials_raw(creds: dict[str, Any]) -> bool:
     """Save credentials dict directly to file."""
     try:
         with open(CREDENTIALS_FILE, "w", encoding="utf-8") as f:
@@ -299,7 +303,7 @@ def is_account_locked() -> tuple[bool, int | None]:
         return False, None
 
 
-def record_failed_login(ip: str):
+def record_failed_login(ip: str) -> None:
     """Record a failed login attempt and lock account if threshold exceeded."""
     creds = load_credentials()
     if not creds:
@@ -325,7 +329,7 @@ def record_failed_login(ip: str):
     _save_credentials_raw(creds)
 
 
-def record_successful_login(ip: str):
+def record_successful_login(ip: str) -> None:
     """Record a successful login attempt."""
     creds = load_credentials()
     if not creds:
@@ -378,7 +382,7 @@ DEFAULT_ALLOWED_NETWORKS = [
 ]
 
 
-def get_allowed_networks():
+def get_allowed_networks() -> list[str]:
     """
     Get list of allowed IP networks from environment or defaults.
 
@@ -419,7 +423,7 @@ def is_ip_allowed(ip_str: str) -> bool:
     return False
 
 
-def get_client_ip(req) -> str:
+def get_client_ip(req: Any) -> str:
     """
     Extract client IP from request, handling proxies.
 
@@ -431,12 +435,12 @@ def get_client_ip(req) -> str:
 
     forwarded = req.headers.get("X-Forwarded-For", "")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        return cast(str, forwarded.split(",")[0].strip())
 
-    return req.remote_addr or "0.0.0.0"
+    return cast(str, req.remote_addr or "0.0.0.0")
 
 
-def ip_allowlist_middleware(app):
+def ip_allowlist_middleware(app: Flask) -> None:
     """
     Register IP allowlist check as Flask before_request handler.
 
@@ -444,7 +448,7 @@ def ip_allowlist_middleware(app):
     """
 
     @app.before_request
-    def check_ip_allowlist():
+    def check_ip_allowlist() -> Response | None:
         if os.getenv("BIND_IP_FILTER", "true").lower() == "false":
             return None
 
@@ -490,7 +494,7 @@ def check_auth(username: str, password: str) -> bool:
     return username == expected_user and password == expected_pass
 
 
-def requires_auth(f):
+def requires_auth(f: F) -> F:
     """
     Decorator to require Basic Authentication on a route.
 
@@ -504,7 +508,7 @@ def requires_auth(f):
     """
 
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated(*args: Any, **kwargs: Any) -> Any:
         if os.getenv("BIND_AUTH_ENABLED", "true").lower() == "false":
             return f(*args, **kwargs)
 
@@ -519,7 +523,12 @@ def requires_auth(f):
 
         auth = request.authorization
 
-        if not auth or not check_auth(auth.username, auth.password):
+        if (
+            not auth
+            or not auth.username
+            or not auth.password
+            or not check_auth(auth.username, auth.password)
+        ):
             return Response(
                 "Authentication required.",
                 status=401,
@@ -528,4 +537,4 @@ def requires_auth(f):
 
         return f(*args, **kwargs)
 
-    return decorated
+    return cast(F, decorated)
