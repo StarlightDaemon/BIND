@@ -56,3 +56,17 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
 ]
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = [
+    "cloudscraper",
+    "bs4",
+    "schedule",
+    "flask",
+    "curl_cffi.*"
+]
+ignore_missing_imports = true

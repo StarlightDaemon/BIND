@@ -95,6 +95,21 @@
                 </div>
             </form>
 
+            <form method="POST" action="/settings/trackers" class="form-card" style="margin-top: var(--spacing-07);">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h2 style="margin-top: 0;">Tracker Configuration</h2>
+                
+                <div class="form-group">
+                    <label for="trackers">Magnet Trackers</label>
+                    <textarea id="trackers" name="trackers" rows="8" style="font-family: monospace; width: 100%;" placeholder="udp://...&#10;http://...">{{ trackers_text }}</textarea>
+                    <span class="helper-text">One tracker URL per line. Supported: udp://, http://, https://. Changes apply retroactively to RSS/UI.</span>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Update Trackers</button>
+                </div>
+            </form>
+
             <!-- Password Change Section -->
             <form method="POST" action="/settings/password" class="form-card" style="margin-top: var(--spacing-07);">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -4,6 +4,7 @@ import logging
 import os
 import random
 import time
+from typing import Any, cast
 from urllib.parse import quote_plus
 
 import cloudscraper
@@ -102,16 +103,7 @@ class BindScraper:
     REQUEST_TIMEOUT = 30  # seconds - prevents indefinite hangs
     MAX_RETRIES = 3  # attempts before giving up
 
-    # Trackers from Research (Section 3.4)
-    TRACKERS = [
-        "udp://tracker.opentrackr.org:1337/announce",
-        "udp://tracker.openbittorrent.com:80/announce",
-        "udp://9.rarbg.to:2710/announce",
-        "http://tracker.openbittorrent.com:80/announce",
-        "udp://tracker.coppersurfer.tk:6969/announce",
-    ]
-
-    def __init__(self):
+    def __init__(self) -> None:
         self.scraper = cloudscraper.create_scraper(
             browser={"browser": "chrome", "platform": "windows", "desktop": True}
         )
@@ -125,7 +117,7 @@ class BindScraper:
                 f"🔒 Proxy configured: {self.proxy.split('@')[-1] if '@' in self.proxy else self.proxy}"
             )
 
-    def _get_page(self, url):
+    def _get_page(self, url: str) -> str | None:
         """
         Fetch a page using Phase 2 Waterfall strategy with circuit breaker.
 
@@ -184,7 +176,7 @@ class BindScraper:
         self.circuit_breaker.record_failure()
         return None
 
-    def _attempt_curl_cffi(self, url, use_proxy=False):
+    def _attempt_curl_cffi(self, url: str, use_proxy: bool = False) -> str:
         """Attempt to fetch using curl_cffi."""
         from curl_cffi import requests as cffi_requests
 
@@ -192,7 +184,7 @@ class BindScraper:
         response = cffi_requests.get(
             url, impersonate="chrome120", proxy=proxy, timeout=self.REQUEST_TIMEOUT
         )
-        response.raise_for_status()
+        cast(Any, response).raise_for_status()
 
         # Detect soft blocks
         if "Just a moment..." in response.text or "Attention Required" in response.text:
@@ -200,7 +192,7 @@ class BindScraper:
 
         return response.text
 
-    def _attempt_cloudscraper(self, url):
+    def _attempt_cloudscraper(self, url: str) -> str:
         """Attempt to fetch using cloudscraper."""
         response = self.scraper.get(url, timeout=self.REQUEST_TIMEOUT)
         response.raise_for_status()
@@ -209,9 +201,9 @@ class BindScraper:
         if "Just a moment..." in response.text or "Attention Required" in response.text:
             raise ValueError("Cloudflare block detected")
 
-        return response.text
+        return cast(str, response.text)
 
-    def search(self, term):
+    def search(self, term: str) -> list[dict[str, Any]]:
         """
         Searches ABB for a term.
         """
@@ -231,7 +223,7 @@ class BindScraper:
                 results.append({"title": title, "link": link, "hash": None})
         return results
 
-    def extract_info_hash(self, detail_page_url):
+    def extract_info_hash(self, detail_page_url: str) -> str | None:
         """
         Fetches a detail page and extracts the Info Hash.
         Defensive parsing: handles missing or changed HTML structure.
@@ -260,7 +252,7 @@ class BindScraper:
 
         return None
 
-    def get_recent_books(self):
+    def get_recent_books(self) -> list[dict[str, str]]:
         rss_url = f"{self.BASE_URL}/rss"
         xml = self._get_page(rss_url)
         if not xml:
@@ -280,7 +272,7 @@ class BindScraper:
 
         return items
 
-    def _ensure_hex(self, bg_hash):
+    def _ensure_hex(self, bg_hash: str | None) -> str | None:
         """
         Converts Base32 to Hex if necessary (Research Section 3.3).
         """
@@ -305,7 +297,7 @@ class BindScraper:
         return None
 
     @classmethod
-    def generate_magnet(cls, info_hash, title):
+    def generate_magnet(cls, info_hash: str, title: str, trackers: list[str]) -> str:
         """
         Generates a robust magnet link with trackers.
         Title is URL-encoded to handle special characters (&, +, =, ?, #, spaces, etc.)
@@ -315,6 +307,6 @@ class BindScraper:
         title_encoded = quote_plus(title)
 
         magnet = f"magnet:?xt=urn:btih:{info_hash}&dn={title_encoded}"
-        for tr in cls.TRACKERS:
+        for tr in trackers:
             magnet += f"&tr={tr}"
         return magnet

@@ -50,7 +50,7 @@ class ConfigManager:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             self.config_path = os.path.join(base_dir, "config.env")
 
-    def read_config(self) -> dict:
+    def read_config(self) -> dict[str, str]:
         """
         Read configuration from config.env file.
 
@@ -85,7 +85,7 @@ class ConfigManager:
 
         return config
 
-    def write_config(self, settings: dict) -> tuple[bool, str]:
+    def write_config(self, settings: dict[str, str]) -> tuple[bool, str]:
         """
         Write configuration to config.env file.
 
