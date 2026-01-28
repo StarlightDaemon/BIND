@@ -7,12 +7,14 @@ import signal
 import sys
 import time
 from datetime import datetime
+from typing import Any
 
 import click
 import schedule
 
 from src.config_manager import ConfigManager
 from src.core.scraper import BindScraper
+from src.core.tracker_manager import TrackerManager
 
 # Configure Logging
 logging.basicConfig(
@@ -61,7 +63,7 @@ class HistoryManager:
 
 
 @click.group()
-def cli():
+def cli() -> None:
     """Book Indexing Network Daemon (BIND)"""
     pass
 
@@ -74,7 +76,7 @@ def cli():
     default="data/magnets",
     help="Directory to store magnet files",
 )
-def daemon(interval, output_dir):
+def daemon(interval: int, output_dir: str) -> None:
     """Run in daemon mode to auto-grab new torrents"""
     logger.info(f"Starting BIND Daemon (Interval: {interval}m)")
 
@@ -138,7 +140,7 @@ def daemon(interval, output_dir):
     shutdown_requested = {"flag": False}
 
     # Define signal handler for graceful shutdown
-    def signal_handler(signum, frame):
+    def signal_handler(signum: int, frame: Any) -> None:
         """
         Handle shutdown signals gracefully.
         Sets a flag to stop after current job completes.
@@ -153,7 +155,7 @@ def daemon(interval, output_dir):
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
-    def check_disk_space(path, required_mb=100):
+    def check_disk_space(path: str, required_mb: int = 100) -> bool:
         """
         Check if sufficient disk space is available.
         Returns True if >= required_mb MB free, False otherwise.
@@ -175,7 +177,7 @@ def daemon(interval, output_dir):
             # Don't block on check failure
             return True
 
-    def cleanup_old_files(path, days=90):
+    def cleanup_old_files(path: str, days: int = 90) -> None:
         """Delete files older than X days to prevent infinite accumulation"""
         try:
             cutoff = time.time() - (days * 86400)
@@ -193,7 +195,10 @@ def daemon(interval, output_dir):
     # Initialize Global History Manager
     history = HistoryManager(output_dir)
 
-    def job():
+    # Initialize Tracker Manager
+    tracker_manager = TrackerManager(output_dir)
+
+    def job() -> None:
         # Check disk space before starting job
         if not check_disk_space(output_dir, required_mb=100):
             logger.error("Insufficient disk space, skipping scrape job")
@@ -230,7 +235,9 @@ def daemon(interval, output_dir):
                     skipped_dupes += 1
                     continue
 
-                magnet = BindScraper.generate_magnet(info_hash, book["title"])
+                # Get current trackers from manager
+                current_trackers = tracker_manager.get_trackers()
+                magnet = BindScraper.generate_magnet(info_hash, book["title"], current_trackers)
 
                 # Save to date-based file with comprehensive error handling
                 try:
