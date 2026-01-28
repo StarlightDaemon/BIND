@@ -11,7 +11,7 @@ import logging
 import os
 import re
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any, TypeVar, cast
 
@@ -70,7 +70,7 @@ def log_security_event(event_type: str, username: str, ip: str, details: str = "
 
     Event types: LOGIN_SUCCESS, LOGIN_FAILED, ACCOUNT_LOCKED, PASSWORD_CHANGED, ACCOUNT_CREATED
     """
-    timestamp = datetime.utcnow().isoformat() + "Z"
+    timestamp = datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
     log_line = f"{timestamp} {event_type} {username} {ip}"
     if details:
         log_line += f" {details}"
@@ -208,7 +208,7 @@ def save_credentials(username: str, password: str) -> tuple[bool, str]:
     if not is_valid:
         return False, error
 
-    now = datetime.utcnow().isoformat() + "Z"
+    now = datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
 
     credentials = {
         "version": CREDENTIALS_VERSION,
@@ -262,7 +262,9 @@ def change_password(current_password: str, new_password: str) -> tuple[bool, str
 
     # Update password
     creds["password_hash"] = generate_password_hash(new_password)
-    creds["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    creds["updated_at"] = (
+        datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    )
 
     if _save_credentials_raw(creds):
         log_security_event(
@@ -288,7 +290,7 @@ def is_account_locked() -> tuple[bool, int | None]:
 
     try:
         locked_time = datetime.fromisoformat(locked_until.replace("Z", "+00:00"))
-        now = datetime.now(locked_time.tzinfo)
+        now = datetime.now(timezone.utc)
 
         if now < locked_time:
             remaining = (locked_time - now).total_seconds() / 60
@@ -317,8 +319,8 @@ def record_failed_login(ip: str) -> None:
 
     if creds["failed_attempts"] >= MAX_FAILED_ATTEMPTS:
         # Lock account
-        lock_time = datetime.utcnow() + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
-        creds["locked_until"] = lock_time.isoformat() + "Z"
+        lock_time = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+        creds["locked_until"] = lock_time.isoformat(timespec="microseconds").replace("+00:00", "Z")
         log_security_event(
             "ACCOUNT_LOCKED",
             creds.get("username", "unknown"),
@@ -338,7 +340,9 @@ def record_successful_login(ip: str) -> None:
     # Clear failed attempts
     creds["failed_attempts"] = 0
     creds["locked_until"] = None
-    creds["last_login"] = datetime.utcnow().isoformat() + "Z"
+    creds["last_login"] = (
+        datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    )
     creds["last_login_ip"] = ip
 
     log_security_event("LOGIN_SUCCESS", creds.get("username", "unknown"), ip)
