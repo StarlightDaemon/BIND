@@ -13,7 +13,7 @@ import math
 import os
 import re
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, cast
 from xml.sax.saxutils import escape
 
@@ -328,7 +328,7 @@ def feed() -> Response:
     # Build RSS 2.0 XML
     rss_items = []
     for magnet in magnets:
-        pub_date = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+        pub_date = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
         guid = magnet["hash"]
 
         # Properly escape magnet link for XML (handles &, <, >, ", ')
@@ -356,7 +356,7 @@ def feed() -> Response:
         <link>{base_url}</link>
         <description>{FEED_DESCRIPTION}</description>
         <language>en-us</language>
-        <lastBuildDate>{datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
+        <lastBuildDate>{datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
         <atom:link href="{base_url}/feed.xml" rel="self" type="application/rss+xml" />
 
         {"".join(rss_items)}
@@ -587,8 +587,8 @@ def check_daemon_status() -> tuple[str, str, float]:
             return "unknown", "Log file not found", 0
 
         mtime = os.path.getmtime(log_path)
-        last_active = datetime.fromtimestamp(mtime)
-        now = datetime.now()
+        last_active = datetime.fromtimestamp(mtime, tz=timezone.utc)
+        now = datetime.now(timezone.utc)
 
         diff_minutes = (now - last_active).total_seconds() / 60
 
@@ -625,7 +625,9 @@ def api_stats() -> dict[str, Any]:
         "status_message": message,
         "magnet_count": count,
         "recent_magnets": recent_magnets,
-        "server_time": datetime.utcnow().isoformat() + "Z",
+        "server_time": datetime.now(timezone.utc)
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z"),
     }
 
 
