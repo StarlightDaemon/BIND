@@ -79,28 +79,23 @@ class TestBindScraper:
         magnet = BindScraper.generate_magnet("abc123", "", [])
         assert "urn:btih:abc123" in magnet
 
-    @patch("src.core.scraper.cloudscraper.create_scraper")
-    def test_ensure_hex_passthrough(self, mock_create):
+    def test_ensure_hex_passthrough(self):
         """Already-hex hashes should pass through unchanged."""
-        scraper = BindScraper()
-        hex_hash = "abc123def456789012345678901234567890abcd"
+        with patch.object(BindScraper, "__init__", return_value=None):
+            scraper = BindScraper()
+            hex_hash = "abc123def456789012345678901234567890abcd"
+            result = scraper._ensure_hex(hex_hash)
+            assert result == hex_hash
 
-        result = scraper._ensure_hex(hex_hash)
-        assert result == hex_hash
-
-    @patch("src.core.scraper.cloudscraper.create_scraper")
-    def test_ensure_hex_converts_base32(self, mock_create):
+    def test_ensure_hex_converts_base32(self):
         """Base32 hashes should be converted to hex."""
-        scraper = BindScraper()
-        # Valid base32 string
-        base32_hash = "MFRGGZDFMY"  # "example" in base32
+        with patch.object(BindScraper, "__init__", return_value=None):
+            scraper = BindScraper()
+            base32_hash = "MFRGGZDFMY"
+            result = scraper._ensure_hex(base32_hash)
+            assert result != base32_hash or len(result) == len(base32_hash)
 
-        result = scraper._ensure_hex(base32_hash)
-        # Should return hex, not base32
-        assert result != base32_hash or len(result) == len(base32_hash)
-
-    @patch("src.core.scraper.cloudscraper.create_scraper")
-    def test_scraper_has_base_url(self, mock_create):
+    def test_scraper_has_base_url(self):
         """Scraper should have configurable base URL."""
-        scraper = BindScraper()
-        assert hasattr(scraper, "BASE_URL") or hasattr(BindScraper, "BASE_URL")
+        # Check class attribute directly to avoid instantiation
+        assert hasattr(BindScraper, "BASE_URL")
