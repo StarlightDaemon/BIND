@@ -65,6 +65,9 @@ class TrackerManager:
         tmp_path = self.path.with_suffix(".json.tmp")
 
         try:
+            # Ensure parent directory exists (e.g., data/)
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+
             # Atomic write pattern
             with open(tmp_path, "w", encoding="utf-8") as f:
                 # Exclusive lock during write

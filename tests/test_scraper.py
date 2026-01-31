@@ -1,7 +1,5 @@
 """Tests for BindScraper with mocked HTTP responses."""
 
-from unittest.mock import patch
-
 from src.core.scraper import BindScraper, ScraperMetrics
 
 
@@ -81,21 +79,21 @@ class TestBindScraper:
 
     def test_ensure_hex_passthrough(self):
         """Already-hex hashes should pass through unchanged."""
-        with patch.object(BindScraper, "__init__", return_value=None):
-            scraper = BindScraper()
-            hex_hash = "abc123def456789012345678901234567890abcd"
-            result = scraper._ensure_hex(hex_hash)
-            assert result == hex_hash
+        scraper = BindScraper()
+        hex_hash = "abc123def456789012345678901234567890abcd"
+
+        result = scraper._ensure_hex(hex_hash)
+        assert result == hex_hash
 
     def test_ensure_hex_converts_base32(self):
         """Base32 hashes should be converted to hex."""
-        with patch.object(BindScraper, "__init__", return_value=None):
-            scraper = BindScraper()
-            base32_hash = "MFRGGZDFMY"
-            result = scraper._ensure_hex(base32_hash)
-            assert result != base32_hash or len(result) == len(base32_hash)
+        scraper = BindScraper()
+        base32_hash = "MFRGGZDFMY"
+
+        result = scraper._ensure_hex(base32_hash)
+        assert result != base32_hash or len(result) == len(base32_hash)
 
     def test_scraper_has_base_url(self):
         """Scraper should have configurable base URL."""
-        # Check class attribute directly to avoid instantiation
-        assert hasattr(BindScraper, "BASE_URL")
+        scraper = BindScraper()
+        assert hasattr(scraper, "BASE_URL")
