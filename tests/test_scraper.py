@@ -1,5 +1,7 @@
 """Tests for BindScraper with mocked HTTP responses."""
 
+from unittest.mock import patch
+
 from src.core.scraper import BindScraper, ScraperMetrics
 
 
@@ -77,7 +79,8 @@ class TestBindScraper:
         magnet = BindScraper.generate_magnet("abc123", "", [])
         assert "urn:btih:abc123" in magnet
 
-    def test_ensure_hex_passthrough(self):
+    @patch("src.core.scraper.cloudscraper.create_scraper")
+    def test_ensure_hex_passthrough(self, mock_create):
         """Already-hex hashes should pass through unchanged."""
         scraper = BindScraper()
         hex_hash = "abc123def456789012345678901234567890abcd"
@@ -85,7 +88,8 @@ class TestBindScraper:
         result = scraper._ensure_hex(hex_hash)
         assert result == hex_hash
 
-    def test_ensure_hex_converts_base32(self):
+    @patch("src.core.scraper.cloudscraper.create_scraper")
+    def test_ensure_hex_converts_base32(self, mock_create):
         """Base32 hashes should be converted to hex."""
         scraper = BindScraper()
         # Valid base32 string
@@ -95,7 +99,8 @@ class TestBindScraper:
         # Should return hex, not base32
         assert result != base32_hash or len(result) == len(base32_hash)
 
-    def test_scraper_has_base_url(self):
+    @patch("src.core.scraper.cloudscraper.create_scraper")
+    def test_scraper_has_base_url(self, mock_create):
         """Scraper should have configurable base URL."""
         scraper = BindScraper()
         assert hasattr(scraper, "BASE_URL") or hasattr(BindScraper, "BASE_URL")
