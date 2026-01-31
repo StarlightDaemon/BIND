@@ -85,3 +85,38 @@ def test_tracker_manager_error_handling(tmp_path):
 
     # Should fallback to defaults
     assert tm.load() == tm.DEFAULT_TRACKERS
+
+
+def test_tracker_manager_creates_missing_parent_directory(tmp_path):
+    """
+    REGRESSION TEST: TrackerManager should create parent directory if missing.
+
+    This test covers the CI failure scenario where pytest collection failed
+    because importing src.rss_server triggered TrackerManager initialization,
+    which tried to write to data/trackers.json.tmp when the data/ directory
+    did not exist.
+
+    The fix ensures self.path.parent.mkdir(parents=True, exist_ok=True)
+    is called in save() before attempting to open the file.
+    """
+    # Create a path with NON-EXISTENT parent directory
+    # This simulates a fresh CI environment where data/ doesn't exist yet
+    magnets_dir = tmp_path / "nonexistent_data" / "magnets"
+
+    # Do NOT create the directory - this is the critical test condition
+    # Old code would fail here with: FileNotFoundError: [Errno 2] No such file or directory: 'data/trackers.json.tmp'
+    tm = TrackerManager(str(magnets_dir))
+
+    # Verify the trackers.json file was created successfully
+    expected_path = magnets_dir.parent / "trackers.json"
+    assert expected_path.exists(), (
+        "trackers.json should be created even when parent directory is missing"
+    )
+
+    # Verify contents are valid and contain default trackers
+    with open(expected_path) as f:
+        data = json.load(f)
+
+    assert isinstance(data, list), "trackers.json should contain a list"
+    assert len(data) > 0, "Default trackers should be saved"
+    assert data == tm.DEFAULT_TRACKERS, "Should contain default trackers"
