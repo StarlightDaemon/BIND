@@ -427,21 +427,31 @@ def is_ip_allowed(ip_str: str) -> bool:
     return False
 
 
+_TRUSTED_PROXY_NETS = [
+    ipaddress.ip_network("127.0.0.1/32"),
+    ipaddress.ip_network("::1/128"),
+]
+
+
 def get_client_ip(req: Any) -> str:
     """
-    Extract client IP from request, handling proxies.
+    Extract client IP from request.
 
-    Checks X-Forwarded-For header first (for reverse proxies),
-    then falls back to remote_addr.
+    X-Forwarded-For is only trusted when the direct TCP connection
+    comes from a known trusted proxy (loopback). Otherwise the direct
+    remote_addr is used, preventing XFF spoofing by external clients.
     """
     if req is None:
         return "0.0.0.0"
-
-    forwarded = req.headers.get("X-Forwarded-For", "")
-    if forwarded:
-        return cast(str, forwarded.split(",")[0].strip())
-
-    return cast(str, req.remote_addr or "0.0.0.0")
+    try:
+        direct_ip = ipaddress.ip_address(req.remote_addr or "0.0.0.0")
+    except ValueError:
+        return "0.0.0.0"
+    if any(direct_ip in net for net in _TRUSTED_PROXY_NETS):
+        forwarded = req.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+    return str(direct_ip)
 
 
 def ip_allowlist_middleware(app: Flask) -> None:
@@ -477,8 +487,8 @@ def check_auth(username: str, password: str) -> bool:
     """
     Validate username and password.
 
-    Uses stored credentials if setup is complete, otherwise falls back
-    to environment variables (for initial setup or legacy mode).
+    Uses stored credentials if setup is complete. Fails closed if
+    first-time setup has not been completed.
     """
     client_ip = get_client_ip(request)
 
@@ -491,11 +501,7 @@ def check_auth(username: str, password: str) -> bool:
     if is_setup_complete():
         return verify_credentials(username, password, client_ip)
 
-    # Fallback to environment variables (legacy mode)
-    expected_user = os.getenv("BIND_USER", "admin")
-    expected_pass = os.getenv("BIND_PASS", "bind")
-
-    return username == expected_user and password == expected_pass
+    return False  # setup not complete — fail closed
 
 
 def requires_auth(f: F) -> F:

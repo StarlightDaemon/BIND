@@ -106,6 +106,14 @@ log "Installing Python requirements..."
 ./venv/bin/pip install -r requirements.txt -q
 ./venv/bin/pip install curl_cffi==0.7.4 -q
 
+# 4b. Create bind system user
+if ! id -u bind &>/dev/null; then
+    log "Creating bind system user..."
+    useradd --system --no-create-home --shell /usr/sbin/nologin bind
+fi
+mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/logs" "$MAGNETS_DIR"
+chown -R bind:bind "$INSTALL_DIR/data" "$INSTALL_DIR/logs" "$MAGNETS_DIR"
+
 # 5. Create custom service files
 log "Creating systemd services with your configuration..."
 
@@ -118,7 +126,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
+User=bind
+Group=bind
 WorkingDirectory=$INSTALL_DIR
 Environment="PYTHONPATH=$INSTALL_DIR"
 $([ -n "$PROXY_URL" ] && echo "Environment=\"BIND_PROXY=$PROXY_URL\"")
@@ -128,6 +137,11 @@ Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=$INSTALL_DIR/data $INSTALL_DIR/logs $MAGNETS_DIR
+CapabilityBoundingSet=
 
 [Install]
 WantedBy=multi-user.target
@@ -142,17 +156,23 @@ After=network.target bind.service
 
 [Service]
 Type=simple
-User=root
+User=bind
+Group=bind
 WorkingDirectory=$INSTALL_DIR
 Environment="PYTHONPATH=$INSTALL_DIR"
 Environment="FLASK_ENV=production"
 Environment="MAGNETS_DIR=$MAGNETS_DIR"
 Environment="PORT=$RSS_PORT"
-ExecStart=$INSTALL_DIR/venv/bin/python -m src.rss_server
+ExecStart=$INSTALL_DIR/venv/bin/gunicorn --workers 2 --bind 0.0.0.0:$RSS_PORT --timeout 30 "src.rss_server:app"
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=$INSTALL_DIR/data $INSTALL_DIR/logs $MAGNETS_DIR
+CapabilityBoundingSet=
 
 [Install]
 WantedBy=multi-user.target

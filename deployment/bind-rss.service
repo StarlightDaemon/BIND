@@ -5,17 +5,23 @@ After=network.target bind.service
 
 [Service]
 Type=simple
-User=root
+User=bind
+Group=bind
 WorkingDirectory=/opt/bind
 Environment="PYTHONPATH=/opt/bind"
 EnvironmentFile=-/opt/bind/config.env
 Environment="FLASK_ENV=production"
 Environment="MAGNETS_DIR=/opt/bind/magnets"
-ExecStart=/opt/bind/venv/bin/python -m src.rss_server
+ExecStart=/opt/bind/venv/bin/gunicorn --workers 2 --bind 0.0.0.0:5050 --timeout 30 "src.rss_server:app"
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/bind/data /opt/bind/logs /opt/bind/magnets
+CapabilityBoundingSet=
 
 [Install]
 WantedBy=multi-user.target

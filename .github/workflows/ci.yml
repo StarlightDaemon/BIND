@@ -27,11 +27,16 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov pytest-mock ruff
       
+      - name: Audit dependencies for vulnerabilities
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+      
       - name: Lint with Ruff
         run: ruff check src/ tests/ --output-format=github
       
       - name: Run tests with coverage
-        run: pytest --cov=src --cov-report=xml --cov-report=term-missing -v
+        run: pytest --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=75 -v
 
   lint:
     runs-on: ubuntu-latest
@@ -51,3 +56,9 @@ jobs:
       
       - name: Check linting
         run: ruff check src/ tests/
+      
+      - name: Type check with mypy
+        run: |
+          pip install mypy types-beautifulsoup4
+          mypy src/
+

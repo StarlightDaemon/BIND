@@ -183,6 +183,9 @@ pct exec "$CTID" -- bash -c "
     ./venv/bin/pip install -r requirements.txt -q
     cp deployment/bind.service /etc/systemd/system/
     cp deployment/bind-rss.service /etc/systemd/system/
+    useradd --system --no-create-home --shell /usr/sbin/nologin bind || true
+    mkdir -p /opt/bind/data /opt/bind/logs /opt/bind/magnets
+    chown -R bind:bind /opt/bind/data /opt/bind/logs /opt/bind/magnets
     systemctl daemon-reload
     systemctl enable bind bind-rss
     systemctl start bind bind-rss
