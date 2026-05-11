@@ -6,6 +6,7 @@ import random
 import time
 from typing import Any, cast
 from urllib.parse import quote_plus
+from src.core.retry import RetryConfig, RetryEngine
 
 import cloudscraper
 from bs4 import BeautifulSoup
@@ -111,6 +112,7 @@ class BindScraper:
         self.proxy = os.getenv("BIND_PROXY")  # Optional: HTTP/SOCKS5 proxy
         self.circuit_breaker = CircuitBreaker()
         self.metrics = ScraperMetrics()
+        self.retry_engine = RetryEngine()
 
         if self.proxy:
             logger.info(
@@ -119,60 +121,47 @@ class BindScraper:
 
     def _get_page(self, url: str) -> str | None:
         """
-        Fetch a page using Phase 2 Waterfall strategy with circuit breaker.
+        Fetch a page using a three-layer waterfall with per-layer retry.
 
-        Layers:
-        1. curl_cffi (primary - fast TLS masquerading)
-        2. curl_cffi + proxy (IP ban bypass)
+        Layers (in order):
+        1. curl_cffi (primary — fast TLS masquerading)
+        2. curl_cffi + proxy (IP ban bypass, if BIND_PROXY is set)
         3. cloudscraper (legacy fallback)
 
-        Returns HTML text on success, None on failure.
+        Each layer is attempted up to MAX_RETRIES times with exponential
+        backoff before escalating. Circuit breaker opens only after all
+        layers and all retries are exhausted.
         """
-        # Circuit breaker check
         if not self.circuit_breaker.can_attempt():
             logger.error("⛔ Circuit breaker OPEN. Skipping request.")
             return None
 
-        # Politeness delay
         delay = random.uniform(2.0, 5.0)
         logger.debug(f"Sleeping for {delay:.2f}s...")
         time.sleep(delay)
 
-        # LAYER 1: curl_cffi (Primary)
-        try:
-            response = self._attempt_curl_cffi(url, use_proxy=False)
-            self.metrics.record("curl_cffi", True)
-            self.circuit_breaker.record_success()
-            logger.debug(f"✓ Fetched {url} (curl_cffi)")
-            return response
-        except Exception as e:
-            self.metrics.record("curl_cffi", False)
-            logger.warning(f"curl_cffi failed: {type(e).__name__}")
+        config = RetryConfig(max_attempts=self.MAX_RETRIES)
 
-        # LAYER 2: curl_cffi + Proxy (if configured)
+        layers: list[tuple[str, Any]] = [
+            ("curl_cffi", lambda: self._attempt_curl_cffi(url, use_proxy=False)),
+        ]
         if self.proxy:
-            try:
-                response = self._attempt_curl_cffi(url, use_proxy=True)
-                self.metrics.record("curl_cffi_proxy", True)
+            layers.append(
+                ("curl_cffi_proxy", lambda: self._attempt_curl_cffi(url, use_proxy=True))
+            )
+        layers.append(("cloudscraper", lambda: self._attempt_cloudscraper(url)))
+
+        for layer_name, attempt_fn in layers:
+            result = self.retry_engine.execute(attempt_fn, config, layer_name)
+            if result is not None:
+                self.metrics.record(layer_name, True)
                 self.circuit_breaker.record_success()
-                logger.info(f"✓ Fetched {url} (curl_cffi + proxy)")
-                return response
-            except Exception as e:
-                self.metrics.record("curl_cffi_proxy", False)
-                logger.warning(f"curl_cffi+proxy failed: {type(e).__name__}")
+                logger.debug(f"✓ Fetched {url} ({layer_name})")
+                return result
+            self.metrics.record(layer_name, False)
+            logger.warning(f"[{layer_name}] all retries exhausted for {url}")
 
-        # LAYER 3: cloudscraper (Legacy fallback)
-        try:
-            response = self._attempt_cloudscraper(url)
-            self.metrics.record("cloudscraper", True)
-            self.circuit_breaker.record_success()
-            logger.info(f"✓ Fetched {url} (cloudscraper)")
-            return response
-        except Exception as e:
-            self.metrics.record("cloudscraper", False)
-            logger.error(f"All layers failed for {url}: {type(e).__name__}")
-
-        # Complete failure
+        logger.error(f"All layers failed for {url}: {type(Exception()).__name__}")
         self.circuit_breaker.record_failure()
         return None
 
@@ -207,7 +196,7 @@ class BindScraper:
         """
         Searches ABB for a term.
         """
-        search_url = f"{self.BASE_URL}/?s={term}"
+        search_url = f"{self.BASE_URL}/?s={quote_plus(term)}"
         html = self._get_page(search_url)
         if not html:
             return []

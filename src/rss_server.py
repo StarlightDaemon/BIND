@@ -37,8 +37,13 @@ _current_dir = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(_current_dir, "templates"))
 
 # Secret key for sessions (CSRF tokens)
-# Generate a stable key from credentials file path or use random
-app.secret_key = os.getenv("FLASK_SECRET_KEY", secrets.token_hex(32))
+_secret_key = os.getenv("FLASK_SECRET_KEY")
+if not _secret_key:
+    raise RuntimeError(
+        "FLASK_SECRET_KEY is not set. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
+app.secret_key = _secret_key
 
 # Configuration
 # [REMEDIATION CONF-01] Load config.env into environment
@@ -159,6 +164,7 @@ def read_magnets() -> list[dict[str, Any]]:
 
     # Sort by filename (date) descending
     magnet_files.sort(reverse=True)
+    current_trackers = tracker_manager.get_trackers()
 
     try:
         for file_path in magnet_files:
@@ -177,7 +183,6 @@ def read_magnets() -> list[dict[str, Any]]:
                     magnet_info = parse_magnet_link(line)
 
                     # [V1.2.3] Regenerate magnet link using CURRENT trackers
-                    current_trackers = tracker_manager.get_trackers()
                     magnet_info["magnet"] = BindScraper.generate_magnet(
                         magnet_info["hash"], magnet_info["title"], current_trackers
                     )
@@ -210,6 +215,7 @@ def search_magnets(
     # Find all magnet files
     magnet_files = glob.glob(os.path.join(MAGNETS_DIR, "magnets_*.txt"))
     magnet_files.sort(reverse=True)  # Newest first
+    current_trackers = tracker_manager.get_trackers()
 
     # Read ALL magnets (finding the total set)
     # Note: In a larger system, we would index this. For flat files, we read all.
@@ -249,7 +255,6 @@ def search_magnets(
                     info = parse_magnet_link(line)
 
                     # [V1.2.3] Regenerate magnet link using CURRENT trackers
-                    current_trackers = tracker_manager.get_trackers()
                     info["magnet"] = BindScraper.generate_magnet(
                         info["hash"], info["title"], current_trackers
                     )
@@ -352,12 +357,12 @@ def feed() -> Response:
     rss_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
-        <title>{FEED_TITLE}</title>
-        <link>{base_url}</link>
-        <description>{FEED_DESCRIPTION}</description>
+        <title>{escape(FEED_TITLE)}</title>
+        <link>{escape(base_url)}</link>
+        <description>{escape(FEED_DESCRIPTION)}</description>
         <language>en-us</language>
         <lastBuildDate>{datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
-        <atom:link href="{base_url}/feed.xml" rel="self" type="application/rss+xml" />
+        <atom:link href="{escape(base_url)}/feed.xml" rel="self" type="application/rss+xml" />
 
         {"".join(rss_items)}
     </channel>
@@ -602,6 +607,7 @@ def check_daemon_status() -> tuple[str, str, float]:
 
 
 @app.route("/api/stats")
+@requires_auth
 def api_stats() -> dict[str, Any]:
     """
     API Endpoint for real-time dashboard statistics.
@@ -630,13 +636,3 @@ def api_stats() -> dict[str, Any]:
         .replace("+00:00", "Z"),
     }
 
-
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5050))
-    host = os.getenv("HOST", "0.0.0.0")
-
-    print(f"Starting BIND RSS Server on {host}:{port}")
-    print(f"RSS Feed: http://{host}:{port}/feed.xml")
-    print(f"Web UI: http://{host}:{port}/")
-
-    app.run(host=host, port=port, debug=False)

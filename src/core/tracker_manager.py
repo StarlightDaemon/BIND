@@ -15,9 +15,7 @@ class TrackerManager:
     DEFAULT_TRACKERS: TrackerList = [
         "udp://tracker.opentrackr.org:1337/announce",
         "udp://tracker.openbittorrent.com:80/announce",
-        "udp://9.rarbg.to:2710/announce",
         "http://tracker.openbittorrent.com:80/announce",
-        "udp://tracker.coppersurfer.tk:6969/announce",
     ]
 
     def __init__(self, magnets_dir: str) -> None:

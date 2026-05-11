@@ -27,7 +27,7 @@ services:
       - "5050:5050"
     volumes:
       - magnets:/app/magnets
-    command: [ "python", "-m", "src.rss_server" ]
+    command: ["gunicorn", "--workers", "2", "--bind", "0.0.0.0:5050", "--timeout", "30", "src.rss_server:app"]
     depends_on:
       - bind-daemon
 

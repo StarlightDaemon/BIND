@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 from src.rss_server import app
@@ -13,13 +13,15 @@ def client():
 
 @patch("src.rss_server.check_daemon_status")
 @patch("src.rss_server.read_magnets")
-def test_api_stats(mock_read_magnets, mock_check_daemon, client):
+@patch("src.security.check_auth", return_value=True)
+def test_api_stats(mock_check_auth, mock_read_magnets, mock_check_daemon, client):
     # Setup mocks
     mock_check_daemon.return_value = ("online", "Active (Last job: 5m ago)", 1234567890)
     mock_read_magnets.return_value = [{"magnet": "test"}] * 42  # 42 magnets
 
     # Call API
-    response = client.get("/api/stats")
+    response = client.get("/api/stats",
+                          headers={"Authorization": "Basic dGVzdDp0ZXN0"})
     data = response.get_json()
 
     # Verify
@@ -32,13 +34,15 @@ def test_api_stats(mock_read_magnets, mock_check_daemon, client):
 
 @patch("src.rss_server.check_daemon_status")
 @patch("src.rss_server.read_magnets")
-def test_api_stats_offline(mock_read_magnets, mock_check_daemon, client):
+@patch("src.security.check_auth", return_value=True)
+def test_api_stats_offline(mock_check_auth, mock_read_magnets, mock_check_daemon, client):
     # Setup mocks
     mock_check_daemon.return_value = ("offline", "Stalled", 0)
     mock_read_magnets.return_value = []
 
     # Call API
-    response = client.get("/api/stats")
+    response = client.get("/api/stats",
+                          headers={"Authorization": "Basic dGVzdDp0ZXN0"})
     data = response.get_json()
 
     # Verify
