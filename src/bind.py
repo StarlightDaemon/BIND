@@ -1,3 +1,4 @@
+import concurrent.futures
 import fcntl
 import glob
 import logging
@@ -279,13 +280,25 @@ def daemon(interval: int, output_dir: str) -> None:
         if failed_saves > 0:
             logger.warning(f"⚠️  {failed_saves} magnets could not be saved - check errors above")
 
-        # Report scraping layer metrics (Phase 2)
-        scraper.metrics.report()
+    JOB_TIMEOUT = int(os.getenv("BIND_JOB_TIMEOUT", "3600"))
+    _job_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
-    schedule.every(interval).minutes.do(job)
+    def run_job_with_timeout() -> None:
+        future = _job_executor.submit(job)
+        try:
+            future.result(timeout=JOB_TIMEOUT)
+        except concurrent.futures.TimeoutError:
+            logger.error(
+                f"⏰ Job exceeded {JOB_TIMEOUT}s timeout. Scheduler will proceed "
+                "normally; timed-out job continues in background until completion."
+            )
+        except Exception as e:
+            logger.error(f"Job raised unexpected exception: {e}")
+
+    schedule.every(interval).minutes.do(run_job_with_timeout)
 
     # Run once immediately
-    job()
+    run_job_with_timeout()
 
     logger.info("Daemon running. Press Ctrl+C to stop.")
     while not shutdown_requested["flag"]:
