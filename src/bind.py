@@ -54,12 +54,17 @@ class HistoryManager:
         """Add hash to memory and append to file."""
         clean_hash = info_hash.lower()
         if clean_hash not in self.seen:
-            self.seen.add(clean_hash)
             try:
                 with open(self.filepath, "a", encoding="utf-8") as f:
-                    f.write(f"{clean_hash}\n")
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                    try:
+                        f.write(f"{clean_hash}\n")
+                    finally:
+                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                self.seen.add(clean_hash)  # only after successful file write
             except Exception as e:
-                logger.error(f"Failed to append to history file: {e}")
+                logger.error(f"Failed to persist hash {clean_hash}: {e}")
+                # NOT added to self.seen — will be retried next run
 
 
 @click.group()

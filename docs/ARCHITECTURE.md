@@ -22,7 +22,7 @@
          │ Writes
          ▼
 ┌─────────────────┐
-│  magnets/       │
+│  data/magnets/  │
 │  *.txt files    │
 │  (Daily files)  │
 └────────┬────────┘
@@ -56,7 +56,12 @@
 - `beautifulsoup4` + `lxml` - HTML parsing
 
 ### Storage Layer
-**Location**: `magnets/` directory
+**Location**: `data/magnets/` directory (canonical default)
+
+**Path Configuration**:
+- Canonical Default: `data/magnets/`
+- Override: Supported via `MAGNETS_DIR` environment variable
+- Legacy Fallback: `magnets/` (only used if `data/magnets/` is missing and legacy path exists)
 
 **Format**: Plain text, one magnet per line
 **Rotation**: Daily files prevent corruption
@@ -64,7 +69,7 @@
 
 **Example**:
 ```
-magnets/
+data/magnets/
 ├── magnets_2026-01-03.txt  (147 magnets)
 ├── magnets_2026-01-04.txt  (53 magnets)
 └── magnets_2026-01-05.txt  (8 magnets)
@@ -74,9 +79,16 @@ magnets/
 **File**: `src/rss_server.py` (324 lines)
 
 **Endpoints**:
-- `/` - Web UI (HTML)
-- `/feed.xml` - RSS 2.0 feed (XML)
-- `/health` - Status endpoint (JSON)
+- `/` - Dashboard (HTML)
+- `/magnets` - Management View (Search/Pagination)
+- `/feed.xml` - RSS 2.0 Feed (XML)
+- `/health` - Status Endpoint (JSON)
+- `/settings` - Configuration (Auth Required)
+- `/settings/trackers` - Tracker Management (Auth Required)
+- `/settings/password` - Security Configuration (Auth Required)
+- `/logs` - Audit Logs (Auth Required)
+- `/setup` - First-time Setup Wizard
+- `/api/stats` - Real-time Statistics
 
 **Features**:
 - Reads all magnet files
@@ -125,7 +137,7 @@ magnets/
 │  │  • Python 3.11            │  │
 │  │  • venv (~150MB)          │  │
 │  │  • BIND code (~5MB)       │  │
-│  │  • magnets/ (growing)     │  │
+│  │  • data/magnets/ (growing)│  │
 │  │                           │  │
 │  │  Services:                │  │
 │  │  ├─ bind.service          │  │
@@ -152,7 +164,7 @@ magnets/
 │  └─────────┬─────────────┘  │
 │            │ volume         │
 │            ▼                │
-│      magnets/              │
+│      data/magnets/         │
 │            │                │
 │  ┌─────────┴─────────────┐  │
 │  │ bind_rss              │  │
@@ -166,9 +178,16 @@ magnets/
 
 ## Security Model
 
-**No authentication** - Designed for private LAN use
-**No encryption** - HTTP only (use reverse proxy for HTTPS)
-**No external access** - Bind to localhost or private network
+**Authentication & Access Control**:
+- **Setup Wizard**: First-time access triggers a setup wizard to create admin credentials stored in `credentials.json`.
+- **Basic Auth**: Protected routes (Settings, Logs) require Basic Authentication (configurable via `BIND_AUTH_ENABLED`).
+- **IP Allowlist**: Integrated middleware restricts access to trusted networks (configurable via `BIND_ALLOWED_IPS` and `BIND_IP_FILTER`). Supports CIDR notation.
+- **CSRF Protection**: POST requests are protected by session-based CSRF tokens (requires `FLASK_SECRET_KEY`).
+- **Audit Logging**: All security events (logins, failures, changes) are recorded in `security.log`.
+
+**Encryption & Exposure**:
+- **No Native TLS**: HTTP only. A reverse proxy (Nginx, Caddy) is **highly recommended** for TLS termination if exposing beyond a private LAN.
+- **Network Binding**: Defaults to `0.0.0.0:5050`. Recommended to bind to localhost or a private management network only.
 
 **Recommended Setup**:
 - Keep LXC on private VLAN
@@ -220,7 +239,7 @@ curl http://localhost:5050/health
 {
   "status": "ok",
   "magnet_count": 147,
-  "magnets_dir": "/opt/bind/magnets",
+  "magnets_dir": "data/magnets",
   "magnet_files_count": 3,
   "latest_file": "magnets_2026-01-03.txt"
 }

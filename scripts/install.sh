@@ -42,6 +42,9 @@ else
     cd "$INSTALL_DIR"
 fi
 
+# 2b. Ensure required directories exist
+mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/logs" "$INSTALL_DIR/magnets"
+
 # 3. Setup Python Virtual Environment
 log "Setting up virtual environment..."
 if [ ! -d "venv" ]; then
@@ -54,6 +57,14 @@ log "Installing Python requirements..."
 ./venv/bin/pip install -r requirements.txt -q
 # Explicitly install curl_cffi to be safe
 ./venv/bin/pip install curl_cffi==0.7.4 -q
+
+# 5a. Create bind system user
+if ! id -u bind &>/dev/null; then
+    log "Creating bind system user..."
+    useradd --system --no-create-home --shell /usr/sbin/nologin bind
+fi
+mkdir -p /opt/bind/data /opt/bind/logs /opt/bind/magnets
+chown -R bind:bind /opt/bind/data /opt/bind/logs /opt/bind/magnets
 
 # 5. Install Systemd Services
 log "Configuring systemd services..."
