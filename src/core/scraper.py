@@ -6,10 +6,11 @@ import random
 import time
 from typing import Any, cast
 from urllib.parse import quote_plus
-from src.core.retry import RetryConfig, RetryEngine
 
 import cloudscraper
 from bs4 import BeautifulSoup
+
+from src.core.retry import RetryConfig, RetryEngine
 
 logger = logging.getLogger("Scraper")
 
@@ -157,7 +158,7 @@ class BindScraper:
                 self.metrics.record(layer_name, True)
                 self.circuit_breaker.record_success()
                 logger.debug(f"✓ Fetched {url} ({layer_name})")
-                return result
+                return cast(str, result)
             self.metrics.record(layer_name, False)
             logger.warning(f"[{layer_name}] all retries exhausted for {url}")
 

@@ -450,7 +450,7 @@ def get_client_ip(req: Any) -> str:
     if any(direct_ip in net for net in _TRUSTED_PROXY_NETS):
         forwarded = req.headers.get("X-Forwarded-For", "")
         if forwarded:
-            return forwarded.split(",")[0].strip()
+            return cast(str, forwarded.split(",")[0].strip())
     return str(direct_ip)
 
 
