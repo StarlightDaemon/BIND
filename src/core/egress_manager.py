@@ -58,8 +58,11 @@ class EgressManager:
     """
 
     def __init__(self, proxy_list: list[str] | None = None) -> None:
+        from curl_cffi import requests as cffi_requests
+
         self._proxy_pool = ProxyPool(proxy_list or [])
         self._retry_engine = RetryEngine()
+        self._cffi_session = cffi_requests.Session(impersonate="chrome120")
         self._cloudscraper = cloudscraper.create_scraper(
             browser={"browser": "chrome", "platform": "windows", "desktop": True}
         )
@@ -112,11 +115,7 @@ class EgressManager:
         raise FetchExhausted(url)
 
     def _fetch_curl_cffi(self, url: str, proxy: str | None) -> str:
-        from curl_cffi import requests as cffi_requests
-
-        response = cffi_requests.get(
-            url, impersonate="chrome120", proxy=proxy, timeout=TIMEOUT
-        )
+        response = self._cffi_session.get(url, proxy=proxy, timeout=TIMEOUT)
         cast(Any, response).raise_for_status()
         if "Just a moment..." in response.text or "Attention Required" in response.text:
             raise ValueError("Cloudflare block detected")
