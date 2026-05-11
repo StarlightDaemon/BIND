@@ -3,14 +3,15 @@ import binascii
 import logging
 import os
 import random
+import re
 import time
-from typing import Any, cast
+from typing import Any
 from urllib.parse import quote_plus
 
-import cloudscraper
 from bs4 import BeautifulSoup
 
-from src.core.retry import RetryConfig, RetryEngine
+from src.core.egress_manager import EgressManager, FetchExhausted
+from src.core.schema_monitor import SchemaHealthMonitor
 
 logger = logging.getLogger("Scraper")
 
@@ -105,33 +106,16 @@ class BindScraper:
     REQUEST_TIMEOUT = 30  # seconds - prevents indefinite hangs
     MAX_RETRIES = 3  # attempts before giving up
 
-    def __init__(self) -> None:
-        self.scraper = cloudscraper.create_scraper(
-            browser={"browser": "chrome", "platform": "windows", "desktop": True}
-        )
-        # Phase 2: Proxy and Resilience
-        self.proxy = os.getenv("BIND_PROXY")  # Optional: HTTP/SOCKS5 proxy
+    def __init__(self, egress_manager: EgressManager | None = None) -> None:
         self.circuit_breaker = CircuitBreaker()
-        self.metrics = ScraperMetrics()
-        self.retry_engine = RetryEngine()
-
-        if self.proxy:
-            logger.info(
-                f"🔒 Proxy configured: {self.proxy.split('@')[-1] if '@' in self.proxy else self.proxy}"
-            )
+        self.egress = egress_manager or EgressManager.from_env()
+        self.schema_monitor = SchemaHealthMonitor()
 
     def _get_page(self, url: str) -> str | None:
         """
-        Fetch a page using a three-layer waterfall with per-layer retry.
-
-        Layers (in order):
-        1. curl_cffi (primary — fast TLS masquerading)
-        2. curl_cffi + proxy (IP ban bypass, if BIND_PROXY is set)
-        3. cloudscraper (legacy fallback)
-
-        Each layer is attempted up to MAX_RETRIES times with exponential
-        backoff before escalating. Circuit breaker opens only after all
-        layers and all retries are exhausted.
+        Fetch a page via the egress manager (three-layer waterfall with retry).
+        Circuit breaker gates the entire attempt; only opens after all egress
+        paths and all retries are exhausted.
         """
         if not self.circuit_breaker.can_attempt():
             logger.error("⛔ Circuit breaker OPEN. Skipping request.")
@@ -141,57 +125,14 @@ class BindScraper:
         logger.debug(f"Sleeping for {delay:.2f}s...")
         time.sleep(delay)
 
-        config = RetryConfig(max_attempts=self.MAX_RETRIES)
-
-        layers: list[tuple[str, Any]] = [
-            ("curl_cffi", lambda: self._attempt_curl_cffi(url, use_proxy=False)),
-        ]
-        if self.proxy:
-            layers.append(
-                ("curl_cffi_proxy", lambda: self._attempt_curl_cffi(url, use_proxy=True))
-            )
-        layers.append(("cloudscraper", lambda: self._attempt_cloudscraper(url)))
-
-        for layer_name, attempt_fn in layers:
-            result = self.retry_engine.execute(attempt_fn, config, layer_name)
-            if result is not None:
-                self.metrics.record(layer_name, True)
-                self.circuit_breaker.record_success()
-                logger.debug(f"✓ Fetched {url} ({layer_name})")
-                return cast(str, result)
-            self.metrics.record(layer_name, False)
-            logger.warning(f"[{layer_name}] all retries exhausted for {url}")
-
-        logger.error(f"All layers failed for {url}: {type(Exception()).__name__}")
-        self.circuit_breaker.record_failure()
-        return None
-
-    def _attempt_curl_cffi(self, url: str, use_proxy: bool = False) -> str:
-        """Attempt to fetch using curl_cffi."""
-        from curl_cffi import requests as cffi_requests
-
-        proxy = self.proxy if use_proxy else None
-        response = cffi_requests.get(
-            url, impersonate="chrome120", proxy=proxy, timeout=self.REQUEST_TIMEOUT
-        )
-        cast(Any, response).raise_for_status()
-
-        # Detect soft blocks
-        if "Just a moment..." in response.text or "Attention Required" in response.text:
-            raise ValueError("Cloudflare block detected")
-
-        return response.text
-
-    def _attempt_cloudscraper(self, url: str) -> str:
-        """Attempt to fetch using cloudscraper."""
-        response = self.scraper.get(url, timeout=self.REQUEST_TIMEOUT)
-        response.raise_for_status()
-
-        # Detect soft blocks
-        if "Just a moment..." in response.text or "Attention Required" in response.text:
-            raise ValueError("Cloudflare block detected")
-
-        return cast(str, response.text)
+        try:
+            result = self.egress.fetch(url)
+            self.circuit_breaker.record_success()
+            return result
+        except FetchExhausted:
+            logger.error(f"All egress paths exhausted for {url}")
+            self.circuit_breaker.record_failure()
+            return None
 
     def search(self, term: str) -> list[dict[str, Any]]:
         """
@@ -215,8 +156,9 @@ class BindScraper:
 
     def extract_info_hash(self, detail_page_url: str) -> str | None:
         """
-        Fetches a detail page and extracts the Info Hash.
-        Defensive parsing: handles missing or changed HTML structure.
+        Fetches a detail page and extracts the Info Hash using a ranked
+        4-strategy waterfall. Each strategy outcome is recorded by the
+        SchemaHealthMonitor for drift detection.
         """
         if not detail_page_url.startswith("http"):
             detail_page_url = f"{self.BASE_URL}{detail_page_url}"
@@ -227,19 +169,59 @@ class BindScraper:
 
         soup = BeautifulSoup(html, "html.parser")
 
-        # Look for "Info Hash:" label in table
+        strategies: list[tuple[str, Any]] = [
+            ("td_exact",       self._parse_hash_table_td),
+            ("th_exact",       self._parse_hash_table_th),
+            ("magnet_href",    self._parse_hash_magnet_href),
+            ("regex_fullpage", self._parse_hash_text_search),
+        ]
+
+        for strategy_name, strategy_fn in strategies:
+            result = strategy_fn(soup, detail_page_url)
+            if result:
+                self.schema_monitor.record(detail_page_url, strategy_name, True)
+                return result
+            self.schema_monitor.record(detail_page_url, strategy_name, False)
+
+        logger.warning(f"All parse strategies failed for {detail_page_url}")
+        return None
+
+    def _parse_hash_table_td(self, soup: BeautifulSoup, url: str) -> str | None:
+        """Primary: <td>Info Hash:</td> followed by sibling <td>."""
         hash_row = soup.find("td", string="Info Hash:")
         if hash_row:
-            # Defensive: check sibling exists before accessing .text
             sibling = hash_row.find_next_sibling("td")
             if sibling:
-                raw_hash = sibling.text.strip()
-                return self._ensure_hex(raw_hash)
-            else:
-                logger.warning(f"Found 'Info Hash:' label but no value cell on {detail_page_url}")
-        else:
-            logger.warning(f"Could not find 'Info Hash:' on {detail_page_url}")
+                return self._ensure_hex(sibling.text.strip())
+            logger.debug(f"[td_exact] Label found but no value cell on {url}")
+        return None
 
+    def _parse_hash_table_th(self, soup: BeautifulSoup, url: str) -> str | None:
+        """Fallback 1: <th>Info Hash:</th> followed by sibling <td>."""
+        hash_row = soup.find("th", string="Info Hash:")
+        if hash_row:
+            sibling = hash_row.find_next_sibling("td")
+            if sibling:
+                return self._ensure_hex(sibling.text.strip())
+            logger.debug(f"[th_exact] Label found but no value cell on {url}")
+        return None
+
+    def _parse_hash_magnet_href(self, soup: BeautifulSoup, url: str) -> str | None:
+        """Fallback 2: extract info hash from an existing magnet: link on the page."""
+        for tag in soup.find_all("a", href=True):
+            href = tag["href"]
+            if href.startswith("magnet:"):
+                match = re.search(r"urn:btih:([0-9a-fA-F]{40}|[A-Z2-7]{32})", href)
+                if match:
+                    return self._ensure_hex(match.group(1))
+        return None
+
+    def _parse_hash_text_search(self, soup: BeautifulSoup, url: str) -> str | None:
+        """Fallback 3: regex scan of full page text for a 40-char hex info hash."""
+        text = soup.get_text()
+        match = re.search(r"\b([0-9a-fA-F]{40})\b", text)
+        if match:
+            return match.group(1).lower()
         return None
 
     def get_recent_books(self) -> list[dict[str, str]]:
