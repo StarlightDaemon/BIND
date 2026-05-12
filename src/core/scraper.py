@@ -170,9 +170,9 @@ class BindScraper:
         soup = BeautifulSoup(html, "html.parser")
 
         strategies: list[tuple[str, Any]] = [
-            ("td_exact",       self._parse_hash_table_td),
-            ("th_exact",       self._parse_hash_table_th),
-            ("magnet_href",    self._parse_hash_magnet_href),
+            ("td_exact", self._parse_hash_table_td),
+            ("th_exact", self._parse_hash_table_th),
+            ("magnet_href", self._parse_hash_magnet_href),
             ("regex_fullpage", self._parse_hash_text_search),
         ]
 

@@ -41,7 +41,7 @@ _secret_key = os.getenv("FLASK_SECRET_KEY")
 if not _secret_key:
     raise RuntimeError(
         "FLASK_SECRET_KEY is not set. "
-        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+        'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
     )
 app.secret_key = _secret_key
 
@@ -635,4 +635,3 @@ def api_stats() -> dict[str, Any]:
         .isoformat(timespec="microseconds")
         .replace("+00:00", "Z"),
     }
-

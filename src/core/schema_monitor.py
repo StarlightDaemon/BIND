@@ -12,7 +12,7 @@ logger = logging.getLogger("SchemaMonitor")
 class ParseAttempt:
     timestamp: datetime
     url: str
-    strategy_used: str | None   # None = all strategies failed
+    strategy_used: str | None  # None = all strategies failed
     success: bool
 
 
@@ -30,9 +30,7 @@ class SchemaHealthMonitor:
         self._attempts: deque[ParseAttempt] = deque()
 
     def record(self, url: str, strategy: str | None, success: bool) -> None:
-        self._attempts.append(
-            ParseAttempt(datetime.now(timezone.utc), url, strategy, success)
-        )
+        self._attempts.append(ParseAttempt(datetime.now(timezone.utc), url, strategy, success))
         self._evict_old()
         self._check_drift()
 
