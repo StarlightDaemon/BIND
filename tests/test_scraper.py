@@ -1,45 +1,6 @@
 """Tests for BindScraper with mocked HTTP responses."""
 
-from src.core.scraper import BindScraper, ScraperMetrics
-
-
-class TestScraperMetrics:
-    """Test suite for scraper metrics tracking."""
-
-    def test_initial_counts_are_zero(self):
-        """Fresh metrics should have zero counts."""
-        metrics = ScraperMetrics()
-        assert metrics.attempts["curl_cffi"] == 0
-        assert metrics.successes["curl_cffi"] == 0
-        assert metrics.failures["curl_cffi"] == 0
-
-    def test_record_success_increments_correctly(self):
-        """Recording success should update attempts and successes."""
-        metrics = ScraperMetrics()
-        metrics.record("curl_cffi", success=True)
-
-        assert metrics.attempts["curl_cffi"] == 1
-        assert metrics.successes["curl_cffi"] == 1
-        assert metrics.failures["curl_cffi"] == 0
-
-    def test_record_failure_increments_correctly(self):
-        """Recording failure should update attempts and failures."""
-        metrics = ScraperMetrics()
-        metrics.record("curl_cffi", success=False)
-
-        assert metrics.attempts["curl_cffi"] == 1
-        assert metrics.successes["curl_cffi"] == 0
-        assert metrics.failures["curl_cffi"] == 1
-
-    def test_multiple_layers_tracked_independently(self):
-        """Each scraper layer should have independent metrics."""
-        metrics = ScraperMetrics()
-        metrics.record("curl_cffi", success=True)
-        metrics.record("cloudscraper", success=False)
-
-        assert metrics.successes["curl_cffi"] == 1
-        assert metrics.failures["cloudscraper"] == 1
-        assert metrics.attempts["curl_cffi_proxy"] == 0
+from src.core.scraper import BindScraper
 
 
 class TestBindScraper:

@@ -69,34 +69,6 @@ class CircuitBreaker:
         return False
 
 
-class ScraperMetrics:
-    """Track success/failure rates per scraping layer."""
-
-    attempts: dict[str, int]
-    successes: dict[str, int]
-    failures: dict[str, int]
-
-    def __init__(self) -> None:
-        self.attempts = {"curl_cffi": 0, "curl_cffi_proxy": 0, "cloudscraper": 0}
-        self.successes = {"curl_cffi": 0, "curl_cffi_proxy": 0, "cloudscraper": 0}
-        self.failures = {"curl_cffi": 0, "curl_cffi_proxy": 0, "cloudscraper": 0}
-
-    def record(self, layer: str, success: bool) -> None:
-        """Record attempt outcome."""
-        self.attempts[layer] += 1
-        if success:
-            self.successes[layer] += 1
-        else:
-            self.failures[layer] += 1
-
-    def report(self) -> None:
-        """Log summary statistics."""
-        for layer in self.attempts:
-            total = self.attempts[layer]
-            if total > 0:
-                rate = (self.successes[layer] / total) * 100
-                logger.info(f"📊 {layer}: {rate:.1f}% success ({self.successes[layer]}/{total})")
-
 
 class BindScraper:
     # Allow override via env var (Issue #1 from Audit)
