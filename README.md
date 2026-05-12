@@ -1,7 +1,7 @@
 # BIND - Book Indexing Network Daemon
 
 [![CI](https://github.com/StarlightDaemon/BIND/actions/workflows/ci.yml/badge.svg)](https://github.com/StarlightDaemon/BIND/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-1.2_LTS-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.2.0)
+[![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.6.0)
 [![Python](https://img.shields.io/badge/python-3.10+-yellow.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](scripts/install-proxmox-lxc.sh)
