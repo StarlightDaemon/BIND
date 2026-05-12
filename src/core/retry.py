@@ -42,7 +42,7 @@ class RetryEngine:
 
                 if status == 429:
                     wait = self._parse_retry_after(response) or self._jitter(
-                        config.base_delay * (2 ** attempt), config.max_delay
+                        config.base_delay * (2**attempt), config.max_delay
                     )
                     logger.warning(
                         f"[{layer_name}] 429 rate-limited. "
@@ -51,9 +51,7 @@ class RetryEngine:
                     time.sleep(wait)
 
                 elif status in config.retryable_status_codes:
-                    delay = self._jitter(
-                        config.base_delay * (2 ** attempt), config.max_delay
-                    )
+                    delay = self._jitter(config.base_delay * (2**attempt), config.max_delay)
                     logger.warning(
                         f"[{layer_name}] HTTP {status} on attempt "
                         f"{attempt}/{config.max_attempts}. Backoff: {delay:.1f}s"
@@ -69,9 +67,7 @@ class RetryEngine:
                     return None
 
                 elif isinstance(e, (ConnectionError, TimeoutError)):
-                    delay = self._jitter(
-                        config.base_delay * (2 ** attempt), config.max_delay
-                    )
+                    delay = self._jitter(config.base_delay * (2**attempt), config.max_delay)
                     logger.warning(
                         f"[{layer_name}] Transient {type(e).__name__} on attempt "
                         f"{attempt}/{config.max_attempts}. Backoff: {delay:.1f}s"

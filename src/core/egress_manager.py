@@ -98,9 +98,7 @@ class EgressManager:
             ("curl_cffi", lambda: self._fetch_curl_cffi(url, proxy=None)),
         ]
         if proxy:
-            layers.append(
-                ("curl_cffi_proxy", lambda: self._fetch_curl_cffi(url, proxy=proxy))
-            )
+            layers.append(("curl_cffi_proxy", lambda: self._fetch_curl_cffi(url, proxy=proxy)))
         layers.append(("cloudscraper", lambda: self._fetch_cloudscraper(url)))
 
         for layer_name, attempt_fn in layers:
