@@ -69,14 +69,12 @@ class CircuitBreaker:
         return False
 
 
-
 class BindScraper:
     # Allow override via env var (Issue #1 from Audit)
     BASE_URL = os.getenv("ABB_URL", "http://audiobookbay.lu")
 
     # Network Configuration
     REQUEST_TIMEOUT = 30  # seconds - prevents indefinite hangs
-    MAX_RETRIES = 3  # attempts before giving up
 
     def __init__(self, egress_manager: EgressManager | None = None) -> None:
         self.circuit_breaker = CircuitBreaker()

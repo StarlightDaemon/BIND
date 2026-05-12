@@ -2,13 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.core.retry import RetryConfig, RetryEngine
 
 
 class TestRetryEngineSuccess:
-
     def test_returns_result_on_first_success(self):
         engine = RetryEngine()
         config = RetryConfig(max_attempts=3)
@@ -69,7 +66,6 @@ class TestRetryEngineSleepBehaviour:
 
 
 class TestRetryEngineClassification:
-
     def test_permanent_http_returns_none_immediately(self):
         engine = RetryEngine()
         config = RetryConfig(max_attempts=3)

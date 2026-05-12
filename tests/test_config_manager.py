@@ -1,8 +1,8 @@
 import subprocess
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import MagicMock, patch
+
 from src.config_manager import ConfigManager
+
 
 class TestReadConfig:
     def test_returns_defaults_when_file_missing(self, tmp_path):
@@ -35,6 +35,7 @@ class TestReadConfig:
         assert config["SCRAPE_INTERVAL"] == "20"
         assert "UNKNOWN_KEY" not in config
 
+
 class TestWriteConfig:
     def test_validation_failure_returns_false(self, tmp_path):
         cm = ConfigManager(config_path=str(tmp_path / "config.env"))
@@ -58,6 +59,7 @@ class TestWriteConfig:
             success, msg = cm.write_config({"SCRAPE_INTERVAL": "30"})
             assert success is False
             assert "disk full" in msg
+
 
 class TestValidate:
     def test_integer_in_range(self):
@@ -144,6 +146,7 @@ class TestValidate:
         assert is_valid is False
         assert "valid proxy URL" in msg
 
+
 class TestRestartDaemon:
     @patch("subprocess.run")
     def test_file_not_found_returns_false(self, mock_run, tmp_path):
@@ -159,6 +162,7 @@ class TestRestartDaemon:
             if args[0] == ["systemctl", "daemon-reload"]:
                 return MagicMock()
             raise subprocess.TimeoutExpired("cmd", 30)
+
         mock_run.side_effect = side_effect
         cm = ConfigManager(config_path=str(tmp_path / "config.env"))
         success, msg = cm.restart_daemon()
@@ -171,6 +175,7 @@ class TestRestartDaemon:
             if args[0] == ["systemctl", "daemon-reload"]:
                 return MagicMock()
             raise subprocess.CalledProcessError(1, "cmd", stderr=b"unit error")
+
         mock_run.side_effect = side_effect
         cm = ConfigManager(config_path=str(tmp_path / "config.env"))
         success, msg = cm.restart_daemon()

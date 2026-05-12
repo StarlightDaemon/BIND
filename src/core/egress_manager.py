@@ -60,7 +60,7 @@ class EgressManager:
 
         self._proxy_pool = ProxyPool(proxy_list or [])
         self._retry_engine = RetryEngine()
-        self._cffi_session = cffi_requests.Session(impersonate="chrome120")
+        self._cffi_session: Any = cffi_requests.Session(impersonate="chrome120")
         self._cloudscraper = cloudscraper.create_scraper(
             browser={"browser": "chrome", "platform": "windows", "desktop": True}
         )
