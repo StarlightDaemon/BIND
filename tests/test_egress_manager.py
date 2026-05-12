@@ -114,3 +114,47 @@ class TestEgressManagerFetch:
         manager._retry_engine.execute.side_effect = [None, None, "<html>ok</html>"]
         manager.fetch("http://example.com")
         assert "http://proxy.com" in manager._proxy_pool._failed
+
+
+class TestEgressManagerFetchMethods:
+    def test_fetch_curl_cffi_returns_text(self):
+        manager = _make_manager()
+        mock_response = MagicMock()
+        mock_response.text = "<html>content</html>"
+        manager._cffi_session.get.return_value = mock_response
+        result = manager._fetch_curl_cffi("http://example.com", proxy=None)
+        assert result == "<html>content</html>"
+
+    def test_fetch_curl_cffi_raises_on_cloudflare_block(self):
+        manager = _make_manager()
+        mock_response = MagicMock()
+        mock_response.text = "Just a moment..."
+        manager._cffi_session.get.return_value = mock_response
+        with pytest.raises(ValueError, match="Cloudflare block detected"):
+            manager._fetch_curl_cffi("http://example.com", proxy=None)
+
+    def test_fetch_curl_cffi_passes_proxy(self):
+        manager = _make_manager()
+        mock_response = MagicMock()
+        mock_response.text = "<html>ok</html>"
+        manager._cffi_session.get.return_value = mock_response
+        manager._fetch_curl_cffi("http://example.com", proxy="http://proxy.com")
+        manager._cffi_session.get.assert_called_once_with(
+            "http://example.com", proxy="http://proxy.com", timeout=30
+        )
+
+    def test_fetch_cloudscraper_returns_text(self):
+        manager = _make_manager()
+        mock_response = MagicMock()
+        mock_response.text = "<html>content</html>"
+        manager._cloudscraper.get.return_value = mock_response
+        result = manager._fetch_cloudscraper("http://example.com")
+        assert result == "<html>content</html>"
+
+    def test_fetch_cloudscraper_raises_on_cloudflare_block(self):
+        manager = _make_manager()
+        mock_response = MagicMock()
+        mock_response.text = "Attention Required"
+        manager._cloudscraper.get.return_value = mock_response
+        with pytest.raises(ValueError, match="Cloudflare block detected"):
+            manager._fetch_cloudscraper("http://example.com")
