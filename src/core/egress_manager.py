@@ -115,7 +115,7 @@ class EgressManager:
         cast(Any, response).raise_for_status()
         if "Just a moment..." in response.text or "Attention Required" in response.text:
             raise ValueError("Cloudflare block detected")
-        return response.text
+        return str(response.text)
 
     def _fetch_cloudscraper(self, url: str) -> str:
         response = self._cloudscraper.get(url, timeout=TIMEOUT)

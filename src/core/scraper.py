@@ -180,7 +180,7 @@ class BindScraper:
             result = strategy_fn(soup, detail_page_url)
             if result:
                 self.schema_monitor.record(detail_page_url, strategy_name, True)
-                return result
+                return str(result)
             self.schema_monitor.record(detail_page_url, strategy_name, False)
 
         logger.warning(f"All parse strategies failed for {detail_page_url}")
