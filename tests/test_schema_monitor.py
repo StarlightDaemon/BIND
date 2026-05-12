@@ -3,8 +3,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-import pytest
-
 from src.core.schema_monitor import ParseAttempt, SchemaHealthMonitor
 
 
