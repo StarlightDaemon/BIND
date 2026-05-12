@@ -1,14 +1,20 @@
 import json
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-import pytest
+
 from src.security import (
-    validate_password, is_ip_allowed, get_client_ip,
-    _rotate_log_if_needed, save_credentials, load_credentials,
-    is_account_locked, record_failed_login, verify_credentials,
     MAX_FAILED_ATTEMPTS,
+    _rotate_log_if_needed,
+    get_client_ip,
+    is_account_locked,
+    is_ip_allowed,
+    load_credentials,
+    record_failed_login,
+    save_credentials,
+    validate_password,
+    verify_credentials,
 )
+
 
 class TestValidatePassword:
     def test_too_short(self):
@@ -26,6 +32,7 @@ class TestValidatePassword:
         assert is_valid is True
         assert msg == ""
 
+
 class TestIsIpAllowed:
     def test_localhost_allowed(self):
         assert is_ip_allowed("127.0.0.1") is True
@@ -42,6 +49,7 @@ class TestIsIpAllowed:
     def test_invalid_string_rejected(self):
         assert is_ip_allowed("not-an-ip") is False
 
+
 class TestGetClientIp:
     def test_trusted_proxy_honours_xff(self):
         req = MagicMock()
@@ -57,6 +65,7 @@ class TestGetClientIp:
 
     def test_none_request_returns_sentinel(self):
         assert get_client_ip(None) == "0.0.0.0"
+
 
 class TestRotateLogIfNeeded:
     def test_under_limit_no_rotation(self, tmp_path):
@@ -75,6 +84,7 @@ class TestRotateLogIfNeeded:
         assert len(content) == 10
         assert content[0] == "line_10"
         assert content[-1] == "line_19"
+
 
 class TestCredentialLifecycle:
     @patch("src.security.get_client_ip", return_value="127.0.0.1")
@@ -112,11 +122,15 @@ class TestCredentialLifecycle:
         monkeypatch.setattr("src.security.CREDENTIALS_FILE", str(creds_file))
         assert load_credentials() == {}
 
+
 class TestAccountLockout:
     def setup_method(self):
         self.minimal_creds = {
-            "version": 2, "username": "admin", "password_hash": "x",
-            "failed_attempts": 0, "locked_until": None
+            "version": 2,
+            "username": "admin",
+            "password_hash": "x",
+            "failed_attempts": 0,
+            "locked_until": None,
         }
 
     def test_not_locked_when_no_locked_until(self, monkeypatch, tmp_path):
@@ -129,7 +143,9 @@ class TestAccountLockout:
     def test_locked_when_future_timestamp(self, monkeypatch, tmp_path):
         creds_file = tmp_path / "creds.json"
         future_time = datetime.now(timezone.utc) + timedelta(minutes=10)
-        self.minimal_creds["locked_until"] = future_time.isoformat(timespec="microseconds").replace("+00:00", "Z")
+        self.minimal_creds["locked_until"] = future_time.isoformat(timespec="microseconds").replace(
+            "+00:00", "Z"
+        )
         creds_file.write_text(json.dumps(self.minimal_creds))
         monkeypatch.setattr("src.security.CREDENTIALS_FILE", str(creds_file))
         is_locked, minutes = is_account_locked()
@@ -139,7 +155,9 @@ class TestAccountLockout:
     def test_expired_lock_is_cleared(self, monkeypatch, tmp_path):
         creds_file = tmp_path / "creds.json"
         past_time = datetime.now(timezone.utc) - timedelta(minutes=1)
-        self.minimal_creds["locked_until"] = past_time.isoformat(timespec="microseconds").replace("+00:00", "Z")
+        self.minimal_creds["locked_until"] = past_time.isoformat(timespec="microseconds").replace(
+            "+00:00", "Z"
+        )
         creds_file.write_text(json.dumps(self.minimal_creds))
         monkeypatch.setattr("src.security.CREDENTIALS_FILE", str(creds_file))
         is_locked, _ = is_account_locked()
@@ -157,6 +175,7 @@ class TestAccountLockout:
             record_failed_login("1.2.3.4")
         creds = json.loads(creds_file.read_text())
         assert creds["locked_until"] is not None
+
 
 class TestVerifyCredentials:
     @patch("src.security.get_client_ip", return_value="127.0.0.1")
