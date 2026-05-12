@@ -82,3 +82,5 @@ credentials.json
 # Governance kit — RAIDEN agent artifacts, kept on disk but not tracked
 .governance/
 scripts/governance/
+scripts/tokens/
+docs/reference/kits/
