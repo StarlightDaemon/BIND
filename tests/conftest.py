@@ -8,6 +8,8 @@ import pytest
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+os.environ.setdefault("FLASK_SECRET_KEY", "testsecret")
+
 
 @pytest.fixture
 def temp_magnets_dir(tmp_path):
