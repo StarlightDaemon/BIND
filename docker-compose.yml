@@ -12,7 +12,7 @@ services:
     volumes:
       - magnets:/app/magnets
       - ./logs:/app/logs
-    command: [ "python", "-m", "src.bind", "daemon", "--interval", "60", "--output-dir", "magnets/" ]
+    command: [ "python", "-m", "src.bind", "daemon", "--interval", "60", "--output-dir", "/app/magnets" ]
 
   # RSS Server: Serves Web UI and RSS feed on port 5050
   bind-rss:
