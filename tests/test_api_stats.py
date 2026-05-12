@@ -20,8 +20,7 @@ def test_api_stats(mock_check_auth, mock_read_magnets, mock_check_daemon, client
     mock_read_magnets.return_value = [{"magnet": "test"}] * 42  # 42 magnets
 
     # Call API
-    response = client.get("/api/stats",
-                          headers={"Authorization": "Basic dGVzdDp0ZXN0"})
+    response = client.get("/api/stats", headers={"Authorization": "Basic dGVzdDp0ZXN0"})
     data = response.get_json()
 
     # Verify
@@ -41,8 +40,7 @@ def test_api_stats_offline(mock_check_auth, mock_read_magnets, mock_check_daemon
     mock_read_magnets.return_value = []
 
     # Call API
-    response = client.get("/api/stats",
-                          headers={"Authorization": "Basic dGVzdDp0ZXN0"})
+    response = client.get("/api/stats", headers={"Authorization": "Basic dGVzdDp0ZXN0"})
     data = response.get_json()
 
     # Verify
