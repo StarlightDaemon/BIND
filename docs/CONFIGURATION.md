@@ -20,10 +20,16 @@ Environment="ABB_URL=http://audiobookbay.new-domain"
 ```
 
 ### Proxy Settings
-Add HTTP/SOCKS5 proxy for scraping:
+Add a single HTTP/SOCKS5 proxy for scraping:
 ```ini
 # Edit /etc/systemd/system/bind.service
 Environment="BIND_PROXY=socks5://user:pass@proxy:1080"
+```
+
+For proxy rotation, set a comma-separated list via `BIND_PROXIES`.
+`BIND_PROXIES` takes precedence over `BIND_PROXY` when both are set:
+```ini
+Environment="BIND_PROXIES=socks5://proxy1:1080,socks5://proxy2:1080"
 ```
 
 ### RSS Server Base URL
