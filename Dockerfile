@@ -18,5 +18,9 @@ COPY . .
 # Set PYTHONPATH so imports work correctly
 ENV PYTHONPATH=/app
 
+RUN useradd -r -u 1001 -s /bin/false bind
+
+USER bind
+
 # Default command runs the daemon
 CMD ["python", "src/bind.py", "daemon"]
