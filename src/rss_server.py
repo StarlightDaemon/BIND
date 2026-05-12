@@ -9,6 +9,7 @@ Lightweight Flask server that reads magnets.txt and serves it as:
 
 import fcntl
 import glob
+import logging
 import math
 import os
 import re
@@ -31,6 +32,8 @@ from src.security import (
     save_credentials,
 )
 
+logger = logging.getLogger("rss_server")
+
 # Get the directory where this file is located for template path
 _current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -41,7 +44,7 @@ _secret_key = os.getenv("FLASK_SECRET_KEY")
 if not _secret_key:
     raise RuntimeError(
         "FLASK_SECRET_KEY is not set. "
-        'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+        'Generate one with: python -c "import secrets; print (secrets.token_hex(32))"'
     )
 app.secret_key = _secret_key
 
@@ -54,15 +57,15 @@ try:
         if _key not in os.environ:
             os.environ[_key] = str(_value)
 except Exception as e:
-    print(f"Warning: Failed to load config.env: {e}")
+    logger.warning(f"Failed to load config.env: {e}")
 
 # Configuration
 MAGNETS_DIR = os.getenv("MAGNETS_DIR", "data/magnets")
 
 # [REMEDIATION RUNTIME-01] Legacy Fallback Support
 if MAGNETS_DIR == "data/magnets" and not os.path.exists(MAGNETS_DIR) and os.path.exists("magnets"):
-    print("WARNING: Canonical directory 'data/magnets/' not found, but legacy 'magnets/' exists.")
-    print("FALLBACK: Using legacy 'magnets/' directory. Please migrate to 'data/magnets/'.")
+    logger.warning("Canonical directory 'data/magnets/' not found, but legacy 'magnets/' exists.")
+    logger.warning("FALLBACK: Using legacy 'magnets/' directory. Please migrate to 'data/magnets/'.")
     MAGNETS_DIR = "magnets"
 FEED_TITLE = "BIND - Book Indexing Network"
 FEED_DESCRIPTION = "Automatically collected audiobook magnet links"
@@ -196,7 +199,7 @@ def read_magnets() -> list[dict[str, Any]]:
         return magnets
 
     except Exception as e:
-        print(f"Error reading magnet files: {e}")
+        logger.error(f"Error reading magnet files: {e}")
         return []
 
 
@@ -263,7 +266,7 @@ def search_magnets(
                     all_magnets.append(info)
 
     except Exception as e:
-        print(f"Error searching magnets: {e}")
+        logger.error(f"Error searching magnets: {e}")
         return [], 0
 
     # Calculate pagination
