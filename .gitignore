@@ -79,6 +79,6 @@ requirements-dev.txt
 data/
 credentials.json
 
-# Governance kit node_modules — npm install output, not project code
-.governance/validator/node_modules/
-scripts/governance/node_modules/
+# Governance kit — RAIDEN agent artifacts, kept on disk but not tracked
+.governance/
+scripts/governance/
