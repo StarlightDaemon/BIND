@@ -41,6 +41,8 @@ class RetryEngine:
                 status = getattr(response, "status_code", 0) if response else 0
 
                 if status == 429:
+                    if attempt == config.max_attempts:
+                        return None
                     wait = self._parse_retry_after(response) or self._jitter(
                         config.base_delay * (2**attempt), config.max_delay
                     )
@@ -51,14 +53,14 @@ class RetryEngine:
                     time.sleep(wait)
 
                 elif status in config.retryable_status_codes:
+                    if attempt == config.max_attempts:
+                        return None
                     delay = self._jitter(config.base_delay * (2**attempt), config.max_delay)
                     logger.warning(
                         f"[{layer_name}] HTTP {status} on attempt "
                         f"{attempt}/{config.max_attempts}. Backoff: {delay:.1f}s"
                     )
                     time.sleep(delay)
-                    if attempt == config.max_attempts:
-                        return None
 
                 elif status and status not in config.retryable_status_codes:
                     logger.warning(
@@ -67,14 +69,14 @@ class RetryEngine:
                     return None
 
                 elif isinstance(e, (ConnectionError, TimeoutError)):
+                    if attempt == config.max_attempts:
+                        return None
                     delay = self._jitter(config.base_delay * (2**attempt), config.max_delay)
                     logger.warning(
                         f"[{layer_name}] Transient {type(e).__name__} on attempt "
                         f"{attempt}/{config.max_attempts}. Backoff: {delay:.1f}s"
                     )
                     time.sleep(delay)
-                    if attempt == config.max_attempts:
-                        return None
 
                 else:
                     logger.warning(
