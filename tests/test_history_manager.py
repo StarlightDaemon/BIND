@@ -66,3 +66,28 @@ class TestHistoryManager:
         """Manager should accept custom history filename."""
         manager = HistoryManager(temp_magnets_dir, filename="custom.log")
         assert manager.filepath.endswith("custom.log")
+
+    def test_load_handles_unreadable_file(self, tmp_path):
+        """Manager should not raise if history file cannot be read."""
+        manager = HistoryManager(str(tmp_path))
+        manager.add("testhash")
+        import stat
+
+        os.chmod(manager.filepath, 0)
+        try:
+            manager2 = HistoryManager(str(tmp_path))
+            assert len(manager2.seen) == 0
+        finally:
+            os.chmod(manager.filepath, stat.S_IRUSR | stat.S_IWUSR)
+
+    def test_add_handles_write_error(self, tmp_path):
+        """add() should not raise or update seen if the file write fails."""
+        manager = HistoryManager(str(tmp_path))
+        import stat
+
+        os.chmod(str(tmp_path), stat.S_IRUSR | stat.S_IXUSR)
+        try:
+            manager.add("failhash")
+            assert "failhash" not in manager.seen
+        finally:
+            os.chmod(str(tmp_path), stat.S_IRWXU)
