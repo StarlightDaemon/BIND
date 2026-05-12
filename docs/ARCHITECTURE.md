@@ -5,266 +5,234 @@
 ```
 ┌─────────────────┐
 │  AudioBookBay   │
-│   (RSS Feed)    │
+│   (RSS + HTML)  │
 └────────┬────────┘
-         │ HTTP requests
-         │ Every 60 min
+         │ HTTPS
          ▼
-┌─────────────────┐
-│  BIND Daemon    │
-│  (bind.service) │
-│                 │
-│  • Scheduler    │
-│  • Scraper      │
-│  • Parser       │
-│  • Generator    │
-└────────┬────────┘
-         │ Writes
-         ▼
-┌─────────────────┐
-│  data/magnets/  │
-│  *.txt files    │
-│  (Daily files)  │
-└────────┬────────┘
-         │ Reads
-         ▼
-┌──────────────────────┐      ┌──────────────┐
-│  RSS Server          │─────►│ Web Browser  │
-│  (bind-rss.service)  │ HTTP │ (Web UI)     │
-│                      │      └──────────────┘
-│  • Flask app         │
-│  • XML generator     │      ┌──────────────┐
-│  • Health endpoint   │─────►│ Torrent      │
-└──────────────────────┘ RSS  │ Client       │
-                               └──────────────┘
+┌────────────────────────────────────────┐
+│  BIND Daemon  (bind.service)           │
+│                                        │
+│  Scheduler ──► Scraper ──► EgressMgr  │
+│                   │             │      │
+│                   │         RetryEngine│
+│                   │         ProxyPool  │
+│                   ▼                    │
+│           SchemaMonitor                │
+│                                        │
+│  HistoryManager  TrackerManager        │
+└───────────────────────┬────────────────┘
+                        │ writes magnets_YYYY-MM-DD.txt
+                        ▼
+               ┌─────────────────┐
+               │  data/magnets/  │
+               │  *.txt files    │
+               └────────┬────────┘
+                        │ reads
+                        ▼
+┌──────────────────────────────┐      ┌────────────────┐
+│  RSS Server (bind-rss.service│─────►│ Web Browser    │
+│  gunicorn + Flask            │ HTTP │ (Web UI)       │
+│                              │      └────────────────┘
+│  • XML feed generator        │
+│  • Web UI / dashboard        │      ┌────────────────┐
+│  • Health + stats endpoints  │─────►│ Torrent Client │
+│  • Auth + CSRF middleware    │ RSS  └────────────────┘
+│  • Security audit log        │
+└──────────────────────────────┘
+```
+
+## Module Map
+
+```
+src/
+├── bind.py               Daemon entry point: scheduler, job loop, HistoryManager
+├── rss_server.py         Flask app: all HTTP routes, auth, CSRF, security log
+├── config_manager.py     Reads/writes config.env (key-value store for UI settings)
+├── security.py           IP allowlist, basic-auth, CSRF, audit logging
+└── core/
+    ├── scraper.py        BindScraper: RSS fetch, HTML parse, magnet generation;
+    │                       CircuitBreaker gates all outbound requests
+    ├── egress_manager.py Three-layer fetch waterfall; ProxyPool round-robin
+    ├── retry.py          RetryEngine: exponential backoff + full jitter;
+    │                       classifies 429, retryable HTTP, permanent HTTP,
+    │                       transient network, non-retryable
+    ├── schema_monitor.py SchemaHealthMonitor: rolling 30-min window;
+    │                       CRITICAL log when parse success < 50% over >= 5 attempts
+    └── tracker_manager.py TrackerManager: reads/writes data/trackers.json with
+                            atomic fsync+replace; normalises and deduplicates URLs
+```
+
+## Import Graph
+
+```
+bind.py  ──────────────────────────────────► config_manager
+          ──────────────────────────────────► tracker_manager
+          ──────────────────────────────────► scraper
+                                                  │
+rss_server.py ─────────────────────────────► config_manager
+               ─────────────────────────────► tracker_manager
+               ─────────────────────────────► scraper
+               ─────────────────────────────► security
+
+scraper.py ────────────────────────────────► egress_manager
+            ───────────────────────────────► schema_monitor
+
+egress_manager.py ─────────────────────────► retry
 ```
 
 ## Component Details
 
-### BIND Daemon (bind.service)
-**File**: `src/bind.py` (65 lines)
+### BIND Daemon (`bind.service`)
+**File**: `src/bind.py` (~314 lines)
 
 **Responsibilities**:
-- Checks AudioBookBay RSS feed every 60 minutes
-- Scrapes detail pages for info hashes
-- Generates magnet URIs with tracker lists
-- Writes to daily files (`magnets_YYYY-MM-DD.txt`)
+- Schedules a scrape job every N minutes (default: 60, override: `SCRAPE_INTERVAL`)
+- Runs each job in a `ThreadPoolExecutor` with a hard timeout (`BIND_JOB_TIMEOUT`, default 3600s)
+- Deduplicates across runs via `HistoryManager` (appends to `data/magnets/history.log`)
+- Rotates output to daily files (`magnets_YYYY-MM-DD.txt`); prunes files older than 90 days
+- Checks disk space before each job (skips if < 100 MB free)
+- Handles `SIGTERM`/`SIGINT` gracefully (completes the current job before exit)
 
-**Tech Stack**:
-- `schedule` - Cron-like scheduling
-- `cloudscraper` - Bypasses Cloudflare
-- `beautifulsoup4` + `lxml` - HTML parsing
+### Egress Layer
+
+**`src/core/egress_manager.py`** — `EgressManager` attempts each fetch via three layers in order:
+
+1. `curl_cffi` direct (browser-impersonation TLS fingerprint)
+2. `curl_cffi` + proxy (skipped if `ProxyPool` is empty; proxy evicted on failure)
+3. `cloudscraper` (Cloudflare JS-challenge solver)
+
+Each layer is retried up to `MAX_RETRIES=3` times via `RetryEngine` before escalating.
+Raises `FetchExhausted` if all layers fail.
+
+Configure proxies via `BIND_PROXIES` (comma-separated) or `BIND_PROXY` (single).
+
+**`src/core/retry.py`** — `RetryEngine` with exponential backoff + full jitter.
+Error classification:
+- `429` → honours `Retry-After` header or backs off exponentially
+- Retryable HTTP (500, 502, 503, 504) → backoff and retry
+- Permanent HTTP (4xx other than 429) → escalate immediately
+- `ConnectionError` / `TimeoutError` → backoff and retry
+- All other exceptions → escalate immediately
+
+**`src/core/scraper.py`** — `BindScraper` wraps `EgressManager` behind a `CircuitBreaker`.
+The breaker opens after N consecutive total failures (default 3, `CIRCUIT_BREAKER_THRESHOLD`),
+then pauses all outbound requests for a cooldown period (default 300s, `CIRCUIT_BREAKER_COOLDOWN`).
+
+### Schema Health Monitor
+**File**: `src/core/schema_monitor.py`
+
+`SchemaHealthMonitor` records every parse attempt (success or failure) with a timestamp.
+Maintains a rolling 30-minute window; logs `CRITICAL` when parse success rate falls below
+50% over >= 5 attempts. Signals that AudioBookBay's HTML layout may have changed.
+
+### Tracker Manager
+**File**: `src/core/tracker_manager.py`
+
+`TrackerManager` persists the BitTorrent tracker list to `data/trackers.json`.
+Writes are atomic: tmp file → `fsync` → `os.replace`. Reads use a shared `fcntl` lock.
+Normalises URLs (trims whitespace, validates protocol) and deduplicates case-insensitively.
+Defaults to three public trackers if `trackers.json` is absent.
 
 ### Storage Layer
-**Location**: `data/magnets/` directory (canonical default)
+**Location**: `data/magnets/`
 
-**Path Configuration**:
-- Canonical Default: `data/magnets/`
-- Override: Supported via `MAGNETS_DIR` environment variable
-- Legacy Fallback: `magnets/` (only used if `data/magnets/` is missing and legacy path exists)
+| File | Purpose |
+|---|---|
+| `magnets_YYYY-MM-DD.txt` | One magnet URI per line, appended daily |
+| `history.log` | Flat list of seen info hashes (dedup across restarts) |
+| `../trackers.json` | Persisted tracker list (`data/trackers.json`) |
 
-**Format**: Plain text, one magnet per line
-**Rotation**: Daily files prevent corruption
-**Size**: ~350 bytes per magnet
+Writes use `fcntl.LOCK_EX` to prevent RSS server reading partial lines.
 
-**Example**:
-```
-data/magnets/
-├── magnets_2026-01-03.txt  (147 magnets)
-├── magnets_2026-01-04.txt  (53 magnets)
-└── magnets_2026-01-05.txt  (8 magnets)
-```
-
-### RSS Server (bind-rss.service)
-**File**: `src/rss_server.py` (324 lines)
+### RSS Server (`bind-rss.service`)
+**File**: `src/rss_server.py` (~298 lines), served via gunicorn
 
 **Endpoints**:
-- `/` - Dashboard (HTML)
-- `/magnets` - Management View (Search/Pagination)
-- `/feed.xml` - RSS 2.0 Feed (XML)
-- `/health` - Status Endpoint (JSON)
-- `/settings` - Configuration (Auth Required)
-- `/settings/trackers` - Tracker Management (Auth Required)
-- `/settings/password` - Security Configuration (Auth Required)
-- `/logs` - Audit Logs (Auth Required)
-- `/setup` - First-time Setup Wizard
-- `/api/stats` - Real-time Statistics
-
-**Features**:
-- Reads all magnet files
-- Generates valid RSS 2.0 XML
-- Serves responsive web UI
-- Provides health monitoring
-
-**Tech Stack**:
-- `flask` - Web framework
-- Template rendering for UI
-- XML generation for feed
+- `/` — Dashboard (HTML)
+- `/magnets` — Magnet browser (search, pagination)
+- `/feed.xml` — RSS 2.0 feed
+- `/health` — Status JSON
+- `/api/stats` — Real-time statistics (auth-gated via `BIND_AUTH_ENABLED`)
+- `/settings` — Configuration (auth required)
+- `/settings/trackers` — Tracker management (auth required)
+- `/settings/password` — Password change (auth required)
+- `/logs` — Audit log viewer (auth required)
+- `/setup` — First-time setup wizard
 
 ## Data Flow
 
-1. **Collection** (Every 60 min)
-   ```
-   AudioBookBay RSS → Scraper → Info Hash → Magnet URI → File
-   ```
-
-2. **Storage**
-   ```
-   magnets_YYYY-MM-DD.txt (append-only, one per day)
-   ```
-
-3. **Distribution**
-   ```
-   Files → RSS Server → {XML Feed, Web UI, Health Check}
-   ```
-
-4. **Consumption**
-   ```
-   RSS Feed → Torrent Client → Auto-download
-   ```
-
-## Deployment Architecture
-
-### Proxmox LXC
 ```
-┌─────────────────────────────────┐
-│  Proxmox Host                   │
-│                                 │
-│  ┌───────────────────────────┐  │
-│  │ LXC Container (bind)      │  │
-│  │ Debian 12, 4GB disk       │  │
-│  │                           │  │
-│  │  • Python 3.11            │  │
-│  │  • venv (~150MB)          │  │
-│  │  • BIND code (~5MB)       │  │
-│  │  • data/magnets/ (growing)│  │
-│  │                           │  │
-│  │  Services:                │  │
-│  │  ├─ bind.service          │  │
-│  │  └─ bind-rss.service      │  │
-│  └───────────┬───────────────┘  │
-│              │ Port 5050        │
-└──────────────┼──────────────────┘
-               │
-               ▼
-        Network (vmbr0)
-               │
-               ▼
-     LAN Clients (RSS feeds)
+1. Collection (every N minutes)
+   ABB RSS feed → scraper → detail page (EgressMgr waterfall)
+   → info hash extraction (4-strategy waterfall) → magnet URI → daily file
+
+2. Dedup
+   Each info hash checked against HistoryManager before write.
+   Duplicate → skip. New → write to file, append to history.log.
+
+3. Distribution
+   daily files → RSS Server → { XML feed, Web UI, health/stats JSON }
+
+4. Consumption
+   RSS feed → torrent client → auto-download
+```
+
+## Deployment
+
+### Proxmox LXC (recommended)
+```
+┌──────────────────────────────────────┐
+│  Proxmox Host                        │
+│  ┌────────────────────────────────┐  │
+│  │ LXC Container (bind)           │  │
+│  │ Debian 12, 4 GB disk           │  │
+│  │                                │  │
+│  │  Python 3.11 + venv (~150 MB)  │  │
+│  │  ├─ bind.service               │  │
+│  │  └─ bind-rss.service           │  │
+│  └──────────────┬─────────────────┘  │
+│                 │ :5050              │
+└─────────────────┼────────────────────┘
+                  ▼
+           LAN Clients
 ```
 
 ### Docker
 ```
-┌─────────────────────────────┐
-│  Docker Host                │
-│                             │
-│  ┌───────────────────────┐  │
-│  │ bind_daemon           │  │
-│  │ (runs src.bind)       │  │
-│  └─────────┬─────────────┘  │
-│            │ volume         │
-│            ▼                │
-│      data/magnets/         │
-│            │                │
-│  ┌─────────┴─────────────┐  │
-│  │ bind_rss              │  │
-│  │ (runs src.rss_server) │  │
-│  └───────────┬───────────┘  │
-│              │ Port 5050    │
-└──────────────┼──────────────┘
-               ▼
-         Network bridge
+bind_daemon ──► data/magnets/ ◄── bind_rss
+                                      │ :5050
+                                      ▼
+                                 Network bridge
 ```
 
 ## Security Model
 
-**Authentication & Access Control**:
-- **Setup Wizard**: First-time access triggers a setup wizard to create admin credentials stored in `credentials.json`.
-- **Basic Auth**: Protected routes (Settings, Logs) require Basic Authentication (configurable via `BIND_AUTH_ENABLED`).
-- **IP Allowlist**: Integrated middleware restricts access to trusted networks (configurable via `BIND_ALLOWED_IPS` and `BIND_IP_FILTER`). Supports CIDR notation.
-- **CSRF Protection**: POST requests are protected by session-based CSRF tokens (requires `FLASK_SECRET_KEY`).
-- **Audit Logging**: All security events (logins, failures, changes) are recorded in `security.log`.
+| Control | Detail |
+|---|---|
+| Setup wizard | Creates `credentials.json` on first run |
+| Basic Auth | Protects settings/logs routes (`BIND_AUTH_ENABLED`) |
+| IP allowlist | CIDR-based middleware (`BIND_ALLOWED_IPS`, `BIND_IP_FILTER`) |
+| CSRF tokens | Session-based; required for all POST routes (`FLASK_SECRET_KEY`) |
+| Audit log | All auth events written to `security.log` |
+| TLS | None native — use a reverse proxy (Nginx/Caddy) if exposing beyond LAN |
 
-**Encryption & Exposure**:
-- **No Native TLS**: HTTP only. A reverse proxy (Nginx, Caddy) is **highly recommended** for TLS termination if exposing beyond a private LAN.
-- **Network Binding**: Defaults to `0.0.0.0:5050`. Recommended to bind to localhost or a private management network only.
-
-**Recommended Setup**:
-- Keep LXC on private VLAN
-- Do not expose port 5050 to internet
-- Use firewall rules to restrict access
-- Only Proxmox host and LAN clients should reach port 5050
+Bind to localhost or a private management network. Do not expose port 5050 to the internet.
 
 ## Resource Usage
 
-**Typical**:
-- CPU: <1% (idle), ~5% (scraping)
-- RAM: 50-100MB (daemon), 30-50MB (RSS server)
-- Disk I/O: Minimal (append-only writes)
-- Network: <100KB per scrape cycle
-
-**Growth**:
-- Storage: ~12MB per year (1 magnet/hour)
-- No memory leaks (tested 7+ days uptime)
-- No CPU creep
-
-## Scalability
-
-**Not designed for**:
-- High traffic (single-user or small homelab)
-- Large-scale deployments
-- Public internet access
-
-**Works well for**:
-- 1-10 users on LAN
-- Personal homelab use
-- Light torrent client usage
+| Resource | Idle | Scraping |
+|---|---|---|
+| CPU | < 1% | ~5% |
+| RAM (daemon) | 50–100 MB | — |
+| RAM (RSS server) | 30–50 MB | — |
+| Network | — | < 100 KB/cycle |
+| Disk growth | ~12 MB/year | — |
 
 ## Monitoring
 
-**Systemd Integration**:
 ```bash
 systemctl status bind.service
 systemctl status bind-rss.service
 journalctl -u bind.service -f
-```
-
-**Health Endpoint**:
-```bash
 curl http://localhost:5050/health
 ```
-
-**Response**:
-```json
-{
-  "status": "ok",
-  "magnet_count": 147,
-  "magnets_dir": "data/magnets",
-  "magnet_files_count": 3,
-  "latest_file": "magnets_2026-01-03.txt"
-}
-```
-
-## Technology Choices
-
-**Why Python?**
-- Excellent scraping libraries
-- Simple deployment
-- Easy to maintain
-
-**Why Flask?**
-- Lightweight
-- Built-in templating
-- Perfect for RSS/API
-
-**Why daily files?**
-- Prevents corruption
-- Easy backup/restore
-- Simple to prune old data
-- No database overhead
-
-**Why systemd?**
-- Standard on modern Linux
-- Reliable auto-restart
-- Easy log management
-- Boot-time startup

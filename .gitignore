@@ -69,7 +69,6 @@ AGENTS.md
 reports/
 docs/governance/
 docs/NEW_SESSION_HANDOFF.md
-requirements-dev.txt
 
 # Hygiene Audit 2026-01-26
 *.out

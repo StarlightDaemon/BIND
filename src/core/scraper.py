@@ -104,26 +104,6 @@ class BindScraper:
             self.circuit_breaker.record_failure()
             return None
 
-    def search(self, term: str) -> list[dict[str, Any]]:
-        """
-        Searches ABB for a term.
-        """
-        search_url = f"{self.BASE_URL}/?s={quote_plus(term)}"
-        html = self._get_page(search_url)
-        if not html:
-            return []
-
-        soup = BeautifulSoup(html, "html.parser")
-        results = []
-
-        for item in soup.select(".post"):
-            title_elem = item.select_one(".postTitle h2 a")
-            if title_elem:
-                title = title_elem.text.strip()
-                link = title_elem["href"]
-                results.append({"title": title, "link": link, "hash": None})
-        return results
-
     def extract_info_hash(self, detail_page_url: str) -> str | None:
         """
         Fetches a detail page and extracts the Info Hash using a ranked

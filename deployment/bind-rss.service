@@ -10,7 +10,6 @@ Group=bind
 WorkingDirectory=/opt/bind
 Environment="PYTHONPATH=/opt/bind"
 EnvironmentFile=-/opt/bind/config.env
-Environment="FLASK_ENV=production"
 Environment="MAGNETS_DIR=/opt/bind/magnets"
 ExecStart=/opt/bind/venv/bin/gunicorn --workers 2 --bind 0.0.0.0:5050 --timeout 30 "src.rss_server:app"
 Restart=always
