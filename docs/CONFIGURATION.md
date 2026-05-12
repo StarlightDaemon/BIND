@@ -61,6 +61,15 @@ Environment="CIRCUIT_BREAKER_THRESHOLD=5"      # Failures before tripping
 Environment="CIRCUIT_BREAKER_COOLDOWN=600"     # Seconds to wait
 ```
 
+### Job Timeout
+Prevent a hung scrape job from blocking the scheduler indefinitely:
+```ini
+# Edit /etc/systemd/system/bind.service
+Environment="BIND_JOB_TIMEOUT=3600"    # Seconds before the scheduler moves on
+```
+Default is 3600 seconds (1 hour). After a timeout the scheduler continues
+normally; the timed-out job finishes in the background.
+
 ## How to Apply Changes
 
 1. **Edit the service file:**
