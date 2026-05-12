@@ -69,9 +69,10 @@ module = [
     "flask",
     "curl_cffi.*",
     "click",
+    "werkzeug.*",
 ]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["src.rss_server", "src.bind"]
+module = ["src.rss_server", "src.bind", "src.security"]
 disable_error_code = ["untyped-decorator", "no-any-return"]
