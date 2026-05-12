@@ -10,9 +10,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
-      - magnets:/app/magnets
+      - data:/app/data/magnets
       - ./logs:/app/logs
-    command: [ "python", "-m", "src.bind", "daemon", "--interval", "60", "--output-dir", "/app/magnets" ]
+    command: [ "python", "-m", "src.bind", "daemon", "--interval", "60", "--output-dir", "/app/data/magnets" ]
 
   # RSS Server: Serves Web UI and RSS feed on port 5050
   bind-rss:
@@ -22,14 +22,14 @@ services:
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
-      - MAGNETS_DIR=/app/magnets
+      - MAGNETS_DIR=/app/data/magnets
     ports:
       - "5050:5050"
     volumes:
-      - magnets:/app/magnets
+      - data:/app/data/magnets
     command: ["gunicorn", "--workers", "2", "--bind", "0.0.0.0:5050", "--timeout", "30", "src.rss_server:app"]
     depends_on:
       - bind-daemon
 
 volumes:
-  magnets: # Shared volume for magnet files between daemon and RSS server
+  data: # Shared volume for magnet files between daemon and RSS server
