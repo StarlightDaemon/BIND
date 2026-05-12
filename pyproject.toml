@@ -67,6 +67,11 @@ module = [
     "bs4",
     "schedule",
     "flask",
-    "curl_cffi.*"
+    "curl_cffi.*",
+    "click",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["src.rss_server", "src.bind"]
+disable_error_code = ["untyped-decorator", "no-any-return"]
