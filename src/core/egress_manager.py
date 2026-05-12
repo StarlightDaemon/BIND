@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-import random
-import time
 from collections import deque
 from typing import Any, cast
 
@@ -70,7 +68,7 @@ class EgressManager:
             logger.info(f"EgressManager: {len(proxy_list)} proxy(ies) configured")
 
     @classmethod
-    def from_env(cls) -> "EgressManager":
+    def from_env(cls) -> EgressManager:
         """
         Factory: reads BIND_PROXIES (comma-separated list) with fallback to
         BIND_PROXY (single value). Both env vars are supported for backward
