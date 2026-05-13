@@ -1,6 +1,7 @@
 import logging
 import sqlite3
 from datetime import datetime, timezone
+from typing import Any
 
 logger = logging.getLogger("storage")
 
@@ -107,7 +108,7 @@ class MagnetStore:
         ).fetchone()
         return row is not None
 
-    def recent(self, limit: int = 100) -> list[dict]:
+    def recent(self, limit: int = 100) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT info_hash, title, collected_date FROM magnets"
             " ORDER BY collected_date DESC, id DESC LIMIT ?",
@@ -120,7 +121,7 @@ class MagnetStore:
         query: str | None,
         page: int = 1,
         per_page: int = 50,
-    ) -> tuple[list[dict], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         offset = (page - 1) * per_page
 
         if not query:
@@ -161,7 +162,7 @@ class MagnetStore:
 
         return [dict(r) for r in rows], total
 
-    def stats(self) -> dict:
+    def stats(self) -> dict[str, Any]:
         today = datetime.now().strftime("%Y-%m-%d")
         total = self._conn.execute("SELECT COUNT(*) FROM magnets").fetchone()[0]
         today_count = self._conn.execute(
