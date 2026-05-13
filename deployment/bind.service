@@ -18,7 +18,7 @@ StandardError=journal
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
-ReadWritePaths=/opt/bind/data /opt/bind/logs /opt/bind/magnets
+ReadWritePaths=/opt/bind/data /opt/bind/logs
 CapabilityBoundingSet=
 
 [Install]

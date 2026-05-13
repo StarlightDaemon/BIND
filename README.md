@@ -1,7 +1,7 @@
 # BIND - Book Indexing Network Daemon
 
 [![CI](https://github.com/StarlightDaemon/BIND/actions/workflows/ci.yml/badge.svg)](https://github.com/StarlightDaemon/BIND/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.6.0)
+[![Version](https://img.shields.io/badge/version-1.7.0-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.7.0)
 [![Python](https://img.shields.io/badge/python-3.10+-yellow.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](scripts/install-proxmox-lxc.sh)
@@ -96,7 +96,7 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
 # Run daemon (collects magnets every 60 minutes)
-python -m src.bind daemon --interval 60 --output-dir magnets/
+python -m src.bind daemon --interval 60
 
 # Run RSS server (separate terminal)
 python -m src.rss_server
@@ -199,7 +199,7 @@ BIND is configured via environment variables in systemd service files. See [`doc
 - `ABB_URL` - Target domain (default: `http://audiobookbay.lu`)
 - `BIND_PROXY` - HTTP/SOCKS5 proxy for scraping
 - `BASE_URL` - RSS feed base URL override
-- `MAGNETS_DIR` - Magnet files directory
+- `BIND_DB_PATH` - SQLite database path (default: `data/bind.db`)
 - `CIRCUIT_BREAKER_THRESHOLD` - Failures before circuit opens (default: 3)
 - `CIRCUIT_BREAKER_COOLDOWN` - Cooldown period in seconds (default: 300)
 
@@ -213,9 +213,9 @@ BIND is configured via environment variables in systemd service files. See [`doc
 - 📝 **File**: Edit `/opt/bind/config.env` and run `systemctl restart bind`
 - 🖥️ **Systemd**: Override via `systemctl edit bind` (Advanced)
 
-### Operational Defaults (v1.2 Standard)
-- **Runtime Data**: `data/magnets/` (Canonical storage path)
-- **Config Key**: `MAGNETS_DIR`
+### Operational Defaults
+- **Runtime Data**: `data/bind.db` (SQLite database)
+- **Config Key**: `BIND_DB_PATH`
 - **Precedence**: Environment Variables > `config.env` > Hardcoded Defaults
 - **Security**: `credentials.json` and logs are ignored by git. Do not commit secrets.
 
@@ -228,7 +228,7 @@ BIND is configured via environment variables in `bind.service` or `bind-rss.serv
 | `BIND_PROXY` | `None` | Optional HTTP/SOCKS5 proxy (e.g., `socks5://user:pass@host:1080`) |
 | `ABB_URL` | `http://audiobookbay.lu` | Target domain (change if site moves) |
 | `BASE_URL` | Auto-detected | Override RSS feed base URL |
-| `MAGNETS_DIR` | `data/magnets` | Storage directory for magnet files (Packaged: `/opt/bind/data/magnets`) |
+| `BIND_DB_PATH` | `data/bind.db` | Path to SQLite database (Packaged: `/opt/bind/data/bind.db`) |
 | `PORT` | `5050` | Web UI and RSS feed port (change if conflicting) |
 | `CIRCUIT_BREAKER_THRESHOLD` | `3` | Failures before scraper pauses |
 | `CIRCUIT_BREAKER_COOLDOWN` | `300` | Seconds to wait after pausing |
