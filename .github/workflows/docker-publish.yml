@@ -30,7 +30,7 @@ jobs:
 
       - uses: docker/build-push-action@v6
         with:
-          file: Dockerfile.single
+          file: docker/Dockerfile.single
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
