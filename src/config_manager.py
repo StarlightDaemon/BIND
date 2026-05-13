@@ -4,9 +4,12 @@ Handles reading/writing config.env and daemon restart.
 """
 
 import fcntl
+import logging
 import os
 import re
 import subprocess
+
+logger = logging.getLogger("ConfigManager")
 
 
 class ConfigManager:
@@ -20,7 +23,11 @@ class ConfigManager:
         "BASE_URL": "",
         "CIRCUIT_BREAKER_THRESHOLD": "3",
         "CIRCUIT_BREAKER_COOLDOWN": "300",
-        "MAGNETS_DIR": "data/magnets",
+        "BIND_DB_PATH": "data/bind.db",
+        "BIND_PROXIES": "",
+        "BIND_JOB_TIMEOUT": "3600",
+        "BIND_IP_FILTER": "true",
+        "BIND_AUTH_ENABLED": "true",
     }
 
     # Validation rules: (min, max) for integers, 'url' for URLs, 'proxy' for proxy URLs
@@ -31,6 +38,10 @@ class ConfigManager:
         "BASE_URL": "url_optional",
         "CIRCUIT_BREAKER_THRESHOLD": (1, 10),
         "CIRCUIT_BREAKER_COOLDOWN": (60, 3600),
+        "BIND_PROXIES": "proxy_list",
+        "BIND_JOB_TIMEOUT": (60, 86400),
+        "BIND_IP_FILTER": "boolean",
+        "BIND_AUTH_ENABLED": "boolean",
     }
 
     def __init__(self, config_path: str | None = None):
@@ -102,6 +113,23 @@ class ConfigManager:
                 if not is_valid:
                     return False, error
 
+        # Collect any admin-managed keys that exist in the file but are not in DEFAULTS
+        preserved: dict[str, str] = {}
+        if os.path.exists(self.config_path):
+            try:
+                with open(self.config_path, encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            k = k.strip()
+                            if k not in self.DEFAULTS:
+                                preserved[k] = v.strip()
+            except OSError:
+                pass
+
         # Build config file content
         lines = [
             "# BIND Configuration",
@@ -113,6 +141,12 @@ class ConfigManager:
         for key in self.DEFAULTS:
             value = settings.get(key, self.DEFAULTS[key])
             lines.append(f"{key}={value}")
+
+        if preserved:
+            lines.append("")
+            lines.append("# Admin-managed settings (not editable via UI)")
+            for key, value in preserved.items():
+                lines.append(f"{key}={value}")
 
         content = "\n".join(lines) + "\n"
 
@@ -171,6 +205,24 @@ class ConfigManager:
                     False,
                     f"{key} must be a valid proxy URL (http/https/socks4/socks5) or empty.",
                 )
+            return True, ""
+
+        if validator == "boolean":
+            if value.lower() not in ("true", "false"):
+                return False, f"{key} must be 'true' or 'false'."
+            return True, ""
+
+        if validator == "proxy_list":
+            if not value:
+                return True, ""
+            for entry in value.split(","):
+                entry = entry.strip()
+                if entry and not re.match(r"^(https?|socks[45])://", entry):
+                    return (
+                        False,
+                        f"{key}: '{entry}' is not a valid proxy URL "
+                        "(http/https/socks4/socks5).",
+                    )
             return True, ""
 
         return True, ""

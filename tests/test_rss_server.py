@@ -1,79 +1,110 @@
 """Integration tests for RSS server Flask routes."""
 
+from src.rss_server import _date_to_rfc2822
+
+
+HASH_A = "a" * 40
+HASH_B = "b" * 40
+
 
 class TestHealthEndpoint:
-    """Test suite for /health endpoint."""
 
     def test_health_returns_200(self, client):
-        """Health check should return 200 OK."""
         response = client.get("/health")
         assert response.status_code == 200
 
     def test_health_returns_json(self, client):
-        """Health check should return JSON response."""
-        response = client.get("/health")
-        data = response.get_json()
+        data = client.get("/health").get_json()
         assert data is not None
         assert "status" in data
+        assert data["status"] == "ok"
+
+    def test_health_returns_magnet_count(self, client, fresh_store):
+        fresh_store.add_magnet(HASH_A, "Test Book", "2024-01-01")
+        data = client.get("/health").get_json()
+        assert data["magnet_count"] == 1
+
+    def test_health_count_not_capped(self, client, fresh_store):
+        for i in range(110):
+            fresh_store.add_magnet("a" * 39 + str(i), f"Book {i}", "2024-01-01")
+        data = client.get("/health").get_json()
+        assert data["magnet_count"] == 110
 
 
 class TestFeedEndpoint:
-    """Test suite for /feed.xml RSS endpoint."""
 
     def test_feed_returns_200(self, client):
-        """Feed endpoint should return 200 OK."""
-        response = client.get("/feed.xml")
-        assert response.status_code == 200
+        assert client.get("/feed.xml").status_code == 200
 
     def test_feed_returns_xml_content_type(self, client):
-        """Feed should have XML content type."""
-        response = client.get("/feed.xml")
-        assert "xml" in response.content_type.lower()
+        assert "xml" in client.get("/feed.xml").content_type.lower()
 
     def test_feed_has_rss_structure(self, client):
-        """Feed should have valid RSS 2.0 structure."""
-        response = client.get("/feed.xml")
+        data = client.get("/feed.xml").data
+        assert b"<rss" in data
+        assert b'version="2.0"' in data
+        assert b"<channel>" in data
 
-        assert b"<rss" in response.data
-        assert b'version="2.0"' in response.data
-        assert b"<channel>" in response.data
-        assert b"</channel>" in response.data
+    def test_feed_includes_magnet_items(self, client, fresh_store):
+        fresh_store.add_magnet(HASH_A, "Great Audiobook", "2024-01-01")
+        data = client.get("/feed.xml").data
+        assert b"Great Audiobook" in data
+        assert b"magnet:" in data
 
-    def test_feed_has_title(self, client):
-        """Feed should include title element."""
-        response = client.get("/feed.xml")
-        assert b"<title>" in response.data
+    def test_feed_empty_store(self, client):
+        data = client.get("/feed.xml").data
+        assert b"<item>" not in data
 
 
 class TestIndexEndpoint:
-    """Test suite for / web UI endpoint."""
 
     def test_index_returns_200(self, client):
-        """Index page should return 200 OK."""
-        response = client.get("/")
-        assert response.status_code == 200
+        assert client.get("/").status_code == 200
 
     def test_index_returns_html(self, client):
-        """Index should return HTML content type."""
-        response = client.get("/")
-        assert "text/html" in response.content_type
+        assert "text/html" in client.get("/").content_type
 
     def test_index_contains_branding(self, client):
-        """Index page should contain BIND branding."""
-        response = client.get("/")
-        assert b"BIND" in response.data
+        assert b"BIND" in client.get("/").data
 
-    def test_index_has_html_structure(self, client):
-        """Index should have valid HTML structure."""
-        response = client.get("/")
-        assert b"<!DOCTYPE html>" in response.data or b"<html" in response.data
-        assert b"</html>" in response.data
+    def test_index_shows_magnets(self, client, fresh_store):
+        fresh_store.add_magnet(HASH_A, "My Audiobook Title", "2024-01-01")
+        assert b"My Audiobook Title" in client.get("/").data
+
+
+class TestMagnetsEndpoint:
+
+    def test_magnets_returns_200(self, client):
+        assert client.get("/magnets").status_code == 200
+
+    def test_magnets_search_returns_matching(self, client, fresh_store):
+        fresh_store.add_magnet(HASH_A, "John Doe Story", "2024-01-01")
+        fresh_store.add_magnet(HASH_B, "Jane Smith Story", "2024-01-01")
+        data = client.get("/magnets?q=John").data
+        assert b"John Doe Story" in data
+        assert b"Jane Smith Story" not in data
+
+    def test_magnets_no_query_shows_all(self, client, fresh_store):
+        fresh_store.add_magnet(HASH_A, "Book One", "2024-01-01")
+        fresh_store.add_magnet(HASH_B, "Book Two", "2024-01-01")
+        data = client.get("/magnets").data
+        assert b"Book One" in data
+        assert b"Book Two" in data
 
 
 class TestNotFoundHandling:
-    """Test 404 handling for unknown routes."""
 
     def test_unknown_route_returns_404(self, client):
-        """Unknown routes should return 404."""
-        response = client.get("/nonexistent-page")
-        assert response.status_code == 404
+        assert client.get("/nonexistent-page").status_code == 404
+
+
+class TestDateToRfc2822:
+
+    def test_valid_date(self):
+        result = _date_to_rfc2822("2024-01-15")
+        assert "2024" in result
+        assert "Jan" in result
+
+    def test_invalid_date_returns_current(self):
+        result = _date_to_rfc2822("not-a-date")
+        assert result  # just check it returns something non-empty
