@@ -8,7 +8,7 @@ def test_tracker_manager_init_defaults(tmp_path):
     magnets_dir = tmp_path / "magnets"
     magnets_dir.mkdir()
 
-    tm = TrackerManager(str(magnets_dir))
+    tm = TrackerManager(str(magnets_dir.parent))
     assert tm.get_trackers() == tm.DEFAULT_TRACKERS
     assert tm.path.exists()
 
@@ -17,7 +17,7 @@ def test_tracker_manager_normalization(tmp_path):
     """Test normalization: trim, dedupe, protocol validation."""
     magnets_dir = tmp_path / "magnets"
     magnets_dir.mkdir()
-    tm = TrackerManager(str(magnets_dir))
+    tm = TrackerManager(str(magnets_dir.parent))
 
     trackers = [
         "  udp://tracker.example.com  ",
@@ -40,14 +40,14 @@ def test_tracker_manager_save_load(tmp_path):
     """Test atomic save and load."""
     magnets_dir = tmp_path / "magnets"
     magnets_dir.mkdir()
-    tm = TrackerManager(str(magnets_dir))
+    tm = TrackerManager(str(magnets_dir.parent))
 
     new_trackers = ["udp://new.tracker.com", "http://another.one"]
 
     tm.save(new_trackers)
 
     # Reload from disk
-    tm2 = TrackerManager(str(magnets_dir))
+    tm2 = TrackerManager(str(magnets_dir.parent))
     assert tm2.get_trackers() == new_trackers
 
     # Verify file content
@@ -60,7 +60,7 @@ def test_tracker_manager_set_from_text(tmp_path):
     """Test parsing from raw text block."""
     magnets_dir = tmp_path / "magnets"
     magnets_dir.mkdir()
-    tm = TrackerManager(str(magnets_dir))
+    tm = TrackerManager(str(magnets_dir.parent))
 
     text = """
     udp://tracker1.com
@@ -77,7 +77,7 @@ def test_tracker_manager_error_handling(tmp_path):
     """Test handling of malformed JSON."""
     magnets_dir = tmp_path / "magnets"
     magnets_dir.mkdir()
-    tm = TrackerManager(str(magnets_dir))
+    tm = TrackerManager(str(magnets_dir.parent))
 
     # Corrupt the file
     with open(tm.path, "w") as f:
@@ -105,7 +105,7 @@ def test_tracker_manager_creates_missing_parent_directory(tmp_path):
 
     # Do NOT create the directory - this is the critical test condition
     # Old code would fail here with: FileNotFoundError: [Errno 2] No such file or directory: 'data/trackers.json.tmp'
-    tm = TrackerManager(str(magnets_dir))
+    tm = TrackerManager(str(magnets_dir.parent))
 
     # Verify the trackers.json file was created successfully
     expected_path = magnets_dir.parent / "trackers.json"

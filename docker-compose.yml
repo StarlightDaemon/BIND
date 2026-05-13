@@ -24,6 +24,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - BIND_DB_PATH=/app/data/bind.db
+      # Optional: pin the Flask session key so sessions survive image rebuilds.
+      # If unset, a key is auto-generated and saved to /app/data/.secret_key.
+      # - FLASK_SECRET_KEY=your_key_here
     ports:
       - "5050:5050"
     volumes:

@@ -18,15 +18,14 @@ class TrackerManager:
         "http://tracker.openbittorrent.com:80/announce",
     ]
 
-    def __init__(self, magnets_dir: str) -> None:
+    def __init__(self, data_dir: str) -> None:
         """
         Initialize TrackerManager.
 
         Args:
-            magnets_dir: Directory where magnets are stored.
-                         trackers.json will be in the parent directory.
+            data_dir: Root data directory. trackers.json will be stored here.
         """
-        self.path = Path(magnets_dir).parent / "trackers.json"
+        self.path = Path(data_dir) / "trackers.json"
         logger.info(f"Resolved trackers.json path: {self.path}")
 
         # Ensure trackers.json exists with defaults if missing

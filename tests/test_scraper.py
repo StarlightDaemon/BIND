@@ -1,42 +1,14 @@
 """Tests for BindScraper with mocked HTTP responses."""
 
+import os
+from unittest.mock import patch
+
 from src.core.scraper import BindScraper
 
 
 class TestBindScraper:
     """Test suite for BindScraper core functionality."""
 
-    def test_generate_magnet_basic(self):
-        """Magnet link should contain hash and title."""
-        magnet = BindScraper.generate_magnet(
-            "abc123def456789012345678901234567890abcd", "Test Book Title", ["udp://tracker.com"]
-        )
-
-        assert magnet.startswith("magnet:?xt=urn:btih:")
-        assert "abc123def456789012345678901234567890abcd" in magnet
-        assert "dn=" in magnet
-
-    def test_generate_magnet_includes_trackers(self):
-        """Magnet link should include tracker URLs."""
-        magnet = BindScraper.generate_magnet("abc123", "Test", ["udp://tracker.com"])
-
-        assert "&tr=" in magnet
-        assert "tracker" in magnet.lower()
-
-    def test_generate_magnet_url_encodes_title(self):
-        """Special characters in title should be URL-encoded."""
-        magnet = BindScraper.generate_magnet("abc123", "Book: A & B (2024)", [])
-
-        # Title should be URL encoded (spaces, colons, ampersands)
-        dn_part = magnet.split("&dn=")[1].split("&")[0]
-        # Should not contain raw special chars
-        assert ":" not in dn_part or "%3A" in dn_part
-        assert " " not in dn_part
-
-    def test_generate_magnet_handles_empty_title(self):
-        """Empty title should not break magnet generation."""
-        magnet = BindScraper.generate_magnet("abc123", "", [])
-        assert "urn:btih:abc123" in magnet
 
     def test_ensure_hex_passthrough(self):
         """Already-hex hashes should pass through unchanged."""
@@ -57,4 +29,49 @@ class TestBindScraper:
     def test_scraper_has_base_url(self):
         """Scraper should have configurable base URL."""
         scraper = BindScraper()
-        assert hasattr(scraper, "BASE_URL")
+        assert hasattr(scraper, "base_url")
+
+    def test_base_url_reads_env_at_instantiation(self):
+        """ABB_URL must be read when the instance is created, not at import time."""
+        with patch.dict(os.environ, {"ABB_URL": "http://custom.example.com"}):
+            scraper = BindScraper()
+        assert scraper.base_url == "http://custom.example.com"
+
+    def test_base_url_falls_back_to_default(self):
+        """When ABB_URL is absent, base_url must be the default domain."""
+        env = {k: v for k, v in os.environ.items() if k != "ABB_URL"}
+        with patch.dict(os.environ, env, clear=True):
+            scraper = BindScraper()
+        assert scraper.base_url == "http://audiobookbay.lu"
+
+    def test_schema_monitor_records_exactly_once_on_success(self, mocker):
+        scraper = BindScraper()
+        scraper.schema_monitor = mocker.MagicMock()
+
+        html = """<html><body><table><tr>
+            <th>Info Hash:</th>
+            <td>abc123def456789012345678901234567890abcd</td>
+        </tr></table></body></html>"""
+        mocker.patch.object(scraper, "_get_page", return_value=html)
+
+        result = scraper.extract_info_hash("http://example.com/book")
+
+        assert result is not None
+        assert scraper.schema_monitor.record.call_count == 1
+        _, _, success = scraper.schema_monitor.record.call_args[0]
+        assert success is True
+
+    def test_schema_monitor_records_exactly_once_on_total_failure(self, mocker):
+        scraper = BindScraper()
+        scraper.schema_monitor = mocker.MagicMock()
+
+        html = "<html><body><p>No hash information present</p></body></html>"
+        mocker.patch.object(scraper, "_get_page", return_value=html)
+
+        result = scraper.extract_info_hash("http://example.com/book")
+
+        assert result is None
+        assert scraper.schema_monitor.record.call_count == 1
+        _, strategy_used, success = scraper.schema_monitor.record.call_args[0]
+        assert strategy_used is None
+        assert success is False

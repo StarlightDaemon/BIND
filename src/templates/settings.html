@@ -89,6 +89,41 @@
                     </div>
                 </div>
 
+                <h2>Advanced Settings</h2>
+
+                <div class="form-group">
+                    <label for="bind_proxies">Proxy List (optional)</label>
+                    <input type="text" id="bind_proxies" name="BIND_PROXIES"
+                        value="{{ config.BIND_PROXIES }}"
+                        placeholder="socks5://user:pass@host:1080, http://proxy:8080">
+                    <span class="helper-text">Comma-separated proxy URLs for the scraper egress layer (http/https/socks4/socks5). Overrides the single BIND_PROXY setting.</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="bind_job_timeout">Job Timeout (seconds)</label>
+                    <input type="number" id="bind_job_timeout" name="BIND_JOB_TIMEOUT"
+                        value="{{ config.BIND_JOB_TIMEOUT }}" min="60" max="86400" required>
+                    <span class="helper-text">Maximum time a scrape job may run before the next scheduled run is skipped (60–86400 seconds). Default: 3600.</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="bind_ip_filter">IP Filter</label>
+                    <select id="bind_ip_filter" name="BIND_IP_FILTER">
+                        <option value="true" {{ 'selected' if config.BIND_IP_FILTER == 'true' else '' }}>Enabled (true)</option>
+                        <option value="false" {{ 'selected' if config.BIND_IP_FILTER == 'false' else '' }}>Disabled (false)</option>
+                    </select>
+                    <span class="helper-text warning-text">⚠ Setting to Disabled removes IP-based access control. Only use in isolated/trusted networks.</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="bind_auth_enabled">Authentication</label>
+                    <select id="bind_auth_enabled" name="BIND_AUTH_ENABLED">
+                        <option value="true" {{ 'selected' if config.BIND_AUTH_ENABLED == 'true' else '' }}>Enabled (true)</option>
+                        <option value="false" {{ 'selected' if config.BIND_AUTH_ENABLED == 'false' else '' }}>Disabled (false)</option>
+                    </select>
+                    <span class="helper-text warning-text">⛔ Setting to Disabled removes all login requirements. Do NOT disable on internet-facing installations.</span>
+                </div>
+
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Save &amp; Restart</button>
                     <a href="/" class="btn btn-secondary">Cancel</a>
