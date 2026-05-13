@@ -6,7 +6,6 @@ import random
 import re
 import time
 from typing import Any
-from urllib.parse import quote_plus
 
 from bs4 import BeautifulSoup
 
@@ -70,9 +69,6 @@ class CircuitBreaker:
 
 
 class BindScraper:
-    # Allow override via env var (Issue #1 from Audit)
-    BASE_URL = os.getenv("ABB_URL", "http://audiobookbay.lu")
-
     # Network Configuration
     REQUEST_TIMEOUT = 30  # seconds - prevents indefinite hangs
 
@@ -80,6 +76,7 @@ class BindScraper:
         self.circuit_breaker = CircuitBreaker()
         self.egress = egress_manager or EgressManager.from_env()
         self.schema_monitor = SchemaHealthMonitor()
+        self.base_url = os.getenv("ABB_URL", "http://audiobookbay.lu")
 
     def _get_page(self, url: str) -> str | None:
         """
@@ -111,7 +108,7 @@ class BindScraper:
         SchemaHealthMonitor for drift detection.
         """
         if not detail_page_url.startswith("http"):
-            detail_page_url = f"{self.BASE_URL}{detail_page_url}"
+            detail_page_url = f"{self.base_url}{detail_page_url}"
 
         html = self._get_page(detail_page_url)
         if not html:
@@ -131,9 +128,9 @@ class BindScraper:
             if result:
                 self.schema_monitor.record(detail_page_url, strategy_name, True)
                 return str(result)
-            self.schema_monitor.record(detail_page_url, strategy_name, False)
 
         logger.warning(f"All parse strategies failed for {detail_page_url}")
+        self.schema_monitor.record(detail_page_url, None, False)
         return None
 
     def _parse_hash_table_td(self, soup: BeautifulSoup, url: str) -> str | None:
@@ -175,7 +172,7 @@ class BindScraper:
         return None
 
     def get_recent_books(self) -> list[dict[str, str]]:
-        rss_url = f"{self.BASE_URL}/rss"
+        rss_url = f"{self.base_url}/rss"
         xml = self._get_page(rss_url)
         if not xml:
             return []
@@ -218,17 +215,3 @@ class BindScraper:
 
         return None
 
-    @classmethod
-    def generate_magnet(cls, info_hash: str, title: str, trackers: list[str]) -> str:
-        """
-        Generates a robust magnet link with trackers.
-        Title is URL-encoded to handle special characters (&, +, =, ?, #, spaces, etc.)
-        """
-        # URL-encode title to prevent broken links when title contains special characters
-        # quote_plus() encodes spaces as '+' and special chars as '%XX'
-        title_encoded = quote_plus(title)
-
-        magnet = f"magnet:?xt=urn:btih:{info_hash}&dn={title_encoded}"
-        for tr in trackers:
-            magnet += f"&tr={tr}"
-        return magnet

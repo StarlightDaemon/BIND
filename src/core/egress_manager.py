@@ -97,7 +97,8 @@ class EgressManager:
         ]
         if proxy:
             layers.append(("curl_cffi_proxy", lambda: self._fetch_curl_cffi(url, proxy=proxy)))
-        layers.append(("cloudscraper", lambda: self._fetch_cloudscraper(url)))
+        cs_proxy = self._proxy_pool.get_next()
+        layers.append(("cloudscraper", lambda: self._fetch_cloudscraper(url, proxy=cs_proxy)))
 
         for layer_name, attempt_fn in layers:
             result = self._retry_engine.execute(attempt_fn, config, layer_name)
@@ -107,6 +108,8 @@ class EgressManager:
             logger.warning(f"[{layer_name}] all retries exhausted for {url}")
             if layer_name == "curl_cffi_proxy" and proxy:
                 self._proxy_pool.mark_failed(proxy)
+            elif layer_name == "cloudscraper" and cs_proxy:
+                self._proxy_pool.mark_failed(cs_proxy)
 
         raise FetchExhausted(url)
 
@@ -117,8 +120,11 @@ class EgressManager:
             raise ValueError("Cloudflare block detected")
         return str(response.text)
 
-    def _fetch_cloudscraper(self, url: str) -> str:
-        response = self._cloudscraper.get(url, timeout=TIMEOUT)
+    def _fetch_cloudscraper(self, url: str, proxy: str | None = None) -> str:
+        kwargs: dict[str, Any] = {"timeout": TIMEOUT}
+        if proxy:
+            kwargs["proxies"] = {"http": proxy, "https": proxy}
+        response = self._cloudscraper.get(url, **kwargs)
         response.raise_for_status()
         if "Just a moment..." in response.text or "Attention Required" in response.text:
             raise ValueError("Cloudflare block detected")

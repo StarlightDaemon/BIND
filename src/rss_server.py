@@ -35,13 +35,39 @@ _current_dir = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__, template_folder=os.path.join(_current_dir, "templates"))
 
-_secret_key = os.getenv("FLASK_SECRET_KEY")
-if not _secret_key:
-    raise RuntimeError(
-        "FLASK_SECRET_KEY is not set. "
-        'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
-    )
-app.secret_key = _secret_key
+def _resolve_secret_key(data_dir: str) -> str:
+    env_key = os.getenv("FLASK_SECRET_KEY")
+    if env_key:
+        return env_key
+    key_file = os.path.join(data_dir, ".secret_key")
+    try:
+        if os.path.isfile(key_file):
+            stored = open(key_file).read().strip()
+            if stored:
+                return stored
+        key = secrets.token_hex(32)
+        os.makedirs(data_dir, exist_ok=True)
+        with open(key_file, "w") as f:
+            f.write(key)
+        os.chmod(key_file, 0o600)
+        logger.warning(
+            "FLASK_SECRET_KEY not set — auto-generated and saved to %s. "
+            "Set FLASK_SECRET_KEY env var to pin this value.",
+            key_file,
+        )
+        return key
+    except OSError:
+        key = secrets.token_hex(32)
+        logger.warning(
+            "FLASK_SECRET_KEY not set and data dir is not writable — "
+            "using ephemeral key; sessions reset on every restart."
+        )
+        return key
+
+
+app.secret_key = _resolve_secret_key(
+    os.path.dirname(os.path.abspath(os.getenv("BIND_DB_PATH", "data/bind.db")))
+)
 
 try:
     _config_mgr = ConfigManager()

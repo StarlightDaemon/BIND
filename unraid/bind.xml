@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>bind</Name>
+  <Repository>starlightdaemon/bind:latest</Repository>
+  <Registry>https://hub.docker.com/r/starlightdaemon/bind</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/StarlightDaemon/BIND</Support>
+  <Project>https://github.com/StarlightDaemon/BIND</Project>
+  <Overview>Self-hosted audiobook RSS indexer. Scrapes AudioBookBay on a configurable interval and serves a filterable RSS feed and web UI.</Overview>
+  <WebUI>http://[IP]:[PORT:5050]</WebUI>
+  <Icon></Icon>
+  <Config Name="WebUI Port" Target="5050" Default="5050" Mode="tcp" Description="Container Port: 5050" Type="Port" Display="always" Required="true" Mask="false">5050</Config>
+  <Config Name="Data Volume" Target="/app/data" Default="/mnt/user/appdata/bind" Mode="rw" Description="Persistent storage for the SQLite database and auto-generated secret key." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/bind</Config>
+  <Config Name="BIND_DB_PATH" Target="BIND_DB_PATH" Default="/app/data/bind.db" Mode="" Description="Path inside the container where the SQLite database is stored. Do not change unless you remapped the data volume." Type="Variable" Display="always" Required="false" Mask="false">/app/data/bind.db</Config>
+  <Config Name="FLASK_SECRET_KEY" Target="FLASK_SECRET_KEY" Default="" Mode="" Description="Optional. Pin the Flask session key so sessions survive container restarts. Leave blank to auto-generate." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="BIND_SCRAPE_INTERVAL" Target="BIND_SCRAPE_INTERVAL" Default="60" Mode="" Description="Scrape interval in minutes." Type="Variable" Display="always" Required="false" Mask="false">60</Config>
+</Container>
