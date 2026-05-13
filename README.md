@@ -1,23 +1,27 @@
 # BIND - Book Indexing Network Daemon
 
 [![CI](https://github.com/StarlightDaemon/BIND/actions/workflows/ci.yml/badge.svg)](https://github.com/StarlightDaemon/BIND/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-1.7.0-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.7.0)
+[![Version](https://img.shields.io/badge/version-1.7.1-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.7.1)
 [![Python](https://img.shields.io/badge/python-3.10+-yellow.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](scripts/install-proxmox-lxc.sh)
 
-**v1.2 LTS Release** - Production-ready audiobook metadata archival with hybrid Cloudflare defense. Long-Term Support: stable, battle-tested, and maintained for the foreseeable future.
+**v1.7.1** — Production-ready audiobook metadata archival with SQLite storage, authentication, and hybrid Cloudflare defense.
 
 ## Features
 
-- 📚 **Archival & Preservation** - Long-term backup of audiobook metadata with daily file rotation
+- 📚 **Archival & Preservation** - Long-term backup of audiobook metadata with 90-day retention and automatic pruning
 - 🤖 **Automated Daemon** - Runs every 60 minutes collecting new releases
 - 🧲 **Magnet Link Generation** - Complete magnet URIs with comprehensive tracker lists
 - 📡 **RSS 2.0 Feed** - Valid XML feed compatible with all torrent clients
-- 🌐 **Web UI** - Beautiful gradient interface to view collected magnets
-- 🛡️ **Cloudflare Resistant** - Multi-layer defense against blocking and rate limits
-- ♻️ **Zero Maintenance** - Self-healing with auto-cleanup and deduplication
-- 🐳 **Easy Deployment** - One-line Proxmox installer, Docker support
+- 🌐 **Web UI** - Gradient interface with full-text search across collected magnets
+- 🔒 **Authentication** - Setup wizard, password protection, and brute-force lockout
+- ⚙️ **Settings UI** - Browser-based configuration at `/settings` — no file editing required
+- 🗄️ **SQLite Storage** - MagnetStore with FTS5 full-text search; replaces flat-file storage
+- 🔁 **Resilient Scraping** - RetryEngine with exponential back-off and circuit breaker
+- 🛡️ **Cloudflare Resistant** - Multi-layer defense: curl_cffi → cloudscraper → proxy fallback
+- ♻️ **Zero Maintenance** - Self-healing with deduplication and schema monitoring
+- 🐳 **Easy Deployment** - One-line Proxmox installer, Docker Hub image
 
 ## Deployment
 
@@ -78,6 +82,16 @@ bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scri
 <details>
 <summary><b>🐳 Docker Installation</b></summary>
 
+**Option 1: Docker Hub (Recommended)**
+```bash
+docker run -d \
+  --name bind \
+  -p 5050:5050 \
+  -v bind_data:/opt/bind/data \
+  starlightdaemon/bind:latest
+```
+
+**Option 2: Build from source**
 ```bash
 git clone https://github.com/StarlightDaemon/BIND.git
 cd BIND
@@ -111,7 +125,7 @@ python -m src.rss_server
 ```bash
 pct enter <container-id>
 cd /opt/bind
-./update.sh
+scripts/update.sh
 ```
 
 The update script will:
@@ -151,20 +165,18 @@ systemctl restart bind.service bind-rss.service
 <details>
 <summary><b>📦 Dependencies</b></summary>
 
-BIND uses only 7 carefully chosen dependencies, totaling ~60MB installed:
+BIND uses 8 carefully chosen dependencies:
 
-| Package | Size | Purpose |
-|---------|------|---------|
-| **curl_cffi** | ~10MB | TLS fingerprinting for Cloudflare bypass (Layer 1) |
-| **cloudscraper** | ~8MB | Fallback Cloudflare bypass (Layer 3) |
-| **beautifulsoup4** | ~500KB | Parses HTML to extract magnet links |
-| **lxml** | ~15MB | Fast XML/HTML parser backend for BeautifulSoup |
-| **click** | ~800KB | Command-line interface framework |
-| **schedule** | ~50KB | Lightweight daemon scheduling (cron alternative) |
-| **flask** | ~3MB | RSS server and web UI |
-
-**Total installed size**: ~60MB (including dependencies)  
-**Virtual environment**: ~180MB with all packages
+| Package | Purpose |
+|---------|---------|
+| **curl_cffi** | TLS fingerprinting for Cloudflare bypass (Layer 1) |
+| **cloudscraper** | Fallback Cloudflare bypass (Layer 2) |
+| **beautifulsoup4** | Parses HTML to extract magnet links |
+| **lxml** | Fast XML/HTML parser backend for BeautifulSoup |
+| **click** | Command-line interface framework |
+| **schedule** | Lightweight daemon scheduling (cron alternative) |
+| **flask** | RSS server and web UI |
+| **gunicorn** | Production WSGI server |
 
 All dependencies are actively maintained and essential to BIND's functionality.
 
@@ -177,15 +189,28 @@ All dependencies are actively maintained and essential to BIND's functionality.
 BIND/
 ├── src/
 │   ├── core/
-│   │   └── scraper.py      # Scraper with Hybrid Waterfall (cloudscraper -> curl_cffi)
-│   ├── bind.py             # Daemon with Circuit Breaker & Deduplication
-│   └── rss_server.py       # RSS + Web UI
+│   │   ├── scraper.py          # Hybrid Waterfall scraper (curl_cffi → cloudscraper)
+│   │   ├── storage.py          # MagnetStore — SQLite + FTS5
+│   │   ├── retry.py            # RetryEngine — exponential back-off
+│   │   ├── magnet.py           # Magnet URI construction
+│   │   ├── egress_manager.py   # Proxy / egress routing
+│   │   ├── tracker_manager.py  # Tracker list management
+│   │   ├── schema_monitor.py   # DB schema health checks
+│   │   └── migrate.py          # SQLite migrations
+│   ├── bind.py                 # Daemon with circuit breaker & deduplication
+│   ├── rss_server.py           # RSS feed + Web UI + Settings UI
+│   ├── config_manager.py       # Environment / config.env loading
+│   └── security.py             # Auth, setup wizard, brute-force lockout
+├── docker/
+│   └── Dockerfile.single       # Single-container Docker image
 ├── deployment/
-│   ├── bind.service        # Systemd daemon service
-│   └── bind-rss.service    # Systemd RSS service
+│   ├── bind.service            # Systemd daemon service
+│   └── bind-rss.service        # Systemd RSS service
 ├── scripts/
-│   └── install.sh          # One-line installer
-└── requirements.txt        # Pinned dependencies
+│   ├── install.sh              # One-line installer
+│   ├── install-proxmox-lxc.sh  # Proxmox LXC installer
+│   └── update.sh               # In-place updater
+└── requirements.txt            # Pinned dependencies
 ```
 
 </details>
@@ -283,6 +308,6 @@ ruff format src/ tests/      # Auto-format
 
 ## About
 
-**Lightweight and focused**: ~1,000 lines of code, 7 dependencies, minimal resource usage.
+**Lightweight and focused**: ~2,400 lines of code, 8 dependencies, minimal resource usage.
 
 BIND archives publicly available audiobook metadata for digital preservation and personal library indexing while respecting intellectual property rights.
