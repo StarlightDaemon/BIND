@@ -20,7 +20,7 @@ _RE_DN = re.compile(r"[?&]dn=([^&]+)")
 _RE_DATE = re.compile(r"magnets_(\d{4}-\d{2}-\d{2})\.txt$")
 
 
-def _parse_line(line: str, date_str: str) -> tuple | None:
+def _parse_line(line: str, date_str: str) -> tuple[str, str, str, str, None] | None:
     line = line.strip()
     if not line.startswith("magnet:"):
         return None
@@ -48,7 +48,7 @@ def migrate(magnets_dir: str, db_path: str) -> None:
         logger.info("No magnet files found — nothing to migrate.")
         return
 
-    rows: list[tuple] = []
+    rows: list[tuple[str, str, str, str, None]] = []
     for path in files:
         m = _RE_DATE.search(os.path.basename(path))
         if not m:

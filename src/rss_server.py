@@ -141,7 +141,7 @@ def _date_to_rfc2822(date_str: str) -> str:
         return datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
 
-def _enrich(rows: list[dict], trackers: list[str]) -> list[dict]:
+def _enrich(rows: list[dict[str, Any]], trackers: list[str]) -> list[dict[str, Any]]:
     """Map MagnetStore rows to the shape templates and RSS feed expect."""
     enriched = []
     for r in rows:
