@@ -158,3 +158,41 @@ class TestEgressManagerFetchMethods:
         manager._cloudscraper.get.return_value = mock_response
         with pytest.raises(ValueError, match="Cloudflare block detected"):
             manager._fetch_cloudscraper("http://example.com")
+
+    def test_fetch_cloudscraper_passes_proxy_when_provided(self):
+        manager = _make_manager()
+        mock_response = MagicMock()
+        mock_response.text = "<html>ok</html>"
+        manager._cloudscraper.get.return_value = mock_response
+        manager._fetch_cloudscraper("http://example.com", proxy="http://proxy.com")
+        manager._cloudscraper.get.assert_called_once_with(
+            "http://example.com",
+            proxies={"http": "http://proxy.com", "https": "http://proxy.com"},
+            timeout=30,
+        )
+
+    def test_fetch_cloudscraper_no_proxies_kwarg_when_proxy_is_none(self):
+        manager = _make_manager()
+        mock_response = MagicMock()
+        mock_response.text = "<html>ok</html>"
+        manager._cloudscraper.get.return_value = mock_response
+        manager._fetch_cloudscraper("http://example.com", proxy=None)
+        manager._cloudscraper.get.assert_called_once_with("http://example.com", timeout=30)
+
+
+class TestEgressManagerCloudscraperProxy:
+    def test_cloudscraper_proxy_evicted_on_layer_failure(self):
+        manager = _make_manager(proxy_list=["http://p1.com", "http://p2.com"])
+        # Layer 1 (direct) fails, layer 2 (p1) fails, layer 3 (cloudscraper+p2) fails
+        manager._retry_engine.execute.return_value = None
+        with pytest.raises(FetchExhausted):
+            manager.fetch("http://example.com")
+        assert "http://p1.com" in manager._proxy_pool._failed
+        assert "http://p2.com" in manager._proxy_pool._failed
+
+    def test_cloudscraper_proxy_not_evicted_on_success(self):
+        manager = _make_manager(proxy_list=["http://p1.com", "http://p2.com"])
+        # Layers 1 and 2 fail; cloudscraper succeeds
+        manager._retry_engine.execute.side_effect = [None, None, "<html>ok</html>"]
+        manager.fetch("http://example.com")
+        assert "http://p2.com" not in manager._proxy_pool._failed
