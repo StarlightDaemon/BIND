@@ -1,6 +1,4 @@
 import concurrent.futures
-import fcntl
-import glob
 import logging
 import os
 import shutil
@@ -14,10 +12,11 @@ import click
 import schedule
 
 from src.config_manager import ConfigManager
+from src.core.magnet import generate_magnet
 from src.core.scraper import BindScraper
+from src.core.storage import MagnetStore
 from src.core.tracker_manager import TrackerManager
 
-# Configure Logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -26,46 +25,79 @@ logging.basicConfig(
 logger = logging.getLogger("BIND")
 
 
-class HistoryManager:
-    """Manages a persistent history of seen info hashes to prevent duplicates forever."""
+def check_disk_space(path: str, required_mb: int = 100) -> bool:
+    try:
+        stat = shutil.disk_usage(path)
+        free_mb = stat.free / (1024 * 1024)
+        if free_mb < required_mb:
+            logger.error(f"Low disk space: {free_mb:.1f}MB free (require {required_mb}MB)")
+            return False
+        elif free_mb < required_mb * 2:
+            logger.warning(f"Disk space getting low: {free_mb:.1f}MB free")
+        return True
+    except OSError as e:
+        logger.error(f"Could not check disk space: {e}")
+        return True
 
-    filepath: str
-    seen: set[str]
 
-    def __init__(self, output_dir: str, filename: str = "history.log") -> None:
-        self.filepath = os.path.join(output_dir, filename)
-        self.seen: set[str] = set()
-        self.load()
+def run_job(
+    data_dir: str,
+    scraper: BindScraper,
+    store: MagnetStore,
+    tracker_manager: TrackerManager,
+) -> None:
+    if not check_disk_space(data_dir, required_mb=100):
+        logger.error("Insufficient disk space, skipping scrape job")
+        return
 
-    def load(self) -> None:
-        """Load existing hashes from history file into memory."""
-        if os.path.exists(self.filepath):
-            try:
-                with open(self.filepath, encoding="utf-8") as f:
-                    self.seen = {line.strip().lower() for line in f if line.strip()}
-                logger.info(f"Loaded {len(self.seen)} hashes from history.")
-            except Exception as e:
-                logger.error(f"Failed to load history file: {e}")
+    logger.info("Checking for new uploads...")
+    books = scraper.get_recent_books()
+    logger.info(f"Found {len(books)} recent books.")
 
-    def exists(self, info_hash: str) -> bool:
-        """Check if hash already exists."""
-        return info_hash.lower() in self.seen
+    today = datetime.now().strftime("%Y-%m-%d")
+    current_trackers = tracker_manager.get_trackers()
 
-    def add(self, info_hash: str) -> None:
-        """Add hash to memory and append to file."""
-        clean_hash = info_hash.lower()
-        if clean_hash not in self.seen:
-            try:
-                with open(self.filepath, "a", encoding="utf-8") as f:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                    try:
-                        f.write(f"{clean_hash}\n")
-                    finally:
-                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-                self.seen.add(clean_hash)  # only after successful file write
-            except Exception as e:
-                logger.error(f"Failed to persist hash {clean_hash}: {e}")
-                # NOT added to self.seen — will be retried next run
+    successful_saves = 0
+    failed_saves = 0
+    skipped_dupes = 0
+
+    for book in books:
+        info_hash = scraper.extract_info_hash(book["link"])
+
+        if not info_hash:
+            logger.warning(f"Could not extract hash for: {book['title']}")
+            failed_saves += 1
+            continue
+
+        if store.has_hash(info_hash):
+            logger.debug(f"Skipping duplicate: {book['title']}")
+            skipped_dupes += 1
+            continue
+
+        try:
+            saved = store.add_magnet(info_hash, book["title"], today)
+            if saved:
+                # Log the magnet URI for operator reference
+                magnet = generate_magnet(info_hash, book["title"], current_trackers)
+                logger.info(f"✓ Saved ({successful_saves + 1}): {book['title'][:50]}...")
+                logger.debug(f"  {magnet}")
+                successful_saves += 1
+            else:
+                # Race condition: another process inserted between has_hash and add_magnet
+                logger.debug(f"Skipping duplicate (race): {book['title']}")
+                skipped_dupes += 1
+        except Exception as e:
+            logger.error(f"Failed to save '{book['title']}': {e}")
+            failed_saves += 1
+
+    if successful_saves > 0 or failed_saves > 0:
+        logger.info(
+            f"Job finished: {successful_saves} saved, {skipped_dupes} duplicates, {failed_saves} failed."
+        )
+    else:
+        logger.info("Job finished: No new magnets found.")
+    if failed_saves > 0:
+        logger.warning(f"⚠️  {failed_saves} magnets could not be saved - check errors above")
 
 
 @click.group()
@@ -77,227 +109,86 @@ def cli() -> None:
 @cli.command()
 @click.option("--interval", envvar="SCRAPE_INTERVAL", default=60, help="Check interval in minutes")
 @click.option(
-    "--output-dir",
-    envvar="MAGNETS_DIR",
-    default="data/magnets",
-    help="Directory to store magnet files",
+    "--db-path",
+    envvar="BIND_DB_PATH",
+    default="data/bind.db",
+    help="Path to SQLite database",
 )
-def daemon(interval: int, output_dir: str) -> None:
+def daemon(interval: int, db_path: str) -> None:
     """Run in daemon mode to auto-grab new torrents"""
     logger.info(f"Starting BIND Daemon (Interval: {interval}m)")
+    logger.info(f"Database: {db_path}")
 
-    # [REMEDIATION RUNTIME-01] Legacy Fallback Support
-    # If the canonical path is requested (default) but missing, and legacy exists, fallback.
-    if (
-        output_dir == "data/magnets"
-        and not os.path.exists(output_dir)
-        and os.path.exists("magnets")
-    ):
-        logger.warning(
-            "Canonical directory 'data/magnets/' not found, but legacy 'magnets/' exists."
-        )
-        logger.warning(
-            "FALLBACK: Using legacy 'magnets/' directory. Please migrate to 'data/magnets/'."
-        )
-        output_dir = "magnets"
-
-    logger.info(f"Output directory: {output_dir}/")
-
-    # [REMEDIATION CONF-01] Load config.env into environment
-    # This ensures that manual runs or service restarts pick up UI changes
     try:
         config_mgr = ConfigManager()
         config = config_mgr.read_config()
         loaded_count = 0
         for key, value in config.items():
-            # Only set if not already in env (systemd vars take precedence if set explicitly)
-            # However, for the purpose of "UI Settings" being SOT for these values,
-            # we want the file to win if the systemd var is just a default.
-            # But standard behavior is Env Var > Config File.
-            # Given the audit finding is "Daemon does not read config.env",
-            # we simply ensure they are present.
             if key not in os.environ:
                 os.environ[key] = str(value)
                 loaded_count += 1
-            # If the value in config.env differs from env, we might want to log it
             elif os.environ[key] != str(value):
                 logger.debug(f"Config mismatch for {key}: Env={os.environ[key]} vs File={value}")
-
         logger.info(f"Loaded {loaded_count} configuration values from config.env")
     except Exception as e:
         logger.warning(f"Failed to load config.env: {e}")
 
-    # Create output directory with error handling
+    data_dir = os.path.dirname(os.path.abspath(db_path))
     try:
-        os.makedirs(output_dir, exist_ok=True)
-        logger.info(f"Output directory ready: {output_dir}/")
+        os.makedirs(data_dir, exist_ok=True)
     except PermissionError:
-        logger.critical(f"FATAL: No permission to create directory: {output_dir}")
-        logger.critical("Daemon cannot run. Check directory permissions.")
+        logger.critical(f"FATAL: No permission to create directory: {data_dir}")
         sys.exit(1)
     except OSError as e:
-        logger.critical(f"FATAL: Cannot create output directory: {e}")
-        logger.critical("Daemon cannot run. Exiting.")
+        logger.critical(f"FATAL: Cannot create data directory: {e}")
+        sys.exit(1)
+
+    try:
+        store = MagnetStore(db_path)
+    except RuntimeError as e:
+        logger.critical(f"FATAL: {e}")
         sys.exit(1)
 
     scraper = BindScraper()
+    tracker_manager = TrackerManager(data_dir)
 
-    # Shutdown flag for graceful termination
     shutdown_requested = {"flag": False}
 
-    # Define signal handler for graceful shutdown
     def signal_handler(signum: int, frame: Any) -> None:
-        """
-        Handle shutdown signals gracefully.
-        Sets a flag to stop after current job completes.
-        Called when daemon receives SIGTERM (systemctl stop) or SIGINT (Ctrl+C)
-        """
         signal_name = signal.Signals(signum).name
         logger.info(f"Received {signal_name}, will shutdown after current job completes...")
         shutdown_requested["flag"] = True
 
-    # Register signal handlers for graceful shutdown
     logger.info("Registering signal handlers for graceful shutdown...")
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
-    def check_disk_space(path: str, required_mb: int = 100) -> bool:
-        """
-        Check if sufficient disk space is available.
-        Returns True if >= required_mb MB free, False otherwise.
-        """
-        try:
-            stat = shutil.disk_usage(path)
-            free_mb = stat.free / (1024 * 1024)
-
-            if free_mb < required_mb:
-                logger.error(f"Low disk space: {free_mb:.1f}MB free (require {required_mb}MB)")
-                return False
-            elif free_mb < required_mb * 2:
-                # Warning threshold: less than 2x required
-                logger.warning(f"Disk space getting low: {free_mb:.1f}MB free")
-
-            return True
-        except OSError as e:
-            logger.error(f"Could not check disk space: {e}")
-            # Don't block on check failure
-            return True
-
-    def cleanup_old_files(path: str, days: int = 90) -> None:
-        """Delete files older than X days to prevent infinite accumulation"""
-        try:
-            cutoff = time.time() - (days * 86400)
-            # Only look for magnets_*.txt files to be safe
-            for f in glob.glob(os.path.join(path, "magnets_*.txt")):
-                if os.path.getmtime(f) < cutoff:
-                    try:
-                        os.remove(f)
-                        logger.info(f"Deleted old file (retention policy): {os.path.basename(f)}")
-                    except OSError as e:
-                        logger.error(f"Failed to delete old file {f}: {e}")
-        except Exception as e:
-            logger.error(f"Error during file cleanup: {e}")
-
-    # Initialize Global History Manager
-    history = HistoryManager(output_dir)
-
-    # Initialize Tracker Manager
-    tracker_manager = TrackerManager(output_dir)
-
-    def job() -> None:
-        # Check disk space before starting job
-        if not check_disk_space(output_dir, required_mb=100):
-            logger.error("Insufficient disk space, skipping scrape job")
-            return
-
-        # Run cleanup policy (keep directory clean)
-        cleanup_old_files(output_dir, days=90)
-
-        logger.info("Checking for new uploads...")
-        books = scraper.get_recent_books()
-        logger.info(f"Found {len(books)} recent books.")
-
-        # Date-based filename for daily rotation
-        today = datetime.now().strftime("%Y-%m-%d")
-        magnet_file = os.path.join(output_dir, f"magnets_{today}.txt")
-
-        # Track save statistics
-        successful_saves = 0
-        failed_saves = 0
-        skipped_dupes = 0
-
-        for book in books:
-            # Add politeness delay between requests
-            # (scraper._get_page handles this now, but get_recent_books only calls it once for RSS)
-            # We need to fetch detail page for each book
-
-            # Note: extract_info_hash does the fetching + delay
-            info_hash = scraper.extract_info_hash(book["link"])
-
-            if info_hash:
-                # Check Global History
-                if history.exists(info_hash):
-                    logger.debug(f"Skipping duplicate (history): {book['title']}")
-                    skipped_dupes += 1
-                    continue
-
-                # Get current trackers from manager
-                current_trackers = tracker_manager.get_trackers()
-                magnet = BindScraper.generate_magnet(info_hash, book["title"], current_trackers)
-
-                # Save to date-based file with comprehensive error handling
-                try:
-                    with open(magnet_file, "a", encoding="utf-8") as f:
-                        # Acquire exclusive lock to prevent RSS server reading partial writes
-                        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                        try:
-                            f.write(f"{magnet}\n")
-                            # Add to global history immediately upon success
-                            history.add(info_hash)
-                        finally:
-                            # Release lock (also auto-released on file close)
-                            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-                    logger.info(f"✓ Saved ({successful_saves + 1}): {book['title'][:50]}...")
-                    successful_saves += 1
-
-                except PermissionError:
-                    logger.error(f"CRITICAL: Permission denied writing to {magnet_file}")
-                    failed_saves += 1
-                except OSError as e:
-                    logger.error(f"CRITICAL: OS/IO error writing to {magnet_file}: {e}")
-                    failed_saves += 1
-            else:
-                logger.warning(f"Could not extract hash for: {book['title']}")
-                failed_saves += 1
-
-        # Summary log
-        if successful_saves > 0 or failed_saves > 0:
-            logger.info(
-                f"Job finished: {successful_saves} saved, {skipped_dupes} duplicates, {failed_saves} failed."
-            )
-        else:
-            logger.info("Job finished: No new magnets found.")
-        if failed_saves > 0:
-            logger.warning(f"⚠️  {failed_saves} magnets could not be saved - check errors above")
-
     JOB_TIMEOUT = int(os.getenv("BIND_JOB_TIMEOUT", "3600"))
     _job_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    _last_future: dict[str, Any] = {"future": None}
 
     def run_job_with_timeout() -> None:
-        future = _job_executor.submit(job)
+        prev = _last_future["future"]
+        if prev is not None and not prev.done():
+            logger.warning(
+                "⏰ Previous job is still running. "
+                "Skipping this scheduled run to prevent queue buildup."
+            )
+            return
+        future = _job_executor.submit(run_job, data_dir, scraper, store, tracker_manager)
+        _last_future["future"] = future
         try:
             future.result(timeout=JOB_TIMEOUT)
         except concurrent.futures.TimeoutError:
-            logger.error(
-                f"⏰ Job exceeded {JOB_TIMEOUT}s timeout. Scheduler will proceed "
-                "normally; timed-out job continues in background until completion."
+            logger.warning(
+                f"⏰ Job exceeded {JOB_TIMEOUT}s timeout. "
+                "The next scheduled run will be skipped if this job has not completed."
             )
         except Exception as e:
             logger.error(f"Job raised unexpected exception: {e}")
 
     schedule.every(interval).minutes.do(run_job_with_timeout)
 
-    # Run once immediately
     run_job_with_timeout()
 
     logger.info("Daemon running. Press Ctrl+C to stop.")
