@@ -35,6 +35,7 @@ _current_dir = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__, template_folder=os.path.join(_current_dir, "templates"))
 
+
 def _resolve_secret_key(data_dir: str) -> str:
     env_key = os.getenv("FLASK_SECRET_KEY")
     if env_key:
@@ -144,12 +145,14 @@ def _enrich(rows: list[dict], trackers: list[str]) -> list[dict]:
     """Map MagnetStore rows to the shape templates and RSS feed expect."""
     enriched = []
     for r in rows:
-        enriched.append({
-            **r,
-            "hash": r["info_hash"],
-            "date": r["collected_date"],
-            "magnet": generate_magnet(r["info_hash"], r["title"], trackers),
-        })
+        enriched.append(
+            {
+                **r,
+                "hash": r["info_hash"],
+                "date": r["collected_date"],
+                "magnet": generate_magnet(r["info_hash"], r["title"], trackers),
+            }
+        )
     return enriched
 
 
