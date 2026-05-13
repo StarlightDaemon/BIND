@@ -1,29 +1,19 @@
 from unittest.mock import patch
 
-import pytest
-from src.rss_server import app
+HASH_A = "a" * 40
 
 
-@pytest.fixture
-def client():
-    app.config["TESTING"] = True
-    with app.test_client() as client:
-        yield client
+def test_api_stats_returns_true_count(client, fresh_store):
+    for i in range(42):
+        fresh_store.add_magnet("a" * 39 + str(i), f"Book {i}", "2024-01-01")
 
+    with (
+        patch("src.rss_server.check_daemon_status", return_value=("online", "Active (Last job: 5m ago)", 1234567890)),
+        patch("src.security.check_auth", return_value=True),
+    ):
+        response = client.get("/api/stats")
 
-@patch("src.rss_server.check_daemon_status")
-@patch("src.rss_server.read_magnets")
-@patch("src.security.check_auth", return_value=True)
-def test_api_stats(mock_check_auth, mock_read_magnets, mock_check_daemon, client):
-    # Setup mocks
-    mock_check_daemon.return_value = ("online", "Active (Last job: 5m ago)", 1234567890)
-    mock_read_magnets.return_value = [{"magnet": "test"}] * 42  # 42 magnets
-
-    # Call API
-    response = client.get("/api/stats", headers={"Authorization": "Basic dGVzdDp0ZXN0"})
     data = response.get_json()
-
-    # Verify
     assert response.status_code == 200
     assert data["system_status"] == "online"
     assert data["status_message"] == "Active (Last job: 5m ago)"
@@ -31,19 +21,27 @@ def test_api_stats(mock_check_auth, mock_read_magnets, mock_check_daemon, client
     assert "server_time" in data
 
 
-@patch("src.rss_server.check_daemon_status")
-@patch("src.rss_server.read_magnets")
-@patch("src.security.check_auth", return_value=True)
-def test_api_stats_offline(mock_check_auth, mock_read_magnets, mock_check_daemon, client):
-    # Setup mocks
-    mock_check_daemon.return_value = ("offline", "Stalled", 0)
-    mock_read_magnets.return_value = []
+def test_api_stats_offline(client, fresh_store):
+    with (
+        patch("src.rss_server.check_daemon_status", return_value=("offline", "Stalled", 0)),
+        patch("src.security.check_auth", return_value=True),
+    ):
+        response = client.get("/api/stats")
 
-    # Call API
-    response = client.get("/api/stats", headers={"Authorization": "Basic dGVzdDp0ZXN0"})
     data = response.get_json()
-
-    # Verify
     assert response.status_code == 200
     assert data["system_status"] == "offline"
     assert data["magnet_count"] == 0
+
+
+def test_api_stats_count_not_capped_at_100(client, fresh_store):
+    for i in range(110):
+        fresh_store.add_magnet("a" * 39 + str(i), f"Book {i}", "2024-01-01")
+
+    with (
+        patch("src.rss_server.check_daemon_status", return_value=("online", "ok", 0)),
+        patch("src.security.check_auth", return_value=True),
+    ):
+        response = client.get("/api/stats")
+
+    assert response.get_json()["magnet_count"] == 110
