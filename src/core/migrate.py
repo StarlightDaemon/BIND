@@ -10,7 +10,6 @@ import glob
 import logging
 import os
 import re
-import sqlite3
 from urllib.parse import unquote_plus
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -36,7 +35,7 @@ def _parse_line(line: str, date_str: str) -> tuple | None:
 
 
 def migrate(magnets_dir: str, db_path: str) -> None:
-    from src.core.storage import _open, _SCHEMA_DDL
+    from src.core.storage import _SCHEMA_DDL, _open
 
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
 
@@ -90,9 +89,7 @@ def migrate(magnets_dir: str, db_path: str) -> None:
 
     logger.info(f"Inserted {inserted} rows (expected {distinct})")
     if inserted != distinct:
-        raise RuntimeError(
-            f"Row count mismatch: inserted={inserted} distinct_hashes={distinct}"
-        )
+        raise RuntimeError(f"Row count mismatch: inserted={inserted} distinct_hashes={distinct}")
     logger.info("Migration complete. Flat files are untouched — archive or delete manually.")
 
 

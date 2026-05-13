@@ -1,9 +1,7 @@
 """Tests for MagnetStore (src/core/storage.py)."""
 
 import pytest
-
 from src.core.storage import MagnetStore
-
 
 HASH_A = "a" * 40
 HASH_B = "b" * 40
@@ -11,7 +9,6 @@ HASH_C = "c" * 40
 
 
 class TestAddAndHasHash:
-
     def test_add_new_magnet_returns_true(self, fresh_store):
         assert fresh_store.add_magnet(HASH_A, "Title A", "2024-01-01") is True
 
@@ -41,7 +38,6 @@ class TestAddAndHasHash:
 
 
 class TestRecent:
-
     def test_recent_empty_store(self, fresh_store):
         assert fresh_store.recent() == []
 
@@ -72,7 +68,6 @@ class TestRecent:
 
 
 class TestSearch:
-
     def _populate(self, store):
         store.add_magnet(HASH_A, "John Doe Unabridged", "2024-01-01")
         store.add_magnet(HASH_B, "Jane Smith Narrated", "2024-02-01")
@@ -141,7 +136,6 @@ class TestSearch:
 
 
 class TestStats:
-
     def test_stats_empty_store(self, fresh_store):
         s = fresh_store.stats()
         assert s["total"] == 0
@@ -155,6 +149,7 @@ class TestStats:
 
     def test_stats_today_count(self, fresh_store):
         from datetime import datetime
+
         today = datetime.now().strftime("%Y-%m-%d")
         fresh_store.add_magnet(HASH_A, "Today Book", today)
         fresh_store.add_magnet(HASH_B, "Old Book", "2020-01-01")
@@ -169,9 +164,8 @@ class TestStats:
 
 
 class TestProbe:
-
     def test_bad_path_raises(self, tmp_path):
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="unable to open"):
             MagnetStore("/nonexistent/path/that/cannot/be/created/bind.db")
 
     def test_fresh_store_on_valid_path(self, tmp_path):

@@ -1,7 +1,6 @@
 import logging
 import sqlite3
 from datetime import datetime, timezone
-from typing import Optional
 
 logger = logging.getLogger("storage")
 
@@ -91,7 +90,7 @@ class MagnetStore:
         info_hash: str,
         title: str,
         collected_date: str,
-        source: Optional[str] = None,
+        source: str | None = None,
     ) -> bool:
         now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
         cur = self._conn.execute(
@@ -118,7 +117,7 @@ class MagnetStore:
 
     def search(
         self,
-        query: Optional[str],
+        query: str | None,
         page: int = 1,
         per_page: int = 50,
     ) -> tuple[list[dict], int]:

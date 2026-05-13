@@ -197,7 +197,6 @@ class TestRestartDaemon:
 
 
 class TestWriteConfigPreservesUnknownKeys:
-
     def test_non_defaults_key_is_preserved_after_write(self, tmp_path):
         """FLASK_SECRET_KEY and other admin keys must survive a UI save."""
         config_file = tmp_path / "config.env"
@@ -233,7 +232,6 @@ class TestWriteConfigPreservesUnknownKeys:
 
 
 class TestNewValidators:
-
     def test_bind_job_timeout_valid(self):
         cm = ConfigManager()
         assert cm._validate("BIND_JOB_TIMEOUT", "3600") == (True, "")

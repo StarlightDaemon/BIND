@@ -8,7 +8,10 @@ def test_api_stats_returns_true_count(client, fresh_store):
         fresh_store.add_magnet("a" * 39 + str(i), f"Book {i}", "2024-01-01")
 
     with (
-        patch("src.rss_server.check_daemon_status", return_value=("online", "Active (Last job: 5m ago)", 1234567890)),
+        patch(
+            "src.rss_server.check_daemon_status",
+            return_value=("online", "Active (Last job: 5m ago)", 1234567890),
+        ),
         patch("src.security.check_auth", return_value=True),
     ):
         response = client.get("/api/stats")

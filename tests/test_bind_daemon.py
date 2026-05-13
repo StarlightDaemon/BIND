@@ -2,7 +2,6 @@ import os
 from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
-
 from src.bind import check_disk_space, cli, run_job
 
 
@@ -22,7 +21,6 @@ def _make_tracker_manager():
 
 
 class TestCheckDiskSpace:
-
     def test_returns_true_when_space_is_sufficient(self, tmp_path):
         with patch("shutil.disk_usage") as mock_usage:
             mock_usage.return_value = MagicMock(free=500 * 1024 * 1024)
@@ -39,6 +37,7 @@ class TestCheckDiskSpace:
 
     def test_logs_warning_when_approaching_limit(self, tmp_path, caplog):
         import logging
+
         with patch("shutil.disk_usage") as mock_usage:
             mock_usage.return_value = MagicMock(free=150 * 1024 * 1024)
             with caplog.at_level(logging.WARNING, logger="BIND"):
@@ -47,7 +46,6 @@ class TestCheckDiskSpace:
 
 
 class TestRunJob:
-
     def test_saves_new_magnet_to_store(self, fresh_store):
         scraper = _make_scraper()
         run_job(str(fresh_store.db_path), scraper, fresh_store, _make_tracker_manager())
@@ -104,7 +102,6 @@ class TestRunJob:
 
 
 class TestDaemonCommand:
-
     def test_permission_error_on_makedirs_exits_1(self, tmp_path):
         with patch.dict("os.environ", {}, clear=True):
             os.environ["FLASK_SECRET_KEY"] = "testsecret"
@@ -115,7 +112,9 @@ class TestDaemonCommand:
             ):
                 mock_cm.return_value.read_config.return_value = {}
                 with patch("os.makedirs", side_effect=PermissionError):
-                    result = CliRunner().invoke(cli, ["daemon", "--db-path", "/no/permission/bind.db"])
+                    result = CliRunner().invoke(
+                        cli, ["daemon", "--db-path", "/no/permission/bind.db"]
+                    )
         assert result.exit_code == 1
 
     def test_oserror_on_makedirs_exits_1(self, tmp_path):

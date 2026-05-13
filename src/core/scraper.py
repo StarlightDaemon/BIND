@@ -214,4 +214,3 @@ class BindScraper:
                 return None
 
         return None
-

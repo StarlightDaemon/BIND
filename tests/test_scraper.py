@@ -9,7 +9,6 @@ from src.core.scraper import BindScraper
 class TestBindScraper:
     """Test suite for BindScraper core functionality."""
 
-
     def test_ensure_hex_passthrough(self):
         """Already-hex hashes should pass through unchanged."""
         scraper = BindScraper()

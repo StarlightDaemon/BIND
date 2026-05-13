@@ -23,6 +23,7 @@ os.environ.setdefault("BIND_AUTH_ENABLED", "false")
 def fresh_store(tmp_path):
     """Fresh, empty MagnetStore in a temp directory per test."""
     from src.core.storage import MagnetStore
+
     return MagnetStore(str(tmp_path / "test.db"))
 
 
@@ -64,6 +65,7 @@ def sample_detail_html():
 @pytest.fixture
 def flask_app():
     from src.rss_server import app
+
     app.config["TESTING"] = True
     return app
 

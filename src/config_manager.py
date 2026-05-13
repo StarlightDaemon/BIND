@@ -220,8 +220,7 @@ class ConfigManager:
                 if entry and not re.match(r"^(https?|socks[45])://", entry):
                     return (
                         False,
-                        f"{key}: '{entry}' is not a valid proxy URL "
-                        "(http/https/socks4/socks5).",
+                        f"{key}: '{entry}' is not a valid proxy URL (http/https/socks4/socks5).",
                     )
             return True, ""
 
