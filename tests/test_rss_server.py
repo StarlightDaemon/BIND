@@ -1,16 +1,12 @@
 """Integration tests for RSS server Flask routes."""
 
-import os
-
 from src.rss_server import _date_to_rfc2822, _resolve_secret_key
-
 
 HASH_A = "a" * 40
 HASH_B = "b" * 40
 
 
 class TestHealthEndpoint:
-
     def test_health_returns_200(self, client):
         response = client.get("/health")
         assert response.status_code == 200
@@ -34,7 +30,6 @@ class TestHealthEndpoint:
 
 
 class TestFeedEndpoint:
-
     def test_feed_returns_200(self, client):
         assert client.get("/feed.xml").status_code == 200
 
@@ -59,7 +54,6 @@ class TestFeedEndpoint:
 
 
 class TestIndexEndpoint:
-
     def test_index_returns_200(self, client):
         assert client.get("/").status_code == 200
 
@@ -75,7 +69,6 @@ class TestIndexEndpoint:
 
 
 class TestMagnetsEndpoint:
-
     def test_magnets_returns_200(self, client):
         assert client.get("/magnets").status_code == 200
 
@@ -95,13 +88,11 @@ class TestMagnetsEndpoint:
 
 
 class TestNotFoundHandling:
-
     def test_unknown_route_returns_404(self, client):
         assert client.get("/nonexistent-page").status_code == 404
 
 
 class TestResolveSecretKey:
-
     def test_env_var_takes_priority(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FLASK_SECRET_KEY", "explicit-key")
         assert _resolve_secret_key(str(tmp_path)) == "explicit-key"
@@ -137,7 +128,6 @@ class TestResolveSecretKey:
 
 
 class TestDateToRfc2822:
-
     def test_valid_date(self):
         result = _date_to_rfc2822("2024-01-15")
         assert "2024" in result
