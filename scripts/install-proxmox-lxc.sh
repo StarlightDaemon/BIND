@@ -184,8 +184,8 @@ pct exec "$CTID" -- bash -c "
     cp deployment/bind.service /etc/systemd/system/
     cp deployment/bind-rss.service /etc/systemd/system/
     useradd --system --no-create-home --shell /usr/sbin/nologin bind || true
-    mkdir -p /opt/bind/data /opt/bind/logs /opt/bind/magnets
-    chown -R bind:bind /opt/bind/data /opt/bind/logs /opt/bind/magnets
+    mkdir -p /opt/bind/data /opt/bind/logs
+    chown -R bind:bind /opt/bind/data /opt/bind/logs
     systemctl daemon-reload
     systemctl enable bind bind-rss
     systemctl start bind bind-rss
@@ -206,7 +206,7 @@ BIND LXC Container
 
 🌐 Web UI:     http://$(hostname -I | awk '{print \$1}'):5050/
 📡 RSS Feed:   http://$(hostname -I | awk '{print \$1}'):5050/feed.xml
-📂 Magnets:    /opt/bind/magnets/
+🗄️  Database:   /opt/bind/data/bind.db
 
 📊 Status:     journalctl -u bind -f
 🔧 Manage:     systemctl status bind bind-rss

@@ -38,10 +38,6 @@ prompt "Installation directory? [/opt/bind]"
 read -r INSTALL_DIR
 INSTALL_DIR=${INSTALL_DIR:-/opt/bind}
 
-prompt "Magnets storage directory? [/opt/bind/magnets]"
-read -r MAGNETS_DIR
-MAGNETS_DIR=${MAGNETS_DIR:-/opt/bind/magnets}
-
 prompt "Scrape interval in minutes? [60]"
 read -r INTERVAL
 INTERVAL=${INTERVAL:-60}
@@ -63,7 +59,7 @@ read -r ABB_DOMAIN
 echo ""
 log "Configuration Summary:"
 echo "  Install Dir:    $INSTALL_DIR"
-echo "  Magnets Dir:    $MAGNETS_DIR"
+echo "  Database:       $INSTALL_DIR/data/bind.db"
 echo "  Interval:       ${INTERVAL}m"
 echo "  RSS Port:       $RSS_PORT"
 echo "  Proxy:          ${PROXY_URL:-None}"
@@ -111,8 +107,8 @@ if ! id -u bind &>/dev/null; then
     log "Creating bind system user..."
     useradd --system --no-create-home --shell /usr/sbin/nologin bind
 fi
-mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/logs" "$MAGNETS_DIR"
-chown -R bind:bind "$INSTALL_DIR/data" "$INSTALL_DIR/logs" "$MAGNETS_DIR"
+mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/logs"
+chown -R bind:bind "$INSTALL_DIR/data" "$INSTALL_DIR/logs"
 
 # 5. Create custom service files
 log "Creating systemd services with your configuration..."
@@ -132,7 +128,7 @@ WorkingDirectory=$INSTALL_DIR
 Environment="PYTHONPATH=$INSTALL_DIR"
 $([ -n "$PROXY_URL" ] && echo "Environment=\"BIND_PROXY=$PROXY_URL\"")
 $([ -n "$ABB_DOMAIN" ] && echo "Environment=\"ABB_URL=$ABB_DOMAIN\"")
-ExecStart=$INSTALL_DIR/venv/bin/python -m src.bind daemon --interval $INTERVAL --output-dir $MAGNETS_DIR
+ExecStart=$INSTALL_DIR/venv/bin/python -m src.bind daemon --interval $INTERVAL
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -140,7 +136,7 @@ StandardError=journal
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
-ReadWritePaths=$INSTALL_DIR/data $INSTALL_DIR/logs $MAGNETS_DIR
+ReadWritePaths=$INSTALL_DIR/data $INSTALL_DIR/logs
 CapabilityBoundingSet=
 
 [Install]
@@ -161,7 +157,7 @@ Group=bind
 WorkingDirectory=$INSTALL_DIR
 Environment="PYTHONPATH=$INSTALL_DIR"
 Environment="FLASK_ENV=production"
-Environment="MAGNETS_DIR=$MAGNETS_DIR"
+Environment="BIND_DB_PATH=$INSTALL_DIR/data/bind.db"
 Environment="PORT=$RSS_PORT"
 ExecStart=$INSTALL_DIR/venv/bin/gunicorn --workers 2 --bind 0.0.0.0:$RSS_PORT --timeout 30 "src.rss_server:app"
 Restart=always
@@ -171,7 +167,7 @@ StandardError=journal
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
-ReadWritePaths=$INSTALL_DIR/data $INSTALL_DIR/logs $MAGNETS_DIR
+ReadWritePaths=$INSTALL_DIR/data $INSTALL_DIR/logs
 CapabilityBoundingSet=
 
 [Install]
@@ -198,7 +194,7 @@ if systemctl is-active --quiet bind && systemctl is-active --quiet bind-rss; the
     echo ""
     echo "  📡 RSS Feed:    http://$IP:$RSS_PORT/feed.xml"
     echo "  🌐 Web UI:      http://$IP:$RSS_PORT/"
-    echo "  📂 Magnets:     $MAGNETS_DIR"
+    echo "  🗄️  Database:    $INSTALL_DIR/data/bind.db"
     echo "  ⏱️  Interval:    ${INTERVAL}m"
     echo ""
     echo "  📊 Daemon Logs: journalctl -u bind -f"

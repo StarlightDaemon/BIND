@@ -43,7 +43,7 @@ else
 fi
 
 # 2b. Ensure required directories exist
-mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/logs" "$INSTALL_DIR/magnets"
+mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/logs"
 
 # 3. Setup Python Virtual Environment
 log "Setting up virtual environment..."
@@ -63,8 +63,8 @@ if ! id -u bind &>/dev/null; then
     log "Creating bind system user..."
     useradd --system --no-create-home --shell /usr/sbin/nologin bind
 fi
-mkdir -p /opt/bind/data /opt/bind/logs /opt/bind/magnets
-chown -R bind:bind /opt/bind/data /opt/bind/logs /opt/bind/magnets
+mkdir -p /opt/bind/data /opt/bind/logs
+chown -R bind:bind /opt/bind/data /opt/bind/logs
 
 # 5. Install Systemd Services
 log "Configuring systemd services..."
