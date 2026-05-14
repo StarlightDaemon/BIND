@@ -63,12 +63,15 @@ old_brain/
 # External research artifacts (not part of core project)
 docs/research/
 
-# Raiden agent tooling — session scaffolding, not BIND code
-.raiden/
-AGENTS.md
+# Raiden agent tooling — local operational prompts and context, kept on disk but not tracked
 reports/
 docs/governance/
 docs/NEW_SESSION_HANDOFF.md
+
+# RAIDEN audit outputs — operational findings, not framework content
+audit-reports/
+.raiden/state/AUDIT_LOG.md
+.raiden/state/last-audit.md
 
 # Hygiene Audit 2026-01-26
 *.out
