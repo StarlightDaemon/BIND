@@ -1,5 +1,5 @@
 {
-  "installed_edict_version": "0.3.0",
+  "installed_edict_version": "0.4.0",
   "installed_at": "2026-05-09T04:21:32.796773+00:00",
   "managed_files": [
     {
@@ -16,7 +16,7 @@
     },
     {
       "path": "WORKSPACE_AUDIT_PROTOCOL.md",
-      "hash": "2ae05789f2c61c101b9eaf1e9421fc72e9f9565dda22d7c4251aeb5b3baf0261"
+      "hash": "1fa98a0ab068349d71556b142d433fe52462de0cca237d773e4e3dc2ad5bdbb0"
     }
   ],
   "hook_files": [

@@ -47,8 +47,8 @@ Per-Instance routing config may override this preference; see Remediation Routin
 - Audit the HEAD commit of the current branch. Uncommitted working-tree changes are environment state, not audit findings; they appear in the Appendix only if genuinely security-relevant.
 - Cover tracked files at HEAD plus a sample of git history (for secret detection).
 - Polyglot: auto-detect ecosystems present (Node, Python, Go, Rust, Ruby, Java/JVM, .NET, PHP, etc.). Skip cleanly when an ecosystem is absent.
-- Read Raiden orientation in order: `AGENTS.md` → `.raiden/README.md` → `.raiden/state/CURRENT_STATE.md` → `.raiden/state/OPEN_LOOPS.md`. These are authoritative for the Instance's structure, conventions, and current state.
-- Locate scoped model-routing config if present (`.raiden/routing.md`, `.raiden/models.md`, `.raiden/agents.md`, or a routing section in a separate `RAIDEN.md`). If found, it is authoritative for the Recommended model field on each actionable finding. If absent, fall back to the class defaults in Remediation Routing.
+- Read the target's canonical orientation. For RAIDEN Instances: `AGENTS.md` → `.raiden/README.md` → `.raiden/state/CURRENT_STATE.md` → `.raiden/state/OPEN_LOOPS.md`. For framework repos or other non-Instance targets without a `.raiden/` layer: read the root-level canonical docs that exist (typically `README.md`, governance docs like `GOVERNANCE.md` or `REPOSITORY_MAP.md`, and any present state files like `CURRENT_STATE.md`, `OPEN_LOOPS.md`, `DECISIONS.md`).
+- Locate scoped model-routing config if present. Search `.raiden/routing.md`, `.raiden/models.md`, `.raiden/agents.md`, a routing section in a separate `RAIDEN.md`, or — for framework repos and non-Instance targets — root-level equivalents like `routing.md`, `models.md`, or routing sections in canonical governance docs. If found, it is authoritative for the Recommended model field on each actionable finding. If absent everywhere, fall back to the class defaults in Remediation Routing.
 
 ## Audit Categories
 
@@ -87,7 +87,7 @@ A clean production tree MUST be affirmatively stated, never implied by absence.
 ### 4. Documentation Drift
 
 - Verify README setup/run commands resolve (e.g., every `npm run X` referenced exists in `package.json`).
-- Sample-check 5–10 external links via HEAD/GET. **Network is permitted; this check is MANDATORY unless network is genuinely unavailable.** Skipping on plausibility heuristics ("the links look live") is not acceptable. Acceptable skip reasons: unreachable network, all 10 requests timed out.
+- Sample-check 5–10 external links via HEAD/GET. **Network is permitted; this check is MANDATORY unless network is genuinely unavailable.** Skipping on plausibility heuristics ("the links look live") is not acceptable. Acceptable skip reasons: unreachable network, all 10 requests timed out. If the canonical docs genuinely contain zero external links — or fewer than 10, in which case sample what exists — state the result affirmatively in the report (e.g., "No external links in canonical docs — vacuously satisfied" or "N external links checked, all reachable"). Zero-link or low-link is a valid finding result, not a skip; it should not appear in either Hard Skips or Discretionary Skips.
 - Flag stale `TODO`/`FIXME`/`HACK`/`XXX` markers strictly older than 6 months (via `git blame`). Exception: if the marker contains explicit deadline language ("by Q1 2026", "before v2.0") that has passed, flag it regardless of age.
 - Flag badge mismatches (license badge vs `LICENSE`, version badge vs manifest).
 
@@ -130,7 +130,7 @@ Every actionable finding (one with a Recommended action) is tagged with routing 
 
 ### Step 1: Apply scoped routing config if found
 
-If a scoped routing config exists (`.raiden/routing.md`, `.raiden/models.md`, `.raiden/agents.md`, or a routing section in `RAIDEN.md`), its assignments are authoritative for the Recommended model field. Use them verbatim where they cover the finding type.
+If a scoped routing config exists (`.raiden/routing.md`, `.raiden/models.md`, `.raiden/agents.md`, a routing section in `RAIDEN.md`, or — for framework repos and non-Instance targets — root-level equivalents like `routing.md`, `models.md`, or routing sections in canonical governance docs), its assignments are authoritative for the Recommended model field. Use them verbatim where they cover the finding type.
 
 ### Step 2: For findings not covered by scoped config, classify by class
 
@@ -153,7 +153,7 @@ For each actionable finding, write a 1–2 sentence remediation seed describing 
 ## Process
 
 1. Detect ecosystems and which read-only tools are available in the runtime environment.
-2. Read Instance orientation: `AGENTS.md` → `.raiden/README.md` → `.raiden/state/CURRENT_STATE.md` → `.raiden/state/OPEN_LOOPS.md`.
+2. Read the target's canonical orientation. For RAIDEN Instances: `AGENTS.md` → `.raiden/README.md` → `.raiden/state/CURRENT_STATE.md` → `.raiden/state/OPEN_LOOPS.md`. For framework repos or other non-Instance targets without a `.raiden/` layer: read the root-level canonical docs that exist (typically `README.md`, governance docs like `GOVERNANCE.md` or `REPOSITORY_MAP.md`, and any present state files like `CURRENT_STATE.md`, `OPEN_LOOPS.md`, `DECISIONS.md`).
 3. Locate scoped model-routing config if present.
 4. Plan per-category checks; skip cleanly when a tool is missing or an ecosystem is absent.
 5. Execute read-only commands. Capture relevant output.
@@ -186,7 +186,7 @@ Create the `audit-reports/` directory if absent.
 ### Audit Report — Required Sections
 
 - **Executive Summary** — repository, commit, branch, severity counts, remediation-routing counts, top 3 priorities
-- **Raiden Documentation** — location, status, routing config path or "Not found — class defaults applied", open loops referenced, layout notes
+- **Orientation Layer** — canonical-docs location and status, routing config path or "Not found — class defaults applied", open loops referenced, layout notes
 - **Findings** — per category, per-finding ID/severity/class/model/location/evidence/why/action/seed; "No findings." where applicable; Category 2 leads with the production/development split
 - **Remediation Plan** — actionable findings grouped by class, ordered severity-then-ID within class, with model assignment per class
 - **Appendix** — ecosystems detected, tools used, routing source, Hard Skips (tool/ecosystem unavailable), Discretionary Skips (with justification — mandatory checks must NOT appear here), optional Working-Tree Context, approximate duration
@@ -194,6 +194,8 @@ Create the `audit-reports/` directory if absent.
 ### State Publication
 
 After the report is written, the audit agent publishes two state files. Both reference the exact filename of the report just written (including any `-HHMMSS` suffix used for collision avoidance).
+
+If `.raiden/state/` exists in the audited repo, publish to the canonical paths below. If `.raiden/state/` does not exist (target is a framework repo or non-Instance), fall back to publishing alongside the audit report at `audit-reports/AUDIT_LOG.md` and `audit-reports/last-audit.md`. The Appendix MUST note which path set was used.
 
 **1. `.raiden/state/AUDIT_LOG.md` (rolling, append-only)** — prepend a new entry to the top of the entries section:
 
