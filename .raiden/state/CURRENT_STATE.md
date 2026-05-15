@@ -1,26 +1,36 @@
 # Current State
 
-**Last updated:** 2026-05-12  
-**Test suite:** 174 passed, 0 failed  
+**Last updated:** 2026-05-15
+**Version:** v1.7.1
+**Test suite:** 193 passed, 0 failed
 **Branch:** main (clean)
 
 ---
 
-## Architecture audit complete (2026-05-12)
+## Project
 
-All 9 "Do Soon" recommendations (R1–R9) and R10 from the architecture audit
-are implemented. Full report at `reports/architecture_audit_2026-05-12.md`.
+BIND (Book Indexing Network Daemon) is a Python daemon that archives audiobook metadata from public sources, generates magnet links and RSS feeds, and serves a web UI with full-text search. Production-ready; deployed via Proxmox LXC or Docker.
 
-R11 (storage layer abstraction) is held for operator review — see OL-2 in
-`OPEN_LOOPS.md`.
+**Status:** Production / Active Maintenance.
 
-## Active open loops
+---
 
-- **OL-1** — Remove 90-day retention cap + MAX_ITEMS=100 limit (BLOCKED on OL-2)
-- **OL-2** — Evaluate and implement SQLite storage backend (BLOCKS OL-1, held for operator review)
+## Confirmed Current State
 
-## What not to touch until OL-2 is resolved
+- Architecture audit completed (2026-05-12): recommendations R1–R10 implemented; R11 (storage abstraction) resolved as part of v1.7.0.
+- v1.7.0 shipped: flat-file storage replaced by SQLite (`MagnetStore`, WAL + FTS5 trigram); 90-day retention cap removed; `MAX_ITEMS=100` cap removed; one-shot migration script included.
+- v1.7.1 shipped: Docker Hub CI, automatic secret key generation, cloudscraper proxy fallback, settings UI at `/settings`.
+- RAIDEN Instance installed at Edict v0.4.0.
 
-- `cleanup_old_files()` in `src/bind.py` — operator wants this removed/made optional, but not until the database question is settled
-- `MAX_ITEMS = 100` in `src/rss_server.py` — same hold
-- `search_magnets()` in `src/rss_server.py` — O(N) scan; acceptable now, becomes a problem if OL-1 ships without OL-2
+## In Progress
+
+- Ongoing maintenance; no active feature branches at this time.
+
+## Not Yet Done
+
+- Performance tuning for very large datasets (post-SQLite, the O(N) scan constraint is removed; no active work scheduled).
+
+## Known Constraints
+
+- SQLite WAL mode handles concurrent RSS server reads and daemon writes correctly; no external database dependency.
+- Cloudflare resistance is multi-layer (curl_cffi → cloudscraper with proxy → fallback); may need updates if upstream anti-bot measures change.
