@@ -319,7 +319,11 @@ class TestChangePasswordRoute:
             sess["csrf_token"] = "test-token"
         response = client.post(
             "/api/settings/password",
-            json={"current_password": "wrong", "new_password": "new", "confirm_new_password": "new"},
+            json={
+                "current_password": "wrong",
+                "new_password": "new",
+                "confirm_new_password": "new",
+            },
             headers={"X-CSRF-Token": "test-token"},
         )
         assert response.status_code == 400

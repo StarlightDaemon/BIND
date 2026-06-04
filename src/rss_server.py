@@ -40,7 +40,7 @@ logger = logging.getLogger("rss_server")
 
 _probe_cache: dict[str, Any] = {"result": None, "expires": 0.0}
 _current_dir = os.path.dirname(os.path.abspath(__file__))
-_SPA_DIST    = os.path.join(_current_dir, "static", "dist")
+_SPA_DIST = os.path.join(_current_dir, "static", "dist")
 
 app = Flask(__name__, template_folder=os.path.join(_current_dir, "templates"))
 
@@ -92,6 +92,7 @@ def _add_security_headers(response: Response) -> Response:
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     return response
 
+
 try:
     _config_mgr = ConfigManager()
     _config = _config_mgr.read_config()
@@ -101,14 +102,14 @@ try:
 except Exception as e:
     logger.warning(f"Failed to load config.env: {e}")
 
-BIND_DB_PATH     = os.getenv("BIND_DB_PATH", "data/bind.db")
-FEED_TITLE       = "BIND - Book Indexing Network"
+BIND_DB_PATH = os.getenv("BIND_DB_PATH", "data/bind.db")
+FEED_TITLE = "BIND - Book Indexing Network"
 FEED_DESCRIPTION = "Automatically collected audiobook magnet links"
-MAX_ITEMS        = 100
+MAX_ITEMS = 100
 
-_data_dir       = os.path.dirname(os.path.abspath(BIND_DB_PATH))
+_data_dir = os.path.dirname(os.path.abspath(BIND_DB_PATH))
 tracker_manager = TrackerManager(_data_dir)
-store           = MagnetStore(BIND_DB_PATH)
+store = MagnetStore(BIND_DB_PATH)
 
 ip_allowlist_middleware(app)
 
@@ -125,15 +126,15 @@ def generate_csrf_token() -> str:
 
 
 def _validate_csrf_form() -> None:
-    token      = session.get("csrf_token")
+    token = session.get("csrf_token")
     form_token = request.form.get("csrf_token")
     if not token or token != form_token:
         abort(403, description="CSRF token missing or invalid.")
 
 
 def _validate_csrf_json() -> None:
-    token          = session.get("csrf_token")
-    request_token  = request.headers.get("X-CSRF-Token")
+    token = session.get("csrf_token")
+    request_token = request.headers.get("X-CSRF-Token")
     if not token or token != request_token:
         abort(403, description="CSRF token missing or invalid.")
 
@@ -181,6 +182,7 @@ def requires_session_auth(f: F) -> F:
         if not session.get("authenticated"):
             return jsonify({"error": "Authentication required"}), 401
         return f(*args, **kwargs)
+
     return cast(F, decorated)
 
 
@@ -216,16 +218,16 @@ config_manager = ConfigManager()
 
 def check_daemon_status() -> tuple[str, str, float]:
     try:
-        config   = config_manager.read_config()
+        config = config_manager.read_config()
         interval = int(config.get("SCRAPE_INTERVAL", 60))
         log_path = os.path.join(os.getcwd(), "bind.log")
 
         if not os.path.exists(log_path):
             return "unknown", "Log file not found", 0
 
-        mtime       = os.path.getmtime(log_path)
+        mtime = os.path.getmtime(log_path)
         last_active = datetime.fromtimestamp(mtime, tz=timezone.utc)
-        now         = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
         diff_minutes = (now - last_active).total_seconds() / 60
 
         if diff_minutes < (interval * 2) + 5:
@@ -244,16 +246,16 @@ def check_daemon_status() -> tuple[str, str, float]:
 @app.route("/feed.xml")
 def feed() -> Response:
     current_trackers = tracker_manager.get_trackers()
-    rows             = store.recent(limit=MAX_ITEMS)
-    magnets          = _enrich(rows, current_trackers)
-    base_url         = os.getenv("BASE_URL") or f"http://{request.host}"
+    rows = store.recent(limit=MAX_ITEMS)
+    magnets = _enrich(rows, current_trackers)
+    base_url = os.getenv("BASE_URL") or f"http://{request.host}"
 
     rss_items = []
     for magnet in magnets:
-        pub_date       = _date_to_rfc2822(magnet["date"])
-        guid           = magnet["hash"]
+        pub_date = _date_to_rfc2822(magnet["date"])
+        guid = magnet["hash"]
         magnet_escaped = escape(magnet["magnet"])
-        title_safe     = magnet["title"].replace("]]>", "]]]]><![CDATA[>")
+        title_safe = magnet["title"].replace("]]>", "]]]]><![CDATA[>")
 
         item = f"""
         <item>
@@ -287,14 +289,14 @@ def feed() -> Response:
 @app.route("/health")
 def health() -> dict[str, Any]:
     if time.monotonic() > _probe_cache["expires"]:
-        _probe_cache["result"]  = BindScraper().probe_target()
+        _probe_cache["result"] = BindScraper().probe_target()
         _probe_cache["expires"] = time.monotonic() + 300
     db_stats = store.stats()
     return {
-        "status":        "ok",
-        "magnet_count":  db_stats["total"],
-        "last_date":     db_stats["last_date"],
-        "target_probe":  _probe_cache["result"],
+        "status": "ok",
+        "magnet_count": db_stats["total"],
+        "last_date": db_stats["last_date"],
+        "target_probe": _probe_cache["result"],
     }
 
 
@@ -310,12 +312,12 @@ def api_csrf_token() -> Any:
 
 @app.route("/api/login", methods=["POST"])
 def api_login() -> Any:
-    data     = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True) or {}
     username = data.get("username", "")
     password = data.get("password", "")
     if verify_credentials(username, password, ip=get_client_ip(request)):
         session["authenticated"] = True
-        session.permanent        = True
+        session.permanent = True
         return jsonify({"ok": True})
     return jsonify({"error": "Invalid credentials"}), 401
 
@@ -329,10 +331,12 @@ def api_logout() -> Any:
 @app.route("/api/me")
 def api_me() -> Any:
     auth_enabled = os.getenv("BIND_AUTH_ENABLED", "true").lower() != "false"
-    return jsonify({
-        "authenticated": not auth_enabled or bool(session.get("authenticated")),
-        "auth_enabled":  auth_enabled,
-    })
+    return jsonify(
+        {
+            "authenticated": not auth_enabled or bool(session.get("authenticated")),
+            "auth_enabled": auth_enabled,
+        }
+    )
 
 
 # =============================================================================
@@ -349,9 +353,9 @@ def api_setup_status() -> Any:
 def api_setup() -> Any:
     if is_setup_complete():
         return jsonify({"error": "Setup already complete"}), 400
-    data             = request.get_json(silent=True) or {}
-    username         = data.get("username", "").strip()
-    password         = data.get("password", "")
+    data = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
     confirm_password = data.get("confirm_password", "")
     if password != confirm_password:
         return jsonify({"error": "Passwords do not match."}), 400
@@ -369,17 +373,19 @@ def api_setup() -> Any:
 @app.route("/api/dashboard")
 def api_dashboard() -> Any:
     current_trackers = tracker_manager.get_trackers()
-    rows             = store.recent(limit=20)
-    magnets          = _enrich(rows, current_trackers)
-    total_count      = store.stats()["total"]
+    rows = store.recent(limit=20)
+    magnets = _enrich(rows, current_trackers)
+    total_count = store.stats()["total"]
     status, message, _ = check_daemon_status()
-    return jsonify({
-        "magnets":        magnets,
-        "magnet_count":   total_count,
-        "display_count":  len(magnets),
-        "system_status":  status,
-        "status_message": message,
-    })
+    return jsonify(
+        {
+            "magnets": magnets,
+            "magnet_count": total_count,
+            "display_count": len(magnets),
+            "system_status": status,
+            "status_message": message,
+        }
+    )
 
 
 @app.route("/api/magnets")
@@ -389,37 +395,41 @@ def api_magnets() -> Any:
         page = max(1, int(request.args.get("page", 1)))
     except ValueError:
         page = 1
-    per_page         = 50
+    per_page = 50
     current_trackers = tracker_manager.get_trackers()
     rows, total_count = store.search(query=query or None, page=page, per_page=per_page)
-    magnets          = _enrich(rows, current_trackers)
-    total_pages      = math.ceil(total_count / per_page) if total_count else 1
-    return jsonify({
-        "magnets":     magnets,
-        "query":       query,
-        "page":        page,
-        "total_pages": total_pages,
-        "total_count": total_count,
-    })
+    magnets = _enrich(rows, current_trackers)
+    total_pages = math.ceil(total_count / per_page) if total_count else 1
+    return jsonify(
+        {
+            "magnets": magnets,
+            "query": query,
+            "page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+        }
+    )
 
 
 @app.route("/api/stats")
 @requires_session_auth
 def api_stats() -> Any:
     status, message, _ = check_daemon_status()
-    db_stats           = store.stats()
-    current_trackers   = tracker_manager.get_trackers()
-    recent_rows        = store.recent(limit=20)
-    recent_magnets     = _enrich(recent_rows, current_trackers)
-    return jsonify({
-        "system_status":  status,
-        "status_message": message,
-        "magnet_count":   db_stats["total"],
-        "recent_magnets": recent_magnets,
-        "server_time":    datetime.now(timezone.utc)
-                          .isoformat(timespec="microseconds")
-                          .replace("+00:00", "Z"),
-    })
+    db_stats = store.stats()
+    current_trackers = tracker_manager.get_trackers()
+    recent_rows = store.recent(limit=20)
+    recent_magnets = _enrich(recent_rows, current_trackers)
+    return jsonify(
+        {
+            "system_status": status,
+            "status_message": message,
+            "magnet_count": db_stats["total"],
+            "recent_magnets": recent_magnets,
+            "server_time": datetime.now(timezone.utc)
+            .isoformat(timespec="microseconds")
+            .replace("+00:00", "Z"),
+        }
+    )
 
 
 # =============================================================================
@@ -430,21 +440,20 @@ def api_stats() -> Any:
 @app.route("/api/metrics")
 @requires_session_auth
 def api_metrics() -> Any:
-    db_stats     = store.stats()
-    runs         = store.scrape_runs(limit=30)
-    total_runs   = len(runs)
+    db_stats = store.stats()
+    runs = store.scrape_runs(limit=30)
+    total_runs = len(runs)
     success_count = sum(1 for r in runs if r[1] == "success")
-    success_rate  = round(success_count / total_runs * 100) if total_runs else None
-    runs_out      = [
-        {"run_at": r[0], "result": r[1], "new_items": r[2], "duration": r[3]}
-        for r in runs
-    ]
-    return jsonify({
-        "stats":        db_stats,
-        "runs":         runs_out,
-        "success_rate": success_rate,
-        "now":          datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    })
+    success_rate = round(success_count / total_runs * 100) if total_runs else None
+    runs_out = [{"run_at": r[0], "result": r[1], "new_items": r[2], "duration": r[3]} for r in runs]
+    return jsonify(
+        {
+            "stats": db_stats,
+            "runs": runs_out,
+            "success_rate": success_rate,
+            "now": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+    )
 
 
 # =============================================================================
@@ -455,43 +464,47 @@ def api_metrics() -> Any:
 @app.route("/api/settings", methods=["GET"])
 @requires_session_auth
 def api_settings_get() -> Any:
-    config   = config_manager.read_config()
+    config = config_manager.read_config()
     trackers = tracker_manager.get_trackers()
-    return jsonify({
-        "config":        config,
-        "trackers_text": "\n".join(trackers),
-    })
+    return jsonify(
+        {
+            "config": config,
+            "trackers_text": "\n".join(trackers),
+        }
+    )
 
 
 @app.route("/api/settings", methods=["POST"])
 @requires_session_auth
 def api_settings_post() -> Any:
-    data       = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True) or {}
     new_config = {
-        "ABB_URL":                    str(data.get("ABB_URL", "")).strip(),
-        "SCRAPE_INTERVAL":            str(data.get("SCRAPE_INTERVAL", "60")).strip(),
-        "BIND_PROXY":                 str(data.get("BIND_PROXY", "")).strip(),
-        "BASE_URL":                   str(data.get("BASE_URL", "")).strip(),
-        "CIRCUIT_BREAKER_THRESHOLD":  str(data.get("CIRCUIT_BREAKER_THRESHOLD", "3")).strip(),
-        "CIRCUIT_BREAKER_COOLDOWN":   str(data.get("CIRCUIT_BREAKER_COOLDOWN", "300")).strip(),
-        "BIND_PROXIES":               str(data.get("BIND_PROXIES", "")).strip(),
-        "BIND_JOB_TIMEOUT":           str(data.get("BIND_JOB_TIMEOUT", "3600")).strip(),
-        "BIND_IP_FILTER":             str(data.get("BIND_IP_FILTER", "true")).strip(),
-        "BIND_AUTH_ENABLED":          str(data.get("BIND_AUTH_ENABLED", "true")).strip(),
+        "ABB_URL": str(data.get("ABB_URL", "")).strip(),
+        "SCRAPE_INTERVAL": str(data.get("SCRAPE_INTERVAL", "60")).strip(),
+        "BIND_PROXY": str(data.get("BIND_PROXY", "")).strip(),
+        "BASE_URL": str(data.get("BASE_URL", "")).strip(),
+        "CIRCUIT_BREAKER_THRESHOLD": str(data.get("CIRCUIT_BREAKER_THRESHOLD", "3")).strip(),
+        "CIRCUIT_BREAKER_COOLDOWN": str(data.get("CIRCUIT_BREAKER_COOLDOWN", "300")).strip(),
+        "BIND_PROXIES": str(data.get("BIND_PROXIES", "")).strip(),
+        "BIND_JOB_TIMEOUT": str(data.get("BIND_JOB_TIMEOUT", "3600")).strip(),
+        "BIND_IP_FILTER": str(data.get("BIND_IP_FILTER", "true")).strip(),
+        "BIND_AUTH_ENABLED": str(data.get("BIND_AUTH_ENABLED", "true")).strip(),
     }
     write_success, write_message = config_manager.write_config(new_config)
     if not write_success:
         return jsonify({"ok": False, "message": write_message}), 400
     restart_success, restart_message = config_manager.restart_daemon()
     if restart_success:
-        return jsonify({"ok": True, "message": "Configuration saved. Daemon restarted successfully."})
+        return jsonify(
+            {"ok": True, "message": "Configuration saved. Daemon restarted successfully."}
+        )
     return jsonify({"ok": True, "message": f"Configuration saved. Note: {restart_message}"})
 
 
 @app.route("/api/settings/trackers", methods=["POST"])
 @requires_session_auth
 def api_settings_trackers() -> Any:
-    data          = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True) or {}
     trackers_text = data.get("trackers", "").strip()
     try:
         tracker_manager.set_trackers_from_text(trackers_text)
@@ -503,9 +516,9 @@ def api_settings_trackers() -> Any:
 @app.route("/api/settings/password", methods=["POST"])
 @requires_session_auth
 def api_settings_password() -> Any:
-    data             = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True) or {}
     current_password = data.get("current_password", "")
-    new_password     = data.get("new_password", "")
+    new_password = data.get("new_password", "")
     confirm_password = data.get("confirm_new_password", "")
     if new_password != confirm_password:
         return jsonify({"ok": False, "message": "New passwords do not match."}), 400
@@ -538,18 +551,20 @@ def api_logs() -> Any:
         try:
             with open(filepath, encoding="utf-8") as f:
                 lines = f.readlines()
-                logs  = [line.strip() for line in reversed(lines[-MAX_LINES:])]
+                logs = [line.strip() for line in reversed(lines[-MAX_LINES:])]
         except Exception as e:
             logs = [f"Error reading log file: {e}"]
     else:
         logs = [f"Log file not found: {filepath}"]
 
-    return jsonify({
-        "logs":        logs,
-        "current_log": log_type,
-        "log_file":    filename,
-        "line_count":  len(logs),
-    })
+    return jsonify(
+        {
+            "logs": logs,
+            "current_log": log_type,
+            "log_file": filename,
+            "line_count": len(logs),
+        }
+    )
 
 
 # =============================================================================
