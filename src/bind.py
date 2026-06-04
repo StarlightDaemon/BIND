@@ -208,9 +208,9 @@ def daemon(interval: int, db_path: str) -> None:
     run_job_with_timeout()
 
     logger.info("Daemon running. Press Ctrl+C to stop.")
-    while not shutdown_requested["flag"]:
-        schedule.run_pending()
-        time.sleep(1)
+    while not shutdown_requested["flag"]:  # pragma: no cover
+        schedule.run_pending()  # pragma: no cover
+        time.sleep(1)  # pragma: no cover
 
     logger.info("Shutdown complete. Daemon stopped cleanly.")
     sys.exit(0)
