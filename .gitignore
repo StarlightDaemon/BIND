@@ -65,6 +65,8 @@ docs/research/
 
 # Raiden agent tooling — local operational prompts and context, kept on disk but not tracked
 reports/
+!reports/coverage-prompts/
+!reports/coverage-prompts/**
 docs/governance/
 docs/NEW_SESSION_HANDOFF.md
 

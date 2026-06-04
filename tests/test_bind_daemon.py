@@ -1,4 +1,7 @@
+import concurrent.futures
+import logging
 import os
+import signal
 from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
@@ -129,3 +132,229 @@ class TestDaemonCommand:
                 with patch("os.makedirs", side_effect=OSError("disk full")):
                     result = CliRunner().invoke(cli, ["daemon", "--db-path", "/bad/path/bind.db"])
         assert result.exit_code == 1
+
+
+# ---------------------------------------------------------------------------
+# Helpers shared by the new daemon test classes below
+# ---------------------------------------------------------------------------
+
+def _make_daemon_mocks(probe_return="ok"):
+    """Return (mock_executor, mock_future, mock_scraper, mock_store) for daemon tests."""
+    mock_future = MagicMock()
+    mock_future.done.return_value = True
+    mock_future.result.return_value = 0
+
+    mock_executor = MagicMock()
+    mock_executor.submit.return_value = mock_future
+
+    mock_scraper = MagicMock()
+    mock_scraper.probe_target.return_value = probe_return
+    mock_scraper.get_recent_books.return_value = []
+
+    mock_store = MagicMock()
+    mock_store.record_scrape_run.return_value = None
+
+    return mock_executor, mock_future, mock_scraper, mock_store
+
+
+# ---------------------------------------------------------------------------
+# New test classes
+# ---------------------------------------------------------------------------
+
+class TestRunJobEdgeCases:
+    def test_add_magnet_returns_false_counts_as_dupe(self, fresh_store):
+        scraper = MagicMock()
+        scraper.get_recent_books.return_value = [{"title": "Test Book", "link": "/test/"}]
+        scraper.extract_info_hash.return_value = "aabbccdd" * 5
+
+        with patch.object(fresh_store, "add_magnet", return_value=False):
+            run_job(str(fresh_store.db_path), scraper, fresh_store, _make_tracker_manager())
+
+        assert fresh_store.stats()["total"] == 0
+
+
+class TestDaemonConfigLoading:
+    def test_config_key_already_in_env_logs_mismatch(self, tmp_path, caplog):
+        mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks()
+
+        with patch.dict("os.environ", {"BIND_MISMATCH_TEST": "30"}):
+            with (
+                patch("src.bind.ConfigManager") as mock_cm,
+                patch("src.bind.MagnetStore", return_value=mock_store),
+                patch("src.bind.BindScraper", return_value=mock_scraper),
+                patch("src.bind.TrackerManager"),
+                patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_executor),
+                patch("src.bind.schedule"),
+                patch("time.sleep", side_effect=SystemExit(0)),
+            ):
+                mock_cm.return_value.read_config.return_value = {"BIND_MISMATCH_TEST": "60"}
+                with caplog.at_level(logging.DEBUG, logger="BIND"):
+                    CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
+
+        assert any("Config mismatch for" in r.message for r in caplog.records)
+
+    def test_config_load_exception_logs_warning(self, tmp_path, caplog):
+        mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks()
+
+        with (
+            patch("src.bind.ConfigManager") as mock_cm,
+            patch("src.bind.MagnetStore", return_value=mock_store),
+            patch("src.bind.BindScraper", return_value=mock_scraper),
+            patch("src.bind.TrackerManager"),
+            patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_executor),
+            patch("src.bind.schedule"),
+            patch("time.sleep", side_effect=SystemExit(0)),
+        ):
+            mock_cm.return_value.read_config.side_effect = Exception("file not found")
+            with caplog.at_level(logging.WARNING, logger="BIND"):
+                CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
+
+        assert any("Failed to load config.env" in r.message for r in caplog.records)
+
+
+class TestDaemonStartupFailures:
+    def test_magnet_store_runtime_error_exits_1(self, tmp_path):
+        with (
+            patch("src.bind.ConfigManager") as mock_cm,
+            patch("src.bind.MagnetStore", side_effect=RuntimeError("db locked")),
+            patch("src.bind.BindScraper"),
+            patch("src.bind.TrackerManager"),
+        ):
+            mock_cm.return_value.read_config.return_value = {}
+            result = CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
+
+        assert result.exit_code == 1
+
+
+class TestDaemonSignalRegistration:
+    def test_signal_handlers_registered_for_sigterm_and_sigint(self, tmp_path):
+        mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks()
+        registered = {}
+
+        def capture_signal(signum, handler):
+            registered[signum] = handler
+
+        with (
+            patch("src.bind.ConfigManager") as mock_cm,
+            patch("src.bind.MagnetStore", return_value=mock_store),
+            patch("src.bind.BindScraper", return_value=mock_scraper),
+            patch("src.bind.TrackerManager"),
+            patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_executor),
+            patch("src.bind.schedule"),
+            patch("signal.signal", side_effect=capture_signal),
+            patch("time.sleep", side_effect=SystemExit(0)),
+        ):
+            mock_cm.return_value.read_config.return_value = {}
+            CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
+
+        assert signal.SIGTERM in registered
+        assert signal.SIGINT in registered
+
+
+class TestDaemonProbeWarning:
+    def _run_with_probe(self, tmp_path, probe_return, caplog):
+        mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks(probe_return=probe_return)
+
+        with (
+            patch("src.bind.ConfigManager") as mock_cm,
+            patch("src.bind.MagnetStore", return_value=mock_store),
+            patch("src.bind.BindScraper", return_value=mock_scraper),
+            patch("src.bind.TrackerManager"),
+            patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_executor),
+            patch("src.bind.schedule"),
+            patch("time.sleep", side_effect=SystemExit(0)),
+        ):
+            mock_cm.return_value.read_config.return_value = {}
+            with caplog.at_level(logging.WARNING, logger="BIND"):
+                CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
+
+    def test_probe_unreachable_logs_warning(self, tmp_path, caplog):
+        self._run_with_probe(tmp_path, "unreachable", caplog)
+        assert any("unreachable" in r.message for r in caplog.records)
+
+    def test_probe_wrong_content_logs_warning(self, tmp_path, caplog):
+        self._run_with_probe(tmp_path, "wrong_content", caplog)
+        assert any("wrong_content" in r.message for r in caplog.records)
+
+
+class TestRunJobWithTimeout:
+    def _invoke_capturing_rjwt(self, tmp_path, mock_executor, mock_scraper, mock_store):
+        """Run daemon until time.sleep breaks the loop; return captured run_job_with_timeout."""
+        captured = {}
+        mock_sched = MagicMock()
+        mock_sched.every.return_value.minutes.do.side_effect = (
+            lambda fn: captured.update({"fn": fn}) or MagicMock()
+        )
+
+        with (
+            patch("src.bind.ConfigManager") as mock_cm,
+            patch("src.bind.MagnetStore", return_value=mock_store),
+            patch("src.bind.BindScraper", return_value=mock_scraper),
+            patch("src.bind.TrackerManager"),
+            patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_executor),
+            patch("src.bind.schedule", mock_sched),
+            patch("time.sleep", side_effect=SystemExit(0)),
+        ):
+            mock_cm.return_value.read_config.return_value = {}
+            CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
+
+        return captured.get("fn")
+
+    def test_skips_run_when_previous_job_still_running(self, tmp_path, caplog):
+        # First call at line 208 sets _last_future to a future that reports not-done.
+        # Second call (via captured rjwt) should log the skip warning.
+        future_not_done = MagicMock()
+        future_not_done.done.return_value = False
+        future_not_done.result.return_value = 0
+
+        mock_executor = MagicMock()
+        mock_executor.submit.return_value = future_not_done
+
+        mock_scraper = MagicMock()
+        mock_scraper.probe_target.return_value = "ok"
+        mock_store = MagicMock()
+        mock_store.record_scrape_run.return_value = None
+
+        rjwt = self._invoke_capturing_rjwt(tmp_path, mock_executor, mock_scraper, mock_store)
+        assert rjwt is not None
+
+        with caplog.at_level(logging.WARNING, logger="BIND"):
+            rjwt()
+
+        assert any("Previous job is still running" in r.message for r in caplog.records)
+
+    def test_records_scrape_run_on_timeout(self, tmp_path, caplog):
+        future_timeout = MagicMock()
+        future_timeout.done.return_value = True
+        future_timeout.result.side_effect = concurrent.futures.TimeoutError()
+
+        mock_executor = MagicMock()
+        mock_executor.submit.return_value = future_timeout
+
+        mock_scraper = MagicMock()
+        mock_scraper.probe_target.return_value = "ok"
+        mock_store = MagicMock()
+        mock_store.record_scrape_run.return_value = None
+
+        with caplog.at_level(logging.WARNING, logger="BIND"):
+            self._invoke_capturing_rjwt(tmp_path, mock_executor, mock_scraper, mock_store)
+
+        assert any("exceeded" in r.message for r in caplog.records)
+
+    def test_records_scrape_run_on_unexpected_exception(self, tmp_path, caplog):
+        future_exc = MagicMock()
+        future_exc.done.return_value = True
+        future_exc.result.side_effect = ValueError("boom")
+
+        mock_executor = MagicMock()
+        mock_executor.submit.return_value = future_exc
+
+        mock_scraper = MagicMock()
+        mock_scraper.probe_target.return_value = "ok"
+        mock_store = MagicMock()
+        mock_store.record_scrape_run.return_value = None
+
+        with caplog.at_level(logging.ERROR, logger="BIND"):
+            self._invoke_capturing_rjwt(tmp_path, mock_executor, mock_scraper, mock_store)
+
+        assert any("unexpected exception" in r.message for r in caplog.records)
