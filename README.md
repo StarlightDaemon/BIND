@@ -11,25 +11,25 @@
 
 ## Features
 
-### What it collects
+### 📚 What it collects
 - **Metadata Archival** - Long-term local backup with 90-day retention and automatic pruning
 - **Automated Collection** - Daemon runs every 60 minutes, collecting new releases
 - **Magnet Link Generation** - Complete magnet URIs with comprehensive tracker lists
 - **SQLite Storage** - MagnetStore with FTS5 full-text search
 
-### How it stays up
+### 🛡️ How it stays up
 - **Cloudflare Defense** - Three-layer waterfall: curl_cffi TLS fingerprint → cloudscraper → proxy
 - **Retry Engine** - Exponential back-off with circuit breaker; handles 429s and transient failures
 - **Domain Resilience Probe** - Classifies target health: reachable / blocked / wrong content / unreachable
 - **Self-Healing** - Deduplication and schema health monitoring; zero manual intervention
 
-### How you access it
+### 🌐 How you access it
 - **RSS 2.0 Feed** - Valid XML feed compatible with all torrent clients
 - **Web UI** - Full-text search across collected magnets
 - **Metrics Dashboard** - Color-coded scrape history, 7/30-day counts, and success rate at `/metrics`
 - **Settings UI** - Browser-based configuration at `/settings` — no file editing required
 
-### Security & deployment
+### 🔒 Security & deployment
 - **Authentication** - Setup wizard, password protection, and brute-force lockout
 - **Easy Deployment** - One-line Proxmox installer, Docker Hub image
 
@@ -37,7 +37,7 @@
 
 Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and works with all RSS-capable torrent clients.
 
-> **Security Note**: BIND includes a built-in authentication system (Setup Wizard, Password Protection, Bruteforce Lockout). However, for maximum security, we still recommend running behind a reverse proxy (nginx, Caddy, Cloudflare Tunnel) if exposing to the public internet.
+> **⚠️ Security Note**: BIND includes a built-in authentication system (Setup Wizard, Password Protection, Bruteforce Lockout). However, for maximum security, we still recommend running behind a reverse proxy (nginx, Caddy, Cloudflare Tunnel) if exposing to the public internet.
 
 ## 🚀 Installation
 
