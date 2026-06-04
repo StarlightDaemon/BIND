@@ -54,7 +54,7 @@ export function BindShell({ children }: BindShellProps) {
         fontSize:   12,
         padding:    '6px 8px',
         cursor:     'pointer',
-        textAlign:  'left',
+        textAlign:  'center',
       }}
     >
       Sign out

@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import tokens from '../tokens.json';
 
 const RAIL_EXPANDED    = 220;
-const RAIL_COLLAPSED   = 60;
+const RAIL_COLLAPSED   = 68;
 const NAV_ITEM_HEIGHT  = 40;
 
 export interface NavItem {
@@ -39,15 +39,16 @@ export function ToolShell({ navItems, logo, footer, children, header }: ToolShel
   };
 
   const logoBar: React.CSSProperties = {
-    padding:       tokens.spacing.scale.md,
-    borderBottom:  `1px solid var(--fujin-border-subtle)`,
-    display:       'flex',
-    alignItems:    'center',
-    gap:           tokens.spacing.scale.sm,
-    color:         'var(--fujin-text-primary)',
-    cursor:        'pointer',
-    userSelect:    'none',
-    flexShrink:    0,
+    padding:         tokens.spacing.scale.md,
+    borderBottom:    `1px solid var(--fujin-border-subtle)`,
+    display:         'flex',
+    alignItems:      'center',
+    justifyContent:  collapsed ? 'center' : 'flex-start',
+    gap:             tokens.spacing.scale.sm,
+    color:           'var(--fujin-text-primary)',
+    cursor:          'pointer',
+    userSelect:      'none',
+    flexShrink:      0,
   };
 
   const logoLabel: React.CSSProperties = {
@@ -59,9 +60,11 @@ export function ToolShell({ navItems, logo, footer, children, header }: ToolShel
   };
 
   const footerSlot: React.CSSProperties = {
-    borderTop: `1px solid var(--fujin-border-subtle)`,
-    padding:   tokens.spacing.scale.sm,
-    flexShrink: 0,
+    borderTop:      `1px solid var(--fujin-border-subtle)`,
+    padding:        tokens.spacing.scale.sm,
+    flexShrink:     0,
+    display:        'flex',
+    justifyContent: collapsed ? 'center' : 'stretch',
   };
 
   const main: React.CSSProperties = {
