@@ -19,6 +19,8 @@
 - 🔒 **Authentication** - Setup wizard, password protection, and brute-force lockout
 - ⚙️ **Settings UI** - Browser-based configuration at `/settings` — no file editing required
 - 🗄️ **SQLite Storage** - MagnetStore with FTS5 full-text search; replaces flat-file storage
+- 📊 **Metrics Dashboard** - Scrape history with color-coded success/failure runs, 7/30-day counts, and success rate at `/metrics`
+- 🔍 **Domain Resilience Probe** - Classifies target as reachable, cloudflare-blocked, wrong content, or unreachable; cached result surfaced in `/health`
 - 🔁 **Resilient Scraping** - RetryEngine with exponential back-off and circuit breaker
 - 🛡️ **Cloudflare Resistant** - Multi-layer defense: curl_cffi → cloudscraper → proxy fallback
 - ♻️ **Zero Maintenance** - Self-healing with deduplication and schema monitoring
@@ -158,7 +160,7 @@ systemctl restart bind.service bind-rss.service
 - **[Architecture](docs/ARCHITECTURE.md)** - System design and data flow diagrams
 - **[FAQ](docs/FAQ.md)** - Frequently asked questions
 - **[Roadmap](docs/ROADMAP.md)** - Future enhancements and features
-- **[Releases](docs/RELEASES.md)** - v1.0 release notes and changelog
+- **[Releases](docs/RELEASES.md)** - Release notes — v1.0 through v2.1
 - **[Design System](docs/BIND_IMPLEMENTATION_GUIDE.md)** - Web UI theming reference
 
 ---
@@ -309,6 +311,6 @@ ruff format src/ tests/      # Auto-format
 
 ## About
 
-**Lightweight and focused**: ~2,400 lines of code, 8 dependencies, minimal resource usage.
+**Lightweight and focused**: ~1,700 lines of code, 8 dependencies, minimal resource usage.
 
 BIND archives publicly available audiobook metadata for digital preservation and personal library indexing while respecting intellectual property rights.

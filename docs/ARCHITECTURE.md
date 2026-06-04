@@ -19,13 +19,13 @@
 │                   ▼                    │
 │           SchemaMonitor                │
 │                                        │
-│  HistoryManager  TrackerManager        │
+│  MagnetStore        TrackerManager     │
 └───────────────────────┬────────────────┘
-                        │ writes magnets_YYYY-MM-DD.txt
+                        │ writes (SQLite)
                         ▼
                ┌─────────────────┐
-               │  data/magnets/  │
-               │  *.txt files    │
+               │  data/bind.db   │
+               │  SQLite + FTS5  │
                └────────┬────────┘
                         │ reads
                         ▼
@@ -45,13 +45,16 @@
 
 ```
 src/
-├── bind.py               Daemon entry point: scheduler, job loop, HistoryManager
-├── rss_server.py         Flask app: all HTTP routes, auth, CSRF, security log
+├── bind.py               Daemon entry point: scheduler, job loop, MagnetStore integration
+├── rss_server.py         Flask app: all HTTP routes, auth, CSRF, security log, metrics
 ├── config_manager.py     Reads/writes config.env (key-value store for UI settings)
 ├── security.py           IP allowlist, basic-auth, CSRF, audit logging
 └── core/
     ├── scraper.py        BindScraper: RSS fetch, HTML parse, magnet generation;
-    │                       CircuitBreaker gates all outbound requests
+    │                       CircuitBreaker gates all outbound requests;
+    │                       probe_target() classifies target health
+    ├── storage.py        MagnetStore: SQLite + FTS5; scrape_runs table for metrics
+    ├── migrate.py        Schema migrations (run at startup)
     ├── egress_manager.py Three-layer fetch waterfall; ProxyPool round-robin
     ├── retry.py          RetryEngine: exponential backoff + full jitter;
     │                       classifies 429, retryable HTTP, permanent HTTP,
@@ -68,14 +71,18 @@ src/
 bind.py  ──────────────────────────────────► config_manager
           ──────────────────────────────────► tracker_manager
           ──────────────────────────────────► scraper
+          ──────────────────────────────────► storage
                                                   │
 rss_server.py ─────────────────────────────► config_manager
                ─────────────────────────────► tracker_manager
                ─────────────────────────────► scraper
+               ─────────────────────────────► storage
                ─────────────────────────────► security
 
 scraper.py ────────────────────────────────► egress_manager
             ───────────────────────────────► schema_monitor
+
+storage.py ────────────────────────────────► migrate
 
 egress_manager.py ─────────────────────────► retry
 ```
@@ -83,13 +90,14 @@ egress_manager.py ────────────────────�
 ## Component Details
 
 ### BIND Daemon (`bind.service`)
-**File**: `src/bind.py` (~314 lines)
+**File**: `src/bind.py` (~220 lines)
 
 **Responsibilities**:
 - Schedules a scrape job every N minutes (default: 60, override: `SCRAPE_INTERVAL`)
 - Runs each job in a `ThreadPoolExecutor` with a hard timeout (`BIND_JOB_TIMEOUT`, default 3600s)
-- Deduplicates across runs via `HistoryManager` (appends to `data/magnets/history.log`)
-- Rotates output to daily files (`magnets_YYYY-MM-DD.txt`); prunes files older than 90 days
+- Deduplicates across runs via `MagnetStore` (checks info hash against SQLite before write)
+- Records every scrape run outcome (result, items_new, duration) to `scrape_runs` table
+- Logs WARNING at startup if `probe_target()` returns unreachable or wrong_content
 - Checks disk space before each job (skips if < 100 MB free)
 - Handles `SIGTERM`/`SIGINT` gracefully (completes the current job before exit)
 
@@ -118,6 +126,11 @@ Error classification:
 The breaker opens after N consecutive total failures (default 3, `CIRCUIT_BREAKER_THRESHOLD`),
 then pauses all outbound requests for a cooldown period (default 300s, `CIRCUIT_BREAKER_COOLDOWN`).
 
+`probe_target()` performs a lightweight GET to the base URL outside the egress waterfall and circuit
+breaker, returning one of four string labels: `"reachable"`, `"cloudflare_block"`, `"wrong_content"`,
+or `"unreachable"`. The daemon calls this at startup; the result is cached for 5 minutes and exposed
+in the `/health` response.
+
 ### Schema Health Monitor
 **File**: `src/core/schema_monitor.py`
 
@@ -134,44 +147,57 @@ Normalises URLs (trims whitespace, validates protocol) and deduplicates case-ins
 Defaults to three public trackers if `trackers.json` is absent.
 
 ### Storage Layer
-**Location**: `data/magnets/`
+**File**: `src/core/storage.py` — `MagnetStore`
+**Location**: `data/bind.db` (SQLite, configured via `BIND_DB_PATH`)
 
-| File | Purpose |
+| Table | Purpose |
 |---|---|
-| `magnets_YYYY-MM-DD.txt` | One magnet URI per line, appended daily |
-| `history.log` | Flat list of seen info hashes (dedup across restarts) |
-| `../trackers.json` | Persisted tracker list (`data/trackers.json`) |
+| `magnets` | One row per collected magnet; FTS5 virtual table for full-text search |
+| `scrape_runs` | One row per daemon run cycle: timestamp, result, items_new, duration_s |
 
-Writes use `fcntl.LOCK_EX` to prevent RSS server reading partial lines.
+Schema migrations run at startup via `src/core/migrate.py`. Tracker URLs are persisted
+separately to `data/trackers.json` (atomic fsync+replace; not in the database).
 
 ### RSS Server (`bind-rss.service`)
-**File**: `src/rss_server.py` (~298 lines), served via gunicorn
+**File**: `src/rss_server.py` (~477 lines), served via gunicorn
 
 **Endpoints**:
 - `/` — Dashboard (HTML)
 - `/magnets` — Magnet browser (search, pagination)
 - `/feed.xml` — RSS 2.0 feed
-- `/health` — Status JSON
-- `/api/stats` — Real-time statistics (auth-gated via `BIND_AUTH_ENABLED`)
+- `/health` — Status JSON (includes cached `target_probe` result)
+- `/metrics` — Metrics dashboard: color-coded scrape history, success rate, 7/30-day counts (auth required)
+- `/api/stats` — Real-time statistics JSON (auth required)
 - `/settings` — Configuration (auth required)
 - `/settings/trackers` — Tracker management (auth required)
 - `/settings/password` — Password change (auth required)
 - `/logs` — Audit log viewer (auth required)
 - `/setup` — First-time setup wizard
 
+### Metrics Dashboard
+
+**Route**: `/metrics` (auth required)
+**Template**: `src/templates/metrics.html`
+
+Reads the last 30 rows from `scrape_runs` and computes:
+- **success_rate** — percentage of successful runs in the window
+- **7/30-day counts** — total magnets collected via `MagnetStore.stats()`
+- **Color-coded run table** — each row is green (success), yellow (partial), or red (error)
+
 ## Data Flow
 
 ```
 1. Collection (every N minutes)
    ABB RSS feed → scraper → detail page (EgressMgr waterfall)
-   → info hash extraction (4-strategy waterfall) → magnet URI → daily file
+   → info hash extraction (4-strategy waterfall) → magnet URI → MagnetStore (SQLite)
 
 2. Dedup
-   Each info hash checked against HistoryManager before write.
-   Duplicate → skip. New → write to file, append to history.log.
+   Each info hash checked against MagnetStore before write.
+   Duplicate → skip. New → INSERT into magnets table.
+   Run outcome recorded to scrape_runs table.
 
 3. Distribution
-   daily files → RSS Server → { XML feed, Web UI, health/stats JSON }
+   MagnetStore → RSS Server → { XML feed, Web UI, health/stats JSON, metrics dashboard }
 
 4. Consumption
    RSS feed → torrent client → auto-download

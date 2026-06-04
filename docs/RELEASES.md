@@ -1,4 +1,98 @@
-# BIND v1.0.0 Release Notes
+# BIND Release Notes
+
+---
+
+## v2.1.0 — Codecov + Coverage Gate
+
+**Release Date**: June 4, 2026
+
+- Integrated Codecov for per-PR coverage reporting
+- Coverage gate raised to 75%; new storage and resilience test suites added
+- CI pipeline requires coverage threshold to merge
+- No behaviour changes from v2.0.0
+
+---
+
+## v2.0.0 — Metrics Dashboard, Domain Resilience Probe, CI Hardening
+
+**Release Date**: June 4, 2026
+
+### New Features
+
+**Metrics Dashboard** (`/metrics`)
+- Auth-gated route with Vesper-themed HTML dashboard
+- Shows last 30 scrape runs color-coded by result (success / partial / error)
+- Displays 7-day and 30-day magnet counts, overall success rate
+- `scrape_runs` table added to `MagnetStore` schema; daemon records every run cycle
+
+**Domain Resilience Probe** (`probe_target()`)
+- `BindScraper.probe_target()` classifies target health without touching the circuit breaker
+- Returns one of: `reachable`, `cloudflare_block`, `wrong_content`, `unreachable`
+- Cached for 5 minutes; result exposed in `/health` response
+- Daemon logs WARNING at startup for unreachable or wrong_content
+
+**CI: dev-dependency audit**
+- `pip-audit` step added for development dependencies to catch CVEs in the test toolchain
+
+### Tests
+- 273 tests passing; 77% coverage
+
+---
+
+## v1.7.1 — Docker Hub CI, Secret Key Auto-Gen, Settings UI Polish
+
+**Release Date**: May 13, 2026
+
+- Docker Hub publish workflow with automated push on tag
+- `FLASK_SECRET_KEY` auto-generated on first run if absent
+- Proxy support for `cloudscraper` layer
+- 8 GitHub releases backfilled with changelogs
+
+---
+
+## v1.7.0 — SQLite Storage Migration
+
+**Release Date**: May 12, 2026
+
+- Replaced flat-file storage (`magnets_YYYY-MM-DD.txt` + `history.log`) with `MagnetStore` (SQLite + FTS5)
+- Full-text search across all collected magnets
+- Schema migration runner (`migrate.py`) for forward-compatible upgrades
+- 193 tests passing
+
+---
+
+## v1.6.1 — Audit Backlog Closed
+
+**Release Date**: May 12, 2026
+
+- All findings from security, architecture, and resilience audits resolved
+- 131 tests passing, zero open findings
+
+---
+
+## v1.4.0 — Resilience Modules
+
+**Release Date**: May 11, 2026
+
+- `RetryEngine` with exponential back-off and full jitter
+- `EgressManager` three-layer waterfall: curl_cffi → proxy → cloudscraper
+- `SchemaHealthMonitor` rolling parse-success window
+
+---
+
+## v1.3.0 — Authentication & Settings UI
+
+**Release Date**: May 11, 2026
+
+- Setup wizard on first run
+- Password-protected routes with brute-force lockout
+- Browser-based settings at `/settings` — no file editing required
+- CSRF protection for all POST routes
+- Audit log at `/logs`
+
+---
+
+## v1.0.0 — Initial Production Release
 
 **Release Date**: January 9, 2026  
 **Project**: BIND - Book Indexing Network Daemon  
