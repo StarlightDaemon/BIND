@@ -17,7 +17,7 @@ _SCHEMA_DDL = [
     """CREATE TABLE IF NOT EXISTS scrape_runs (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         run_at     TEXT NOT NULL,
-        result     TEXT NOT NULL CHECK(result IN ('success', 'failure', 'empty')),
+        result     TEXT NOT NULL CHECK(result IN ('success', 'failure', 'empty', 'timeout')),
         items_new  INTEGER NOT NULL DEFAULT 0,
         duration_s REAL    NOT NULL DEFAULT 0.0
     )""",
@@ -57,11 +57,13 @@ def _open(db_path: str) -> sqlite3.Connection:
     return conn
 
 
-def _probe(db_path: str) -> None:
+def _probe(db_path: str) -> sqlite3.Connection:
+    """Open, validate, and return the connection — caller owns it."""
     conn = _open(db_path)
     try:
         mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
         if mode != "wal":
+            conn.close()
             raise RuntimeError(
                 f"WAL mode not accepted (got '{mode}') — "
                 "data directory may be on a network filesystem (e.g. WSL2 /mnt/)"
@@ -73,17 +75,39 @@ def _probe(db_path: str) -> None:
     except RuntimeError:
         raise
     except Exception as e:
-        raise RuntimeError(f"Storage probe failed: {e}") from e
-    finally:
         conn.close()
+        raise RuntimeError(f"Storage probe failed: {e}") from e
+    return conn
+
+
+def _upgrade_schema(conn: sqlite3.Connection) -> None:
+    """Migrate scrape_runs CHECK constraint to include 'timeout' if missing."""
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='scrape_runs'"
+    ).fetchone()
+    if row and "'timeout'" not in row[0]:
+        conn.execute("ALTER TABLE scrape_runs RENAME TO _scrape_runs_old")
+        conn.execute(
+            """CREATE TABLE scrape_runs (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_at     TEXT NOT NULL,
+                result     TEXT NOT NULL
+                               CHECK(result IN ('success', 'failure', 'empty', 'timeout')),
+                items_new  INTEGER NOT NULL DEFAULT 0,
+                duration_s REAL    NOT NULL DEFAULT 0.0
+            )"""
+        )
+        conn.execute("INSERT INTO scrape_runs SELECT * FROM _scrape_runs_old")
+        conn.execute("DROP TABLE _scrape_runs_old")
+        logger.info("Upgraded scrape_runs schema: added 'timeout' result variant")
 
 
 class MagnetStore:
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
-        _probe(db_path)
-        self._conn = _open(db_path)
+        self._conn = _probe(db_path)
         self._init_schema()
+        _upgrade_schema(self._conn)
         logger.info(f"MagnetStore ready at {db_path}")
 
     def _init_schema(self) -> None:
@@ -156,10 +180,9 @@ class MagnetStore:
             ).fetchone()[0]
         else:
             rows = self._conn.execute(
-                "SELECT m.info_hash, m.title, m.collected_date"
-                " FROM magnets m JOIN magnets_fts f ON f.rowid = m.id"
-                " WHERE f.title LIKE ?"
-                " ORDER BY m.collected_date DESC, m.id DESC LIMIT ? OFFSET ?",
+                "SELECT info_hash, title, collected_date FROM magnets"
+                " WHERE id IN (SELECT rowid FROM magnets_fts WHERE title LIKE ?)"
+                " ORDER BY collected_date DESC, id DESC LIMIT ? OFFSET ?",
                 (pattern, per_page, offset),
             ).fetchall()
             total = self._conn.execute(
@@ -170,17 +193,19 @@ class MagnetStore:
         return [dict(r) for r in rows], total
 
     def stats(self) -> dict[str, Any]:
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         total = self._conn.execute("SELECT COUNT(*) FROM magnets").fetchone()[0]
         today_count = self._conn.execute(
             "SELECT COUNT(*) FROM magnets WHERE collected_date = ?",
             (today,),
         ).fetchone()[0]
         last_7 = self._conn.execute(
-            "SELECT COUNT(*) FROM magnets WHERE date(collected_date) >= date('now', '-6 days')"
+            "SELECT COUNT(*) FROM magnets"
+            " WHERE date(collected_date) >= date(datetime('now', 'localtime'), '-6 days')"
         ).fetchone()[0]
         last_30 = self._conn.execute(
-            "SELECT COUNT(*) FROM magnets WHERE date(collected_date) >= date('now', '-29 days')"
+            "SELECT COUNT(*) FROM magnets"
+            " WHERE date(collected_date) >= date(datetime('now', 'localtime'), '-29 days')"
         ).fetchone()[0]
         last_row = self._conn.execute(
             "SELECT collected_date FROM magnets ORDER BY collected_date DESC, id DESC LIMIT 1"
@@ -192,6 +217,13 @@ class MagnetStore:
             "last_30_days": last_30,
             "last_date": last_row[0] if last_row else None,
         }
+
+    def scrape_runs(self, limit: int = 30) -> list[Any]:
+        return self._conn.execute(
+            "SELECT run_at, result, items_new, duration_s"
+            " FROM scrape_runs ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
 
     def record_scrape_run(self, result: str, items_new: int, duration_s: float) -> None:
         run_at = datetime.now(timezone.utc).isoformat()

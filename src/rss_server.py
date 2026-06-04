@@ -24,6 +24,7 @@ from src.core.storage import MagnetStore
 from src.core.tracker_manager import TrackerManager
 from src.security import (
     change_password,
+    get_client_ip,
     get_security_log_path,
     ip_allowlist_middleware,
     is_setup_complete,
@@ -47,7 +48,8 @@ def _resolve_secret_key(data_dir: str) -> str:
     key_file = os.path.join(data_dir, ".secret_key")
     try:
         if os.path.isfile(key_file):
-            stored = open(key_file).read().strip()
+            with open(key_file, encoding="utf-8") as _kf:
+                stored = _kf.read().strip()
             if stored:
                 return stored
         key = secrets.token_hex(32)
@@ -379,7 +381,7 @@ def setup() -> Any:
         if password != confirm_password:
             error = "Passwords do not match."
         else:
-            success, message = save_credentials(username, password)
+            success, message = save_credentials(username, password, ip=get_client_ip(request))
             if success:
                 return redirect("/")
             else:
@@ -401,7 +403,9 @@ def change_password_route() -> str:
     if new_password != confirm_password:
         password_message = "New passwords do not match."
     else:
-        success, message = change_password(current_password, new_password)
+        success, message = change_password(
+            current_password, new_password, ip=get_client_ip(request)
+        )
         password_message = message
         password_success = success
 
@@ -442,9 +446,7 @@ def check_daemon_status() -> tuple[str, str, float]:
 @requires_auth
 def metrics_view() -> str:
     db_stats = store.stats()
-    runs = store._conn.execute(
-        "SELECT run_at, result, items_new, duration_s FROM scrape_runs ORDER BY id DESC LIMIT 30"
-    ).fetchall()
+    runs = store.scrape_runs(limit=30)
     total_runs = len(runs)
     success_count = sum(1 for r in runs if r[1] == "success")
     success_rate = round(success_count / total_runs * 100) if total_runs else None

@@ -5,7 +5,7 @@ import shutil
 import signal
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import click
@@ -45,6 +45,7 @@ def run_job(
     scraper: BindScraper,
     store: MagnetStore,
     tracker_manager: TrackerManager,
+    _saved_counter: list[int] | None = None,
 ) -> int:
     if not check_disk_space(data_dir, required_mb=100):
         logger.error("Insufficient disk space, skipping scrape job")
@@ -54,7 +55,7 @@ def run_job(
     books = scraper.get_recent_books()
     logger.info(f"Found {len(books)} recent books.")
 
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     current_trackers = tracker_manager.get_trackers()
 
     successful_saves = 0
@@ -82,6 +83,8 @@ def run_job(
                 logger.info(f"✓ Saved ({successful_saves + 1}): {book['title'][:50]}...")
                 logger.debug(f"  {magnet}")
                 successful_saves += 1
+                if _saved_counter is not None:
+                    _saved_counter[0] = successful_saves
             else:
                 # Race condition: another process inserted between has_hash and add_magnet
                 logger.debug(f"Skipping duplicate (race): {book['title']}")
@@ -179,15 +182,21 @@ def daemon(interval: int, db_path: str) -> None:
         t0 = time.monotonic()
         run_result = "failure"
         items_new = 0
-        future = _job_executor.submit(run_job, data_dir, scraper, store, tracker_manager)
+        _saved_counter: list[int] = [0]
+        future = _job_executor.submit(
+            run_job, data_dir, scraper, store, tracker_manager, _saved_counter
+        )
         _last_future["future"] = future
         try:
             new_count = future.result(timeout=JOB_TIMEOUT)
             items_new = new_count or 0
             run_result = "success" if items_new > 0 else "empty"
         except concurrent.futures.TimeoutError:
+            items_new = _saved_counter[0]
+            run_result = "timeout"
             logger.warning(
-                f"⏰ Job exceeded {JOB_TIMEOUT}s timeout. "
+                f"⏰ Job exceeded {JOB_TIMEOUT}s timeout — "
+                f"{items_new} item(s) saved before cutoff. "
                 "The next scheduled run will be skipped if this job has not completed."
             )
         except Exception as e:

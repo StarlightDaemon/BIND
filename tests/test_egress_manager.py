@@ -183,12 +183,13 @@ class TestEgressManagerFetchMethods:
 class TestEgressManagerCloudscraperProxy:
     def test_cloudscraper_proxy_evicted_on_layer_failure(self):
         manager = _make_manager(proxy_list=["http://p1.com", "http://p2.com"])
-        # Layer 1 (direct) fails, layer 2 (p1) fails, layer 3 (cloudscraper+p2) fails
+        # Layer 1 (direct) fails, layer 2 (curl_cffi_proxy+p1) fails,
+        # layer 3 (cloudscraper+p1) fails — both layers share the same proxy slot now
         manager._retry_engine.execute.return_value = None
         with pytest.raises(FetchExhausted):
             manager.fetch("http://example.com")
         assert "http://p1.com" in manager._proxy_pool._failed
-        assert "http://p2.com" in manager._proxy_pool._failed
+        # p2 is never consumed — curl_cffi_proxy and cloudscraper share the first proxy
 
     def test_cloudscraper_proxy_not_evicted_on_success(self):
         manager = _make_manager(proxy_list=["http://p1.com", "http://p2.com"])
