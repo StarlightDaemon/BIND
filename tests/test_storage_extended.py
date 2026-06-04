@@ -40,9 +40,7 @@ class TestSchema:
         conn = sqlite3.connect(str(tmp_path / "test.db"))
         tables = {
             row[0]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
         conn.close()
         store.close()
@@ -55,9 +53,7 @@ class TestSchema:
         conn = sqlite3.connect(str(tmp_path / "test.db"))
         tables = {
             row[0]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
         conn.close()
         store.close()
@@ -291,9 +287,7 @@ class TestRecordScrapeRun:
         store = _store(tmp_path)
         store.record_scrape_run("success", 5, 1.23)
         conn = sqlite3.connect(str(tmp_path / "test.db"))
-        row = conn.execute(
-            "SELECT result, items_new FROM scrape_runs LIMIT 1"
-        ).fetchone()
+        row = conn.execute("SELECT result, items_new FROM scrape_runs LIMIT 1").fetchone()
         conn.close()
         store.close()
         assert row[0] == "success"
