@@ -12,32 +12,32 @@
 ## Features
 
 ### What it collects
-- 📚 **Metadata Archival** - Long-term local backup with 90-day retention and automatic pruning
-- 🤖 **Automated Collection** - Daemon runs every 60 minutes, collecting new releases
-- 🧲 **Magnet Link Generation** - Complete magnet URIs with comprehensive tracker lists
-- 🗄️ **SQLite Storage** - MagnetStore with FTS5 full-text search
+- **Metadata Archival** - Long-term local backup with 90-day retention and automatic pruning
+- **Automated Collection** - Daemon runs every 60 minutes, collecting new releases
+- **Magnet Link Generation** - Complete magnet URIs with comprehensive tracker lists
+- **SQLite Storage** - MagnetStore with FTS5 full-text search
 
 ### How it stays up
-- 🛡️ **Cloudflare Defense** - Three-layer waterfall: curl_cffi TLS fingerprint → cloudscraper → proxy
-- 🔁 **Retry Engine** - Exponential back-off with circuit breaker; handles 429s and transient failures
-- 🔍 **Domain Resilience Probe** - Classifies target health: reachable / blocked / wrong content / unreachable
-- ♻️ **Self-Healing** - Deduplication and schema health monitoring; zero manual intervention
+- **Cloudflare Defense** - Three-layer waterfall: curl_cffi TLS fingerprint → cloudscraper → proxy
+- **Retry Engine** - Exponential back-off with circuit breaker; handles 429s and transient failures
+- **Domain Resilience Probe** - Classifies target health: reachable / blocked / wrong content / unreachable
+- **Self-Healing** - Deduplication and schema health monitoring; zero manual intervention
 
 ### How you access it
-- 📡 **RSS 2.0 Feed** - Valid XML feed compatible with all torrent clients
-- 🌐 **Web UI** - Full-text search across collected magnets
-- 📊 **Metrics Dashboard** - Color-coded scrape history, 7/30-day counts, and success rate at `/metrics`
-- ⚙️ **Settings UI** - Browser-based configuration at `/settings` — no file editing required
+- **RSS 2.0 Feed** - Valid XML feed compatible with all torrent clients
+- **Web UI** - Full-text search across collected magnets
+- **Metrics Dashboard** - Color-coded scrape history, 7/30-day counts, and success rate at `/metrics`
+- **Settings UI** - Browser-based configuration at `/settings` — no file editing required
 
 ### Security & deployment
-- 🔒 **Authentication** - Setup wizard, password protection, and brute-force lockout
-- 🐳 **Easy Deployment** - One-line Proxmox installer, Docker Hub image
+- **Authentication** - Setup wizard, password protection, and brute-force lockout
+- **Easy Deployment** - One-line Proxmox installer, Docker Hub image
 
 ## Deployment
 
 Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and works with all RSS-capable torrent clients.
 
-> **⚠️ Security Note**: BIND includes a built-in authentication system (Setup Wizard, Password Protection, Bruteforce Lockout). However, for maximum security, we still recommend running behind a reverse proxy (nginx, Caddy, Cloudflare Tunnel) if exposing to the public internet.
+> **Security Note**: BIND includes a built-in authentication system (Setup Wizard, Password Protection, Bruteforce Lockout). However, for maximum security, we still recommend running behind a reverse proxy (nginx, Caddy, Cloudflare Tunnel) if exposing to the public internet.
 
 ## 🚀 Installation
 
@@ -51,20 +51,20 @@ bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scri
 <summary><b>What this does + post-install URLs</b></summary>
 
 **What This Does:**
-1. ✅ Creates a new LXC container with Ubuntu
-2. ✅ Prompts for configuration (Container ID, hostname, RAM, disk, IP address)
-3. ✅ Installs Python 3, Git, and all BIND dependencies
-4. ✅ Configures systemd services for auto-start
-5. ✅ Displays your Web UI and RSS feed URLs
+1. Creates a new LXC container with Ubuntu
+2. Prompts for configuration (Container ID, hostname, RAM, disk, IP address)
+3. Installs Python 3, Git, and all BIND dependencies
+4. Configures systemd services for auto-start
+5. Displays your Web UI and RSS feed URLs
 
 **Installation Time:** ~3 minutes  
 **Default Resources:** 512MB RAM, 4GB disk, 1 CPU core
 
 **After Installation:**
-- 📡 **RSS Feed**: `http://YOUR-CONTAINER-IP:5050/feed.xml`
-- 🌐 **Web UI**: `http://YOUR-CONTAINER-IP:5050/`
-- 📊 **View Logs**: `pct exec <CTID> -- journalctl -u bind -f`
-- 🔧 **Enter Container**: `pct enter <CTID>`
+- **RSS Feed**: `http://YOUR-CONTAINER-IP:5050/feed.xml`
+- **Web UI**: `http://YOUR-CONTAINER-IP:5050/`
+- **View Logs**: `pct exec <CTID> -- journalctl -u bind -f`
+- **Enter Container**: `pct enter <CTID>`
 
 > **Note**: Requires Proxmox VE with an Ubuntu 22.04/24.04 template. Download one with:
 > ```bash
@@ -74,7 +74,7 @@ bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scri
 </details>
 
 <details>
-<summary><b>📦 Alternative: Already have a container or VM?</b></summary>
+<summary><b>Alternative: Already have a container or VM?</b></summary>
 
 If you already have an existing LXC container, VM, or bare-metal Debian/Ubuntu system:
 
@@ -91,7 +91,7 @@ bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scri
 </details>
 
 <details>
-<summary><b>🐳 Docker</b></summary>
+<summary><b>Docker</b></summary>
 
 **Option 1: Docker Hub**
 ```bash
@@ -112,7 +112,7 @@ docker-compose up -d
 </details>
 
 <details>
-<summary><b>⚙️ Manual Installation</b></summary>
+<summary><b>Manual Installation</b></summary>
 
 ```bash
 git clone https://github.com/StarlightDaemon/BIND.git
@@ -142,13 +142,13 @@ scripts/update.sh
 ```
 
 The update script will:
-- ✅ Check for updates
-- ✅ Show what's new
-- ✅ Backup current version
-- ✅ Update code and dependencies
-- ✅ Restart services
-- ✅ Verify everything works
-- ✅ Rollback on failure
+- Check for updates
+- Show what's new
+- Backup current version
+- Update code and dependencies
+- Restart services
+- Verify everything works
+- Rollback on failure
 
 ### Manual Update
 
@@ -176,7 +176,7 @@ systemctl restart bind.service bind-rss.service
 ---
 
 <details>
-<summary><b>📦 Dependencies</b></summary>
+<summary><b>Dependencies</b></summary>
 
 BIND uses 8 carefully chosen dependencies:
 
@@ -196,7 +196,7 @@ All dependencies are actively maintained and essential to BIND's functionality.
 </details>
 
 <details>
-<summary><b>📁 Project Structure</b></summary>
+<summary><b>Project Structure</b></summary>
 
 ```
 BIND/
@@ -229,7 +229,7 @@ BIND/
 </details>
 
 <details>
-<summary><b>⚙️ Configuration (Environment Variables)</b></summary>
+<summary><b>Configuration (Environment Variables)</b></summary>
 
 BIND is configured via environment variables in systemd service files. See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for complete guide.
 
@@ -247,9 +247,9 @@ BIND is configured via environment variables in systemd service files. See [`doc
 3. **Defaults** (Hardcoded fallback)
 
 **To change configuration:**
-- 🌐 **Web UI**: Go to `http://YOUR-IP:5050/settings` (Recommended)
-- 📝 **File**: Edit `/opt/bind/config.env` and run `systemctl restart bind`
-- 🖥️ **Systemd**: Override via `systemctl edit bind` (Advanced)
+- **Web UI**: Go to `http://YOUR-IP:5050/settings` (Recommended)
+- **File**: Edit `/opt/bind/config.env` and run `systemctl restart bind`
+- **Systemd**: Override via `systemctl edit bind` (Advanced)
 
 **Environment Variables (Reference)**
 
@@ -270,21 +270,21 @@ BIND is configured via environment variables in systemd service files. See [`doc
 ---
 
 <details>
-<summary><b>⚖️ Legal</b></summary>
+<summary><b>Legal</b></summary>
 
 **License**: MIT — For educational, archival, and preservation purposes.
 
 ### What BIND Does
-- ✅ Archives publicly available metadata for digital preservation
-- ✅ Creates local backups of torrent magnet links
-- ✅ Supports audiobook collection management
-- ✅ Stores metadata only (no copyrighted content)
+- Archives publicly available metadata for digital preservation
+- Creates local backups of torrent magnet links
+- Supports audiobook collection management
+- Stores metadata only (no copyrighted content)
 
 ### What BIND Does NOT Do
-- ❌ Host, provide, or distribute copyrighted content
-- ❌ Store or transmit actual audiobook files
-- ❌ Facilitate piracy or copyright infringement
-- ❌ Link directly to infringing material
+- Does not host, provide, or distribute copyrighted content
+- Does not store or transmit actual audiobook files
+- Does not facilitate piracy or copyright infringement
+- Does not link directly to infringing material
 
 ### User Responsibility
 Ensure compliance with copyright laws in your jurisdiction. BIND archives metadata only — not copyrighted works. Use only for public domain and legally distributable content.
