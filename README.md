@@ -7,23 +7,30 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](scripts/install-proxmox-lxc.sh)
 
-**v2.1.0** — Production-ready audiobook metadata archival with SQLite storage, authentication, hybrid Cloudflare defense, metrics dashboard, and domain resilience probe.
+**v2.1.0** — Self-hosted audiobook metadata archival with SQLite storage, authentication, hybrid Cloudflare defense, metrics dashboard, and domain resilience probe.
 
 ## Features
 
-- 📚 **Archival & Preservation** - Long-term backup of audiobook metadata with 90-day retention and automatic pruning
-- 🤖 **Automated Daemon** - Runs every 60 minutes collecting new releases
+### What it collects
+- 📚 **Metadata Archival** - Long-term local backup with 90-day retention and automatic pruning
+- 🤖 **Automated Collection** - Daemon runs every 60 minutes, collecting new releases
 - 🧲 **Magnet Link Generation** - Complete magnet URIs with comprehensive tracker lists
+- 🗄️ **SQLite Storage** - MagnetStore with FTS5 full-text search
+
+### How it stays up
+- 🛡️ **Cloudflare Defense** - Three-layer waterfall: curl_cffi TLS fingerprint → cloudscraper → proxy
+- 🔁 **Retry Engine** - Exponential back-off with circuit breaker; handles 429s and transient failures
+- 🔍 **Domain Resilience Probe** - Classifies target health: reachable / blocked / wrong content / unreachable
+- ♻️ **Self-Healing** - Deduplication and schema health monitoring; zero manual intervention
+
+### How you access it
 - 📡 **RSS 2.0 Feed** - Valid XML feed compatible with all torrent clients
-- 🌐 **Web UI** - Gradient interface with full-text search across collected magnets
-- 🔒 **Authentication** - Setup wizard, password protection, and brute-force lockout
+- 🌐 **Web UI** - Full-text search across collected magnets
+- 📊 **Metrics Dashboard** - Color-coded scrape history, 7/30-day counts, and success rate at `/metrics`
 - ⚙️ **Settings UI** - Browser-based configuration at `/settings` — no file editing required
-- 🗄️ **SQLite Storage** - MagnetStore with FTS5 full-text search; replaces flat-file storage
-- 📊 **Metrics Dashboard** - Scrape history with color-coded success/failure runs, 7/30-day counts, and success rate at `/metrics`
-- 🔍 **Domain Resilience Probe** - Classifies target as reachable, cloudflare-blocked, wrong content, or unreachable; cached result surfaced in `/health`
-- 🔁 **Resilient Scraping** - RetryEngine with exponential back-off and circuit breaker
-- 🛡️ **Cloudflare Resistant** - Multi-layer defense: curl_cffi → cloudscraper → proxy fallback
-- ♻️ **Zero Maintenance** - Self-healing with deduplication and schema monitoring
+
+### Security & deployment
+- 🔒 **Authentication** - Setup wizard, password protection, and brute-force lockout
 - 🐳 **Easy Deployment** - One-line Proxmox installer, Docker Hub image
 
 ## Deployment
@@ -36,12 +43,12 @@ Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and wor
 
 ### Proxmox LXC (Recommended)
 
-The easiest and most reliable way to deploy BIND is through our **automated Proxmox LXC installer**. This single command creates a fully isolated container, installs all dependencies, and configures BIND for production use.
-
-**One-Line Installation:**
 ```bash
 bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install-proxmox-lxc.sh)
 ```
+
+<details>
+<summary><b>What this does + post-install URLs</b></summary>
 
 **What This Does:**
 1. ✅ Creates a new LXC container with Ubuntu
@@ -64,10 +71,10 @@ bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scri
 > pveam update && pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst
 > ```
 
----
+</details>
 
 <details>
-<summary><b>📦 Alternative: Already Have a Container/VM?</b></summary>
+<summary><b>📦 Alternative: Already have a container or VM?</b></summary>
 
 If you already have an existing LXC container, VM, or bare-metal Debian/Ubuntu system:
 
@@ -81,11 +88,12 @@ bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scri
 bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install-interactive.sh)
 ```
 
+</details>
 
 <details>
-<summary><b>🐳 Docker Installation</b></summary>
+<summary><b>🐳 Docker</b></summary>
 
-**Option 1: Docker Hub (Recommended)**
+**Option 1: Docker Hub**
 ```bash
 docker run -d \
   --name bind \
@@ -120,6 +128,8 @@ python -m src.rss_server
 ```
 
 </details>
+
+---
 
 ## Updating BIND
 
@@ -179,7 +189,7 @@ BIND uses 8 carefully chosen dependencies:
 | **click** | Command-line interface framework |
 | **schedule** | Lightweight daemon scheduling (cron alternative) |
 | **flask** | RSS server and web UI |
-| **gunicorn** | Production WSGI server |
+| **gunicorn** | WSGI server |
 
 All dependencies are actively maintained and essential to BIND's functionality.
 
@@ -241,15 +251,7 @@ BIND is configured via environment variables in systemd service files. See [`doc
 - 📝 **File**: Edit `/opt/bind/config.env` and run `systemctl restart bind`
 - 🖥️ **Systemd**: Override via `systemctl edit bind` (Advanced)
 
-### Operational Defaults
-- **Runtime Data**: `data/bind.db` (SQLite database)
-- **Config Key**: `BIND_DB_PATH`
-- **Precedence**: Environment Variables > `config.env` > Hardcoded Defaults
-- **Security**: `credentials.json` and logs are ignored by git. Do not commit secrets.
-
-## Environment Variables (Reference)
-
-BIND is configured via environment variables in `bind.service` or `bind-rss.service`:
+**Environment Variables (Reference)**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -261,14 +263,16 @@ BIND is configured via environment variables in `bind.service` or `bind-rss.serv
 | `CIRCUIT_BREAKER_THRESHOLD` | `3` | Failures before scraper pauses |
 | `CIRCUIT_BREAKER_COOLDOWN` | `300` | Seconds to wait after pausing |
 
-</details>
+> **Security**: `credentials.json` and logs are ignored by git. Do not commit secrets.
+
 </details>
 
 ---
 
-## Legal
+<details>
+<summary><b>⚖️ Legal</b></summary>
 
-**License**: MIT - For educational, archival, and preservation purposes.
+**License**: MIT — For educational, archival, and preservation purposes.
 
 ### What BIND Does
 - ✅ Archives publicly available metadata for digital preservation
@@ -283,9 +287,11 @@ BIND is configured via environment variables in `bind.service` or `bind-rss.serv
 - ❌ Link directly to infringing material
 
 ### User Responsibility
-Ensure compliance with copyright laws in your jurisdiction. BIND archives metadata only - not copyrighted works. Use only for public domain and legally distributable content.
+Ensure compliance with copyright laws in your jurisdiction. BIND archives metadata only — not copyrighted works. Use only for public domain and legally distributable content.
 
 **By using BIND, you agree to use it solely for legal, educational, and archival purposes in accordance with applicable laws.**
+
+</details>
 
 ---
 
