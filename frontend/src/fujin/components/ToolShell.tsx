@@ -1,6 +1,6 @@
 import { AppShell, Stack, Tooltip, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { useState, type ReactNode } from 'react';
+import { useState, useCallback, type ReactNode } from 'react';
 import tokens from '../tokens.json';
 
 const RAIL_EXPANDED    = 220;
@@ -23,7 +23,12 @@ export interface ToolShellProps {
 }
 
 export function ToolShell({ navItems, logo, footer, children, header }: ToolShellProps) {
-  const [collapsed,   { toggle: toggleRail }]   = useDisclosure(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('fujin-rail-collapsed') === 'true');
+  const toggleRail = useCallback(() => setCollapsed(c => {
+    const next = !c;
+    localStorage.setItem('fujin-rail-collapsed', String(next));
+    return next;
+  }), []);
   const [mobileOpen,  { toggle: toggleMobile }] = useDisclosure(false);
   const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
 
