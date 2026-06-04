@@ -88,3 +88,7 @@ credentials.json
 scripts/governance/
 scripts/tokens/
 docs/reference/kits/
+
+# Fujin frontend
+frontend/node_modules/
+src/static/dist/

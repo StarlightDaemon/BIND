@@ -80,29 +80,30 @@ class TestRecordScrapeRun:
 
 class TestMetricsRoute:
     def test_metrics_returns_200(self, client):
-        response = client.get("/metrics")
+        response = client.get("/api/metrics")
         assert response.status_code == 200
 
-    def test_metrics_returns_html(self, client):
-        assert "text/html" in client.get("/metrics").content_type
+    def test_metrics_returns_json(self, client):
+        assert client.get("/api/metrics").is_json
 
     def test_metrics_contains_stats(self, client):
-        data = client.get("/metrics").data
-        assert b"Total Magnets" in data
-        assert b"Last 7 Days" in data
-        assert b"Last 30 Days" in data
+        data = client.get("/api/metrics").get_json()
+        assert "stats" in data
+        assert "last_7_days" in data["stats"]
+        assert "last_30_days" in data["stats"]
 
     def test_metrics_empty_runs_shows_no_runs_message(self, client):
-        data = client.get("/metrics").data
-        assert b"No runs recorded" in data
+        data = client.get("/api/metrics").get_json()
+        assert data["runs"] == []
+        assert data["success_rate"] is None
 
     def test_metrics_shows_run_history(self, client, fresh_store):
         fresh_store.record_scrape_run("success", 3, 1.5)
-        data = client.get("/metrics").data
-        assert b"success" in data
+        data = client.get("/api/metrics").get_json()
+        assert any(r["result"] == "success" for r in data["runs"])
 
     def test_metrics_shows_success_rate(self, client, fresh_store):
         fresh_store.record_scrape_run("success", 5, 1.0)
         fresh_store.record_scrape_run("empty", 0, 0.5)
-        data = client.get("/metrics").data
-        assert b"success rate" in data
+        data = client.get("/api/metrics").get_json()
+        assert data["success_rate"] == 50
