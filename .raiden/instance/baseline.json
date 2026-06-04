@@ -1,6 +1,6 @@
 {
-  "installed_edict_version": "0.5.0",
-  "installed_at": "2026-05-19T06:23:30.404450+00:00",
+  "installed_edict_version": "0.6.0",
+  "installed_at": "2026-06-04T18:41:49.180726+00:00",
   "managed_files": [
     {
       "path": "README.md",
@@ -21,6 +21,10 @@
     {
       "path": "FORK_REVIEW_PROTOCOL.md",
       "hash": "d74579048c32e4d727e02a89e2eef9adf79c114026541b05cee63259db5667d5"
+    },
+    {
+      "path": "AGENTS.md",
+      "hash": "6e3d3611b2c3b77cf3dabcbb35455e30771bea87fd72f2cfc5fa95f55f48d06a"
     }
   ],
   "hook_files": [
