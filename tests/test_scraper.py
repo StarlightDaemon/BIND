@@ -5,7 +5,6 @@ import time
 from unittest.mock import MagicMock, patch
 
 from bs4 import BeautifulSoup
-
 from src.core.egress_manager import FetchExhausted
 from src.core.scraper import BindScraper
 
@@ -95,9 +94,9 @@ class TestGetPage:
         scraper = _make_scraper()
         scraper.circuit_breaker.is_open = True
         scraper.circuit_breaker.last_failure = time.time()
-        
+
         result = scraper._get_page("http://example.com/page")
-        
+
         assert result is None
         scraper.egress.fetch.assert_not_called()
 
@@ -105,7 +104,7 @@ class TestGetPage:
         scraper = _make_scraper(fetch_result="<html>ok</html>")
         with patch("src.core.scraper.time.sleep"):
             result = scraper._get_page("http://example.com/page")
-            
+
             assert scraper.circuit_breaker.failures == 0
             assert result == "<html>ok</html>"
 
@@ -114,7 +113,7 @@ class TestGetPage:
         scraper.circuit_breaker.threshold = 1
         with patch("src.core.scraper.time.sleep"):
             result = scraper._get_page("http://example.com/page")
-            
+
             assert result is None
             assert scraper.circuit_breaker.is_open is True
 
@@ -122,7 +121,7 @@ class TestGetPage:
         scraper = _make_scraper(fetch_result="<html>ok</html>")
         with patch("src.core.scraper.time.sleep") as mock_sleep:
             result = scraper._get_page("http://example.com/page")
-            
+
             mock_sleep.assert_called_once()
             assert result == "<html>ok</html>"
 
@@ -131,7 +130,11 @@ class TestExtractInfoHashNetwork:
     def test_prepends_base_url_for_relative_links(self):
         scraper = BindScraper()
         scraper.base_url = "http://audiobookbay.lu"
-        with patch.object(scraper, "_get_page", return_value="<html><body><table><tr><td>Info Hash:</td><td>abc123def456789012345678901234567890abcd</td></tr></table></body></html>") as mock_get_page:
+        with patch.object(
+            scraper,
+            "_get_page",
+            return_value="<html><body><table><tr><td>Info Hash:</td><td>abc123def456789012345678901234567890abcd</td></tr></table></body></html>",
+        ) as mock_get_page:
             result = scraper.extract_info_hash("/audio-books/test/")
             mock_get_page.assert_called_once_with("http://audiobookbay.lu/audio-books/test/")
             assert result == "abc123def456789012345678901234567890abcd"
@@ -163,7 +166,9 @@ class TestGetRecentBooks:
 </rss>"""
         with patch.object(scraper, "_get_page", return_value=xml):
             result = scraper.get_recent_books()
-            assert result == [{"title": "Test Book One", "link": "http://audiobookbay.lu/audio-books/test-one/"}]
+            assert result == [
+                {"title": "Test Book One", "link": "http://audiobookbay.lu/audio-books/test-one/"}
+            ]
 
     def test_skips_items_missing_link(self):
         scraper = BindScraper()
@@ -202,7 +207,10 @@ class TestGetRecentBooks:
 </rss>"""
         with patch.object(scraper, "_get_page", return_value=xml):
             result = scraper.get_recent_books()
-            assert result == [{"title": "Book 1", "link": "Link 1"}, {"title": "Book 2", "link": "Link 2"}]
+            assert result == [
+                {"title": "Book 1", "link": "Link 1"},
+                {"title": "Book 2", "link": "Link 2"},
+            ]
 
 
 class TestProbeTarget:
@@ -218,7 +226,9 @@ class TestProbeTarget:
 
     def test_returns_reachable(self):
         scraper = _make_scraper()
-        scraper.egress._cffi_session.get.return_value.text = "<html>audiobookbay content here</html>"
+        scraper.egress._cffi_session.get.return_value.text = (
+            "<html>audiobookbay content here</html>"
+        )
         assert scraper.probe_target() == "reachable"
 
     def test_returns_unreachable_on_exception(self):
@@ -296,7 +306,9 @@ class TestParseHashMagnetHref:
         assert scraper._parse_hash_magnet_href(soup, "http://example.com") is None
 
         # Case where magnet link exists but has no valid hash (line 162 else / regex fails)
-        invalid_magnet_html = '<html><body><a href="magnet:?xt=urn:btih:invalid">Download</a></body></html>'
+        invalid_magnet_html = (
+            '<html><body><a href="magnet:?xt=urn:btih:invalid">Download</a></body></html>'
+        )
         soup_invalid = BeautifulSoup(invalid_magnet_html, "html.parser")
         assert scraper._parse_hash_magnet_href(soup_invalid, "http://example.com") is None
 
@@ -326,6 +338,7 @@ class TestEnsureHexEdgeCases:
 
     def test_converts_valid_base32_to_hex(self):
         import base64
+
         scraper = BindScraper()
         raw = bytes.fromhex("abc123def456789012345678901234567890abcd")
         b32 = base64.b32encode(raw).decode()

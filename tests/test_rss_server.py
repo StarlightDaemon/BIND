@@ -143,6 +143,7 @@ class TestMagnetsEdgeCases:
         response = client.get("/magnets?page=abc")
         assert response.status_code == 200
 
+
 class TestSettingsRoute:
     def test_settings_get_returns_200(self, client):
         response = client.get("/settings")
@@ -153,45 +154,65 @@ class TestSettingsRoute:
         monkeypatch.setattr("src.rss_server.config_manager.restart_daemon", lambda: (True, ""))
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
-        response = client.post("/settings", data={"csrf_token": "test-token", "ABB_URL": "http://test"})
+        response = client.post(
+            "/settings", data={"csrf_token": "test-token", "ABB_URL": "http://test"}
+        )
         assert response.status_code == 200
         assert b"Configuration saved. Daemon restarted successfully." in response.data
 
     def test_settings_post_save_success_but_restart_fails(self, client, monkeypatch):
         monkeypatch.setattr("src.rss_server.config_manager.write_config", lambda cfg: (True, ""))
-        monkeypatch.setattr("src.rss_server.config_manager.restart_daemon", lambda: (False, "restart err"))
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.restart_daemon", lambda: (False, "restart err")
+        )
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
-        response = client.post("/settings", data={"csrf_token": "test-token", "ABB_URL": "http://test"})
+        response = client.post(
+            "/settings", data={"csrf_token": "test-token", "ABB_URL": "http://test"}
+        )
         assert response.status_code == 200
         assert b"Configuration saved. Note: restart err" in response.data
 
     def test_settings_post_write_fails(self, client, monkeypatch):
-        monkeypatch.setattr("src.rss_server.config_manager.write_config", lambda cfg: (False, "write err"))
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.write_config", lambda cfg: (False, "write err")
+        )
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
-        response = client.post("/settings", data={"csrf_token": "test-token", "ABB_URL": "http://test"})
+        response = client.post(
+            "/settings", data={"csrf_token": "test-token", "ABB_URL": "http://test"}
+        )
         assert response.status_code == 200
         assert b"write err" in response.data
 
+
 class TestSettingsTrackersRoute:
     def test_settings_trackers_post_success(self, client, monkeypatch):
-        def mock_set(text): pass
+        def mock_set(text):
+            pass
+
         monkeypatch.setattr("src.rss_server.tracker_manager.set_trackers_from_text", mock_set)
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
-        response = client.post("/settings/trackers", data={"csrf_token": "test-token", "trackers": "udp://test"})
+        response = client.post(
+            "/settings/trackers", data={"csrf_token": "test-token", "trackers": "udp://test"}
+        )
         assert response.status_code == 200
         assert b"Trackers updated successfully." in response.data
 
     def test_settings_trackers_post_exception(self, client, monkeypatch):
-        def mock_set(text): raise ValueError("bad trackers")
+        def mock_set(text):
+            raise ValueError("bad trackers")
+
         monkeypatch.setattr("src.rss_server.tracker_manager.set_trackers_from_text", mock_set)
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
-        response = client.post("/settings/trackers", data={"csrf_token": "test-token", "trackers": "udp://test"})
+        response = client.post(
+            "/settings/trackers", data={"csrf_token": "test-token", "trackers": "udp://test"}
+        )
         assert response.status_code == 200
         assert b"Failed to update trackers: bad trackers" in response.data
+
 
 class TestLogsRoute:
     def test_logs_security_log_exists(self, client, monkeypatch, tmp_path):
@@ -217,50 +238,68 @@ class TestLogsRoute:
         assert response.status_code == 200
         assert b"daemon log content" in response.data
 
+
 class TestChangePasswordRoute:
     def test_change_password_mismatch(self, client):
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
-        response = client.post("/settings/password", data={
-            "csrf_token": "test-token",
-            "current_password": "old",
-            "new_password": "new",
-            "confirm_new_password": "diff"
-        })
+        response = client.post(
+            "/settings/password",
+            data={
+                "csrf_token": "test-token",
+                "current_password": "old",
+                "new_password": "new",
+                "confirm_new_password": "diff",
+            },
+        )
         assert response.status_code == 200
         assert b"New passwords do not match." in response.data
 
     def test_change_password_success(self, client, monkeypatch):
-        monkeypatch.setattr("src.rss_server.change_password", lambda old, new: (True, "Password changed."))
+        monkeypatch.setattr(
+            "src.rss_server.change_password", lambda old, new: (True, "Password changed.")
+        )
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
-        response = client.post("/settings/password", data={
-            "csrf_token": "test-token",
-            "current_password": "old",
-            "new_password": "new",
-            "confirm_new_password": "new"
-        })
+        response = client.post(
+            "/settings/password",
+            data={
+                "csrf_token": "test-token",
+                "current_password": "old",
+                "new_password": "new",
+                "confirm_new_password": "new",
+            },
+        )
         assert response.status_code == 200
         assert b"Password changed." in response.data
 
     def test_change_password_current_incorrect(self, client, monkeypatch):
-        monkeypatch.setattr("src.rss_server.change_password", lambda old, new: (False, "Wrong password."))
+        monkeypatch.setattr(
+            "src.rss_server.change_password", lambda old, new: (False, "Wrong password.")
+        )
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
-        response = client.post("/settings/password", data={
-            "csrf_token": "test-token",
-            "current_password": "wrong",
-            "new_password": "new",
-            "confirm_new_password": "new"
-        })
+        response = client.post(
+            "/settings/password",
+            data={
+                "csrf_token": "test-token",
+                "current_password": "wrong",
+                "new_password": "new",
+                "confirm_new_password": "new",
+            },
+        )
         assert response.status_code == 200
         assert b"Wrong password." in response.data
+
 
 class TestCheckDaemonStatus:
     def test_status_online(self, monkeypatch, tmp_path):
         from src.rss_server import check_daemon_status
+
         monkeypatch.setattr("os.getcwd", lambda: str(tmp_path))
-        monkeypatch.setattr("src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "60"})
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "60"}
+        )
         log_path = tmp_path / "bind.log"
         log_path.touch()
         status, msg, mtime = check_daemon_status()
@@ -268,11 +307,15 @@ class TestCheckDaemonStatus:
         assert "Active" in msg
 
     def test_status_offline(self, monkeypatch, tmp_path):
-        import time
         import os
+        import time
+
         from src.rss_server import check_daemon_status
+
         monkeypatch.setattr("os.getcwd", lambda: str(tmp_path))
-        monkeypatch.setattr("src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "60"})
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "60"}
+        )
         log_path = tmp_path / "bind.log"
         log_path.touch()
         os.utime(log_path, (time.time() - 3 * 3600, time.time() - 3 * 3600))
@@ -282,18 +325,25 @@ class TestCheckDaemonStatus:
 
     def test_status_unknown_no_log_file(self, monkeypatch, tmp_path):
         from src.rss_server import check_daemon_status
+
         monkeypatch.setattr("os.getcwd", lambda: str(tmp_path))
-        monkeypatch.setattr("src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "60"})
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "60"}
+        )
         status, msg, mtime = check_daemon_status()
         assert status == "unknown"
         assert "Log file not found" in msg
 
     def test_status_unknown_on_exception(self, monkeypatch):
         from src.rss_server import check_daemon_status
-        monkeypatch.setattr("src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "not-an-int"})
+
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "not-an-int"}
+        )
         status, msg, mtime = check_daemon_status()
         assert status == "unknown"
         assert "Error checking status" in msg
+
 
 class TestMetricsRoute:
     def test_metrics_returns_200(self, client, fresh_store):
@@ -305,6 +355,7 @@ class TestMetricsRoute:
         response = client.get("/metrics")
         assert response.status_code == 200
         assert b"success" in response.data
+
 
 class TestApiStatsRoute:
     def test_api_stats_returns_json(self, client, monkeypatch):
@@ -386,9 +437,7 @@ class TestSetupRoute:
     def test_setup_post_success_redirects(self, client, monkeypatch):
         monkeypatch.setattr("src.rss_server.is_setup_complete", lambda: False)
         monkeypatch.setattr("src.rss_server.validate_csrf_token", lambda: None)
-        monkeypatch.setattr(
-            "src.rss_server.save_credentials", lambda u, p: (True, "ok")
-        )
+        monkeypatch.setattr("src.rss_server.save_credentials", lambda u, p: (True, "ok"))
         response = client.post(
             "/setup",
             data={"username": "admin", "password": "secret", "confirm_password": "secret"},

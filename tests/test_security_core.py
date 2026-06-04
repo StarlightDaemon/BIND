@@ -158,7 +158,7 @@ def test_get_allowed_networks_uses_env_var(monkeypatch):
 
 
 def test_is_ip_allowed_skips_invalid_cidr_entry(monkeypatch):
-    from src.security import get_allowed_networks, is_ip_allowed
+    from src.security import is_ip_allowed
 
     monkeypatch.setattr(
         "src.security.get_allowed_networks",

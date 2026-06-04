@@ -1,5 +1,6 @@
-import sqlite3, pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from src.core import storage
 
 
