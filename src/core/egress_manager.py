@@ -97,8 +97,7 @@ class EgressManager:
         ]
         if proxy:
             layers.append(("curl_cffi_proxy", lambda: self._fetch_curl_cffi(url, proxy=proxy)))
-        cs_proxy = self._proxy_pool.get_next()
-        layers.append(("cloudscraper", lambda: self._fetch_cloudscraper(url, proxy=cs_proxy)))
+        layers.append(("cloudscraper", lambda: self._fetch_cloudscraper(url, proxy=proxy)))
 
         for layer_name, attempt_fn in layers:
             result = self._retry_engine.execute(attempt_fn, config, layer_name)
@@ -106,10 +105,8 @@ class EgressManager:
                 logger.debug(f"✓ [{layer_name}] fetched {url}")
                 return cast(str, result)
             logger.warning(f"[{layer_name}] all retries exhausted for {url}")
-            if layer_name == "curl_cffi_proxy" and proxy:
+            if layer_name in ("curl_cffi_proxy", "cloudscraper") and proxy:
                 self._proxy_pool.mark_failed(proxy)
-            elif layer_name == "cloudscraper" and cs_proxy:
-                self._proxy_pool.mark_failed(cs_proxy)
 
         raise FetchExhausted(url)
 

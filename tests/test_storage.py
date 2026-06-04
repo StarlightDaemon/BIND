@@ -1,7 +1,7 @@
 """Tests for MagnetStore (src/core/storage.py)."""
 
 import pytest
-from src.core.storage import MagnetStore
+from src.core.storage import MagnetStore, _open, _upgrade_schema
 
 HASH_A = "a" * 40
 HASH_B = "b" * 40
@@ -172,3 +172,60 @@ class TestProbe:
         s = MagnetStore(str(tmp_path / "fresh.db"))
         assert s.stats()["total"] == 0
         s.close()
+
+
+class TestUpgradeSchema:
+    def _make_old_db(self, path: str) -> None:
+        """Create a DB with the pre-timeout scrape_runs schema."""
+        conn = _open(path)
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS scrape_runs (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_at     TEXT NOT NULL,
+                result     TEXT NOT NULL CHECK(result IN ('success', 'failure', 'empty')),
+                items_new  INTEGER NOT NULL DEFAULT 0,
+                duration_s REAL    NOT NULL DEFAULT 0.0
+            )"""
+        )
+        conn.execute(
+            "INSERT INTO scrape_runs (run_at, result, items_new, duration_s)"
+            " VALUES ('2024-01-01T00:00:00', 'success', 5, 1.0)"
+        )
+        conn.close()
+
+    def test_upgrade_adds_timeout_variant(self, tmp_path):
+        db = str(tmp_path / "old.db")
+        self._make_old_db(db)
+        conn = _open(db)
+        _upgrade_schema(conn)
+        # Should now accept 'timeout' without raising
+        conn.execute(
+            "INSERT INTO scrape_runs (run_at, result, items_new, duration_s)"
+            " VALUES ('2024-01-02T00:00:00', 'timeout', 3, 120.0)"
+        )
+        rows = conn.execute("SELECT result FROM scrape_runs ORDER BY id").fetchall()
+        assert [r[0] for r in rows] == ["success", "timeout"]
+        conn.close()
+
+    def test_upgrade_preserves_existing_rows(self, tmp_path):
+        db = str(tmp_path / "old.db")
+        self._make_old_db(db)
+        conn = _open(db)
+        _upgrade_schema(conn)
+        count = conn.execute("SELECT COUNT(*) FROM scrape_runs").fetchone()[0]
+        assert count == 1
+        conn.close()
+
+    def test_upgrade_is_idempotent(self, tmp_path):
+        db = str(tmp_path / "fresh.db")
+        s = MagnetStore(db)
+        s.close()
+        conn = _open(db)
+        # Running upgrade on an already-upgraded schema should be a no-op
+        _upgrade_schema(conn)
+        conn.execute(
+            "INSERT INTO scrape_runs (run_at, result, items_new, duration_s)"
+            " VALUES ('2024-01-01T00:00:00', 'timeout', 0, 0.0)"
+        )
+        assert conn.execute("SELECT COUNT(*) FROM scrape_runs").fetchone()[0] == 1
+        conn.close()

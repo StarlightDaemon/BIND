@@ -257,7 +257,7 @@ class TestChangePasswordRoute:
 
     def test_change_password_success(self, client, monkeypatch):
         monkeypatch.setattr(
-            "src.rss_server.change_password", lambda old, new: (True, "Password changed.")
+            "src.rss_server.change_password", lambda old, new, ip="": (True, "Password changed.")
         )
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
@@ -275,7 +275,7 @@ class TestChangePasswordRoute:
 
     def test_change_password_current_incorrect(self, client, monkeypatch):
         monkeypatch.setattr(
-            "src.rss_server.change_password", lambda old, new: (False, "Wrong password.")
+            "src.rss_server.change_password", lambda old, new, ip="": (False, "Wrong password.")
         )
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
@@ -437,7 +437,7 @@ class TestSetupRoute:
     def test_setup_post_success_redirects(self, client, monkeypatch):
         monkeypatch.setattr("src.rss_server.is_setup_complete", lambda: False)
         monkeypatch.setattr("src.rss_server.validate_csrf_token", lambda: None)
-        monkeypatch.setattr("src.rss_server.save_credentials", lambda u, p: (True, "ok"))
+        monkeypatch.setattr("src.rss_server.save_credentials", lambda u, p, ip="": (True, "ok"))
         response = client.post(
             "/setup",
             data={"username": "admin", "password": "secret", "confirm_password": "secret"},

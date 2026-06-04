@@ -4,6 +4,7 @@ import os
 import signal
 from unittest.mock import MagicMock, patch
 
+import pytest
 from click.testing import CliRunner
 from src.bind import check_disk_space, cli, run_job
 
@@ -328,7 +329,15 @@ class TestRunJobWithTimeout:
     def test_records_scrape_run_on_timeout(self, tmp_path, caplog):
         future_timeout = MagicMock()
         future_timeout.done.return_value = True
-        future_timeout.result.side_effect = concurrent.futures.TimeoutError()
+
+        def _timeout_with_counter(*args, **kwargs):
+            # Simulate the worker having saved 3 items before the timeout fires
+            # by writing into the _saved_counter that submit() receives.
+            counter = mock_executor.submit.call_args[0][5]
+            counter[0] = 3
+            raise concurrent.futures.TimeoutError()
+
+        future_timeout.result.side_effect = _timeout_with_counter
 
         mock_executor = MagicMock()
         mock_executor.submit.return_value = future_timeout
@@ -342,6 +351,7 @@ class TestRunJobWithTimeout:
             self._invoke_capturing_rjwt(tmp_path, mock_executor, mock_scraper, mock_store)
 
         assert any("exceeded" in r.message for r in caplog.records)
+        mock_store.record_scrape_run.assert_called_with("timeout", 3, pytest.approx(0, abs=5))
 
     def test_records_scrape_run_on_unexpected_exception(self, tmp_path, caplog):
         future_exc = MagicMock()

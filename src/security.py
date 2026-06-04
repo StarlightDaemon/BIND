@@ -94,14 +94,18 @@ def log_security_event(event_type: str, username: str, ip: str, details: str = "
 
 
 def _rotate_log_if_needed(log_path: str, max_lines: int = 1000) -> None:
-    """Rotate log file if it exceeds max_lines."""
+    """Rotate log file if it exceeds max_lines, holding an exclusive lock across read+write."""
     try:
-        with open(log_path, encoding="utf-8") as f:
-            lines = f.readlines()
-
-        if len(lines) > max_lines:
-            with open(log_path, "w", encoding="utf-8") as f:
-                f.writelines(lines[-max_lines:])
+        with open(log_path, "r+", encoding="utf-8") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                lines = f.readlines()
+                if len(lines) > max_lines:
+                    f.seek(0)
+                    f.writelines(lines[-max_lines:])
+                    f.truncate()
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     except OSError:
         pass
 
@@ -188,13 +192,14 @@ def validate_password(password: str) -> tuple[bool, str]:
     return True, ""
 
 
-def save_credentials(username: str, password: str) -> tuple[bool, str]:
+def save_credentials(username: str, password: str, ip: str = "") -> tuple[bool, str]:
     """
     Save new credentials to JSON file (first-time setup).
 
     Args:
         username: Admin username
         password: Plain text password (will be hashed)
+        ip: Client IP for audit log (caller's responsibility to resolve)
 
     Returns:
         Tuple of (success: bool, message: str)
@@ -223,19 +228,20 @@ def save_credentials(username: str, password: str) -> tuple[bool, str]:
     }
 
     if _save_credentials_raw(credentials):
-        log_security_event("ACCOUNT_CREATED", username, get_client_ip(request))
+        log_security_event("ACCOUNT_CREATED", username, ip)
         return True, "Account created successfully."
     else:
         return False, "Failed to save credentials."
 
 
-def change_password(current_password: str, new_password: str) -> tuple[bool, str]:
+def change_password(current_password: str, new_password: str, ip: str = "") -> tuple[bool, str]:
     """
     Change the admin password.
 
     Args:
         current_password: Current plain text password for verification
         new_password: New plain text password
+        ip: Client IP for audit log (caller's responsibility to resolve)
 
     Returns:
         Tuple of (success: bool, message: str)
@@ -250,7 +256,7 @@ def change_password(current_password: str, new_password: str) -> tuple[bool, str
         log_security_event(
             "PASSWORD_CHANGE_FAILED",
             creds.get("username", "unknown"),
-            get_client_ip(request),
+            ip,
             "invalid_current_password",
         )
         return False, "Current password is incorrect."
@@ -267,9 +273,7 @@ def change_password(current_password: str, new_password: str) -> tuple[bool, str
     )
 
     if _save_credentials_raw(creds):
-        log_security_event(
-            "PASSWORD_CHANGED", creds.get("username", "unknown"), get_client_ip(request)
-        )
+        log_security_event("PASSWORD_CHANGED", creds.get("username", "unknown"), ip)
         return True, "Password changed successfully."
     else:
         return False, "Failed to save new password."
@@ -492,12 +496,7 @@ def check_auth(username: str, password: str) -> bool:
     """
     client_ip = get_client_ip(request)
 
-    # Check if locked first
-    is_locked, minutes = is_account_locked()
-    if is_locked:
-        return False
-
-    # If setup is complete, use stored credentials
+    # If setup is complete, use stored credentials (verify_credentials checks lock internally)
     if is_setup_complete():
         return verify_credentials(username, password, client_ip)
 
