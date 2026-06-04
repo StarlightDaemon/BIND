@@ -726,6 +726,8 @@ p {
     height: 64px;
     margin: 0 auto var(--spacing-05);
     display: block;
+    overflow: hidden;
+    flex-shrink: 0;
 }
 
 .setup-icon svg {
