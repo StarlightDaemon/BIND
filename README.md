@@ -1,12 +1,13 @@
 # BIND - Book Indexing Network Daemon
 
 [![CI](https://github.com/StarlightDaemon/BIND/actions/workflows/ci.yml/badge.svg)](https://github.com/StarlightDaemon/BIND/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-1.7.1-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v1.7.1)
+[![codecov](https://codecov.io/gh/StarlightDaemon/BIND/branch/main/graph/badge.svg)](https://codecov.io/gh/StarlightDaemon/BIND)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/StarlightDaemon/BIND/releases/tag/v2.1.0)
 [![Python](https://img.shields.io/badge/python-3.10+-yellow.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Proxmox](https://img.shields.io/badge/proxmox-ready-orange.svg)](scripts/install-proxmox-lxc.sh)
 
-**v1.7.1** — Production-ready audiobook metadata archival with SQLite storage, authentication, and hybrid Cloudflare defense.
+**v2.1.0** — Production-ready audiobook metadata archival with SQLite storage, authentication, hybrid Cloudflare defense, metrics dashboard, and domain resilience probe.
 
 ## Features
 
