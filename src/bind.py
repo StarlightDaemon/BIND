@@ -45,10 +45,10 @@ def run_job(
     scraper: BindScraper,
     store: MagnetStore,
     tracker_manager: TrackerManager,
-) -> None:
+) -> int:
     if not check_disk_space(data_dir, required_mb=100):
         logger.error("Insufficient disk space, skipping scrape job")
-        return
+        return 0
 
     logger.info("Checking for new uploads...")
     books = scraper.get_recent_books()
@@ -98,6 +98,7 @@ def run_job(
         logger.info("Job finished: No new magnets found.")
     if failed_saves > 0:
         logger.warning(f"⚠️  {failed_saves} magnets could not be saved - check errors above")
+    return successful_saves
 
 
 @click.group()
@@ -175,10 +176,15 @@ def daemon(interval: int, db_path: str) -> None:
                 "Skipping this scheduled run to prevent queue buildup."
             )
             return
+        t0 = time.monotonic()
+        run_result = "failure"
+        items_new = 0
         future = _job_executor.submit(run_job, data_dir, scraper, store, tracker_manager)
         _last_future["future"] = future
         try:
-            future.result(timeout=JOB_TIMEOUT)
+            new_count = future.result(timeout=JOB_TIMEOUT)
+            items_new = new_count or 0
+            run_result = "success" if items_new > 0 else "empty"
         except concurrent.futures.TimeoutError:
             logger.warning(
                 f"⏰ Job exceeded {JOB_TIMEOUT}s timeout. "
@@ -186,6 +192,17 @@ def daemon(interval: int, db_path: str) -> None:
             )
         except Exception as e:
             logger.error(f"Job raised unexpected exception: {e}")
+        finally:
+            store.record_scrape_run(run_result, items_new, time.monotonic() - t0)
+
+    probe_result = scraper.probe_target()
+    if probe_result in ("unreachable", "wrong_content"):
+        logger.warning(
+            "Target domain probe returned '%s'. "
+            "Check ABB_URL config. Current: %s",
+            probe_result,
+            scraper.base_url,
+        )
 
     schedule.every(interval).minutes.do(run_job_with_timeout)
 

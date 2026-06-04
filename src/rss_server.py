@@ -10,6 +10,7 @@ Lightweight Flask server that reads from SQLite and serves:
 import logging
 import os
 import secrets
+import time
 from datetime import datetime, timezone
 from typing import Any, cast
 from xml.sax.saxutils import escape
@@ -18,6 +19,7 @@ from flask import Flask, Response, abort, redirect, render_template, request, se
 
 from src.config_manager import ConfigManager
 from src.core.magnet import generate_magnet
+from src.core.scraper import BindScraper
 from src.core.storage import MagnetStore
 from src.core.tracker_manager import TrackerManager
 from src.security import (
@@ -30,6 +32,8 @@ from src.security import (
 )
 
 logger = logging.getLogger("rss_server")
+
+_probe_cache: dict[str, Any] = {"result": None, "expires": 0.0}
 
 _current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -247,12 +251,16 @@ def feed() -> Response:
 
 @app.route("/health")
 def health() -> dict[str, Any]:
+    if time.monotonic() > _probe_cache["expires"]:
+        _probe_cache["result"] = BindScraper().probe_target()
+        _probe_cache["expires"] = time.monotonic() + 300
     db_stats = store.stats()
     return {
         "status": "ok",
         "magnet_count": db_stats["total"],
         "db_path": BIND_DB_PATH,
         "last_date": db_stats["last_date"],
+        "target_probe": _probe_cache["result"],
     }
 
 
@@ -428,6 +436,26 @@ def check_daemon_status() -> tuple[str, str, float]:
             return "offline", f"Stalled (Last job: {int(diff_minutes)}m ago)", mtime
     except Exception as e:
         return "unknown", f"Error checking status: {str(e)}", 0
+
+
+@app.route("/metrics")
+@requires_auth
+def metrics_view() -> str:
+    db_stats = store.stats()
+    runs = store._conn.execute(
+        "SELECT run_at, result, items_new, duration_s "
+        "FROM scrape_runs ORDER BY id DESC LIMIT 30"
+    ).fetchall()
+    total_runs = len(runs)
+    success_count = sum(1 for r in runs if r[1] == "success")
+    success_rate = round(success_count / total_runs * 100) if total_runs else None
+    return render_template(
+        "metrics.html",
+        stats=db_stats,
+        runs=runs,
+        success_rate=success_rate,
+        now=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    )
 
 
 @app.route("/api/stats")

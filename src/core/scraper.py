@@ -191,6 +191,25 @@ class BindScraper:
 
         return items
 
+    def probe_target(self) -> str:
+        """
+        Makes a single direct GET to base_url to classify reachability.
+        Bypasses the egress waterfall and circuit breaker — probe only.
+        Returns one of: "reachable", "cloudflare_block", "unreachable", "wrong_content".
+        """
+        _CF_MARKERS = ("Just a moment...", "Attention Required", "cf-browser-verification")
+        try:
+            response = self.egress._cffi_session.get(self.base_url, timeout=10)
+            body: str = response.text
+            snippet = body[:4096].lower()
+            if any(m in body for m in _CF_MARKERS):
+                return "cloudflare_block"
+            if "audiobookbay" not in snippet:
+                return "wrong_content"
+            return "reachable"
+        except Exception:
+            return "unreachable"
+
     def _ensure_hex(self, bg_hash: str | None) -> str | None:
         """
         Converts Base32 to Hex if necessary (Research Section 3.3).

@@ -31,6 +31,9 @@ jobs:
           pip install pip-audit
           pip-audit -r requirements.txt
       
+      - name: Audit dev dependencies for vulnerabilities
+        run: pip-audit -r requirements-dev.txt
+      
       - name: Lint with Ruff
         run: ruff check src/ tests/ --output-format=github
       
