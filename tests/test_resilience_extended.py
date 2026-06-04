@@ -1,7 +1,7 @@
 """Extended resilience tests targeting coverage gaps in:
-  - src/core/retry.py   (lines 88, 98, 101-104)
-  - src/core/migrate.py (0% → covered)
-  - src/security.py     (log_security_event file write, _migrate_credentials)
+- src/core/retry.py   (lines 88, 98, 101-104)
+- src/core/migrate.py (0% → covered)
+- src/security.py     (log_security_event file write, _migrate_credentials)
 """
 
 import json
@@ -206,8 +206,7 @@ class TestMigrate:
 
         # File with wrong name pattern
         (magnets_dir / "some_other_file.txt").write_text(
-            "magnet:?xt=urn:btih:aabbccdd11223344556677889900112233445566"
-            "&dn=Hidden+Book\n",
+            "magnet:?xt=urn:btih:aabbccdd11223344556677889900112233445566&dn=Hidden+Book\n",
             encoding="utf-8",
         )
 
@@ -231,10 +230,7 @@ class TestMigrate:
 
         for i, date in enumerate(["2024-01-01", "2024-01-02", "2024-01-03"]):
             hash_val = f"{'0' * 38}{i:02d}"
-            line = (
-                f"magnet:?xt=urn:btih:{hash_val}"
-                f"&dn=Book+{i}&tr=udp://tracker.example.com:80\n"
-            )
+            line = f"magnet:?xt=urn:btih:{hash_val}&dn=Book+{i}&tr=udp://tracker.example.com:80\n"
             (magnets_dir / f"magnets_{date}.txt").write_text(line, encoding="utf-8")
 
         migrate(str(magnets_dir), db_path)
@@ -352,7 +348,6 @@ class TestMigrateCredentials:
         with open(cred_path, "w", encoding="utf-8") as f:
             json.dump(v1_creds, f)
 
-
         import src.security as sec
 
         monkeypatch.setattr(sec, "CREDENTIALS_FILE", cred_path)
@@ -368,7 +363,6 @@ class TestGetBaseDir:
     def test_returns_opt_bind_when_exists(self, monkeypatch):
         """get_base_dir returns '/opt/bind' when that path exists."""
         monkeypatch.setattr("os.path.exists", lambda p: p == "/opt/bind")
-
 
         import src.security as sec
 

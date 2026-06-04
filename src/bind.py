@@ -198,8 +198,7 @@ def daemon(interval: int, db_path: str) -> None:
     probe_result = scraper.probe_target()
     if probe_result in ("unreachable", "wrong_content"):
         logger.warning(
-            "Target domain probe returned '%s'. "
-            "Check ABB_URL config. Current: %s",
+            "Target domain probe returned '%s'. Check ABB_URL config. Current: %s",
             probe_result,
             scraper.base_url,
         )

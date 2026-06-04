@@ -443,8 +443,7 @@ def check_daemon_status() -> tuple[str, str, float]:
 def metrics_view() -> str:
     db_stats = store.stats()
     runs = store._conn.execute(
-        "SELECT run_at, result, items_new, duration_s "
-        "FROM scrape_runs ORDER BY id DESC LIMIT 30"
+        "SELECT run_at, result, items_new, duration_s FROM scrape_runs ORDER BY id DESC LIMIT 30"
     ).fetchall()
     total_runs = len(runs)
     success_count = sum(1 for r in runs if r[1] == "success")
