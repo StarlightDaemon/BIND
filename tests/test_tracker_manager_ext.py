@@ -1,5 +1,6 @@
-import os, pytest
 from unittest.mock import patch
+
+import pytest
 from src.core.tracker_manager import TrackerManager
 
 

@@ -409,8 +409,10 @@ class TestVerifyCredentialsEdgeCases:
 
         creds_file = tmp_path / "creds.json"
         future = (
-            datetime.now(timezone.utc) + timedelta(minutes=10)
-        ).isoformat(timespec="microseconds").replace("+00:00", "Z")
+            (datetime.now(timezone.utc) + timedelta(minutes=10))
+            .isoformat(timespec="microseconds")
+            .replace("+00:00", "Z")
+        )
         creds = {
             "version": 2,
             "username": "admin",
@@ -454,9 +456,8 @@ class TestGetClientIpEdgeCases:
 
 class TestIpAllowlistMiddleware:
     def _make_app(self):
-        from flask import Flask
-
         import src.security as _sec
+        from flask import Flask
 
         app = Flask(__name__)
         app.config["TESTING"] = True
@@ -487,8 +488,10 @@ class TestCheckAuth:
         locked_until = None
         if locked:
             locked_until = (
-                datetime.now(timezone.utc) + timedelta(minutes=10)
-            ).isoformat(timespec="microseconds").replace("+00:00", "Z")
+                (datetime.now(timezone.utc) + timedelta(minutes=10))
+                .isoformat(timespec="microseconds")
+                .replace("+00:00", "Z")
+            )
         creds = {
             "version": 2,
             "username": "admin",
@@ -585,8 +588,10 @@ class TestRequiresAuth:
         monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
         creds_file = tmp_path / "locked.json"
         future = (
-            datetime.now(timezone.utc) + timedelta(minutes=10)
-        ).isoformat(timespec="microseconds").replace("+00:00", "Z")
+            (datetime.now(timezone.utc) + timedelta(minutes=10))
+            .isoformat(timespec="microseconds")
+            .replace("+00:00", "Z")
+        )
         creds = {
             "version": 2,
             "username": "admin",
@@ -617,8 +622,13 @@ class TestRemainingBranches:
     def test_migrate_already_v2_returns_unchanged(self):
         import src.security as _sec
 
-        v2 = {"version": 2, "username": "admin", "password_hash": "x",
-              "failed_attempts": 0, "locked_until": None}
+        v2 = {
+            "version": 2,
+            "username": "admin",
+            "password_hash": "x",
+            "failed_attempts": 0,
+            "locked_until": None,
+        }
         result = _sec._migrate_credentials(v2.copy())
         assert result["version"] == 2
         assert result["username"] == "admin"
@@ -632,11 +642,15 @@ class TestRemainingBranches:
 
         creds_file = tmp_path / "creds.json"
         creds = {
-            "version": 2, "username": "admin",
+            "version": 2,
+            "username": "admin",
             "password_hash": _gph("Secure1!"),
-            "failed_attempts": 0, "locked_until": None,
-            "last_login": None, "last_login_ip": None,
-            "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-01T00:00:00Z",
+            "failed_attempts": 0,
+            "locked_until": None,
+            "last_login": None,
+            "last_login_ip": None,
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
         }
         creds_file.write_text(json.dumps(creds))
         monkeypatch.setattr(_sec, "CREDENTIALS_FILE", str(creds_file))

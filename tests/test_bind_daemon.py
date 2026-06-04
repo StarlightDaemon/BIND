@@ -138,6 +138,7 @@ class TestDaemonCommand:
 # Helpers shared by the new daemon test classes below
 # ---------------------------------------------------------------------------
 
+
 def _make_daemon_mocks(probe_return="ok"):
     """Return (mock_executor, mock_future, mock_scraper, mock_store) for daemon tests."""
     mock_future = MagicMock()
@@ -160,6 +161,7 @@ def _make_daemon_mocks(probe_return="ok"):
 # ---------------------------------------------------------------------------
 # New test classes
 # ---------------------------------------------------------------------------
+
 
 class TestRunJobEdgeCases:
     def test_add_magnet_returns_false_counts_as_dupe(self, fresh_store):
