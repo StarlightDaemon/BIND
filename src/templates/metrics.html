@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Metrics - BIND</title>
+    <link rel="stylesheet" href="/static/css/carbon.css?v=1">
+</head>
+
+<body class="page-metrics">
+    <!-- UI Shell -->
+    <header class="ui-shell">
+        <span class="shell-name"><strong>BIND</strong> / System Daemon</span>
+    </header>
+
+    <div class="layout-wrapper">
+        <aside class="left-nav">
+            <nav>
+                <ul>
+                    <li><a href="/">Dashboard</a></li>
+                    <li><a href="/magnets">Magnets</a></li>
+                    <li><a href="/metrics" class="active">Metrics</a></li>
+                    <li><a href="/settings">Settings</a></li>
+                    <li><a href="/logs">System Logs</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="content-area">
+            <header>
+                <h1>Metrics</h1>
+                <p class="subtitle">Collection statistics and scrape history.</p>
+            </header>
+
+            <!-- Counts card -->
+            <section class="dashboard-grid">
+                <div class="tile">
+                    <span class="tile-label">Total Magnets</span>
+                    <span class="tile-value">{{ stats.total }}</span>
+                </div>
+                <div class="tile">
+                    <span class="tile-label">Today</span>
+                    <span class="tile-value">{{ stats.today }}</span>
+                </div>
+                <div class="tile">
+                    <span class="tile-label">Last 7 Days</span>
+                    <span class="tile-value">{{ stats.last_7_days }}</span>
+                </div>
+                <div class="tile">
+                    <span class="tile-label">Last 30 Days</span>
+                    <span class="tile-value">{{ stats.last_30_days }}</span>
+                </div>
+                <div class="tile">
+                    <span class="tile-label">Last Collected</span>
+                    <span class="tile-value tile-value-sm">{{ stats.last_date or '—' }}</span>
+                </div>
+            </section>
+
+            <!-- Success rate -->
+            <section>
+                <div class="section-header">
+                    <h2>Scrape History</h2>
+                    <span style="margin-left: auto; font-size: 0.75rem; color: var(--text-secondary);">
+                        {% if success_rate is not none %}
+                            {{ success_rate }}% success rate over last {{ runs|length }} runs
+                        {% else %}
+                            No runs recorded
+                        {% endif %}
+                    </span>
+                </div>
+
+                {% if runs %}
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="text-align: left; border-bottom: 1px solid var(--border-subtle);">
+                            <th style="padding: 0.5rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Run At</th>
+                            <th style="padding: 0.5rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Result</th>
+                            <th style="padding: 0.5rem 0.75rem; color: var(--text-secondary); font-weight: 500;">New Items</th>
+                            <th style="padding: 0.5rem 0.75rem; color: var(--text-secondary); font-weight: 500;">Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for run in runs %}
+                        <tr style="border-bottom: 1px solid var(--border-subtle);">
+                            <td style="padding: 0.5rem 0.75rem; color: var(--text-secondary); font-size: 0.8rem;">{{ run[0] }}</td>
+                            <td style="padding: 0.5rem 0.75rem;">
+                                {% if run[1] == 'success' %}
+                                    <span style="color: #4caf50; font-weight: 600;">success</span>
+                                {% elif run[1] == 'failure' %}
+                                    <span style="color: #f44336; font-weight: 600;">failure</span>
+                                {% else %}
+                                    <span style="color: #ff9800; font-weight: 600;">empty</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 0.5rem 0.75rem;">{{ run[2] }}</td>
+                            <td style="padding: 0.5rem 0.75rem;">{{ "%.1f"|format(run[3]) }}s</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state">
+                    <h3>No Runs Recorded</h3>
+                    <p>Scrape history will appear here once the daemon has run.</p>
+                </div>
+                {% endif %}
+            </section>
+
+            <footer style="margin-top: 2rem; font-size: 0.75rem; color: var(--text-secondary);">
+                Last updated: {{ now }}
+            </footer>
+        </main>
+    </div>
+</body>
+
+</html>

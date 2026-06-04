@@ -14,6 +14,13 @@ _SCHEMA_DDL = [
         collected_at    TEXT    NOT NULL,
         source          TEXT    DEFAULT NULL
     )""",
+    """CREATE TABLE IF NOT EXISTS scrape_runs (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_at     TEXT NOT NULL,
+        result     TEXT NOT NULL CHECK(result IN ('success', 'failure', 'empty')),
+        items_new  INTEGER NOT NULL DEFAULT 0,
+        duration_s REAL    NOT NULL DEFAULT 0.0
+    )""",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_magnets_info_hash ON magnets(info_hash)",
     "CREATE INDEX IF NOT EXISTS idx_magnets_date_id ON magnets(collected_date DESC, id DESC)",
     """CREATE VIRTUAL TABLE IF NOT EXISTS magnets_fts USING fts5(
@@ -169,11 +176,26 @@ class MagnetStore:
             "SELECT COUNT(*) FROM magnets WHERE collected_date = ?",
             (today,),
         ).fetchone()[0]
+        last_7 = self._conn.execute(
+            "SELECT COUNT(*) FROM magnets WHERE date(collected_date) >= date('now', '-6 days')"
+        ).fetchone()[0]
+        last_30 = self._conn.execute(
+            "SELECT COUNT(*) FROM magnets WHERE date(collected_date) >= date('now', '-29 days')"
+        ).fetchone()[0]
         last_row = self._conn.execute(
             "SELECT collected_date FROM magnets ORDER BY collected_date DESC, id DESC LIMIT 1"
         ).fetchone()
         return {
             "total": total,
             "today": today_count,
+            "last_7_days": last_7,
+            "last_30_days": last_30,
             "last_date": last_row[0] if last_row else None,
         }
+
+    def record_scrape_run(self, result: str, items_new: int, duration_s: float) -> None:
+        run_at = datetime.now(timezone.utc).isoformat()
+        self._conn.execute(
+            "INSERT INTO scrape_runs (run_at, result, items_new, duration_s) VALUES (?, ?, ?, ?)",
+            (run_at, result, items_new, duration_s),
+        )
