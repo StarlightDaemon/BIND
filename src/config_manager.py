@@ -240,7 +240,6 @@ class ConfigManager:
             )
 
             # Restart the BIND service
-            # Restart the BIND service
             subprocess.run(
                 ["systemctl", "restart", "bind.service"],
                 capture_output=True,

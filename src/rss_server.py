@@ -13,8 +13,10 @@ import math
 import os
 import secrets
 import time
-from datetime import datetime, timezone
-from typing import Any, cast
+from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
+from functools import wraps
+from typing import Any, TypeVar, cast
 from xml.sax.saxutils import escape
 
 from flask import Flask, Response, abort, jsonify, redirect, request, send_from_directory, session
@@ -77,6 +79,18 @@ def _resolve_secret_key(data_dir: str) -> str:
 app.secret_key = _resolve_secret_key(
     os.path.dirname(os.path.abspath(os.getenv("BIND_DB_PATH", "data/bind.db")))
 )
+
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
+
+
+@app.after_request
+def _add_security_headers(response: Response) -> Response:
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
 
 try:
     _config_mgr = ConfigManager()
@@ -155,9 +169,6 @@ def csrf_protect() -> None:
 # =============================================================================
 # Auth decorators
 # =============================================================================
-
-from functools import wraps
-from typing import TypeVar, Callable
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -282,7 +293,6 @@ def health() -> dict[str, Any]:
     return {
         "status":        "ok",
         "magnet_count":  db_stats["total"],
-        "db_path":       BIND_DB_PATH,
         "last_date":     db_stats["last_date"],
         "target_probe":  _probe_cache["result"],
     }

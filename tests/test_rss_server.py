@@ -28,6 +28,28 @@ class TestHealthEndpoint:
         data = client.get("/health").get_json()
         assert data["magnet_count"] == 110
 
+    def test_health_does_not_leak_db_path(self, client):
+        data = client.get("/health").get_json()
+        assert "db_path" not in data
+
+
+class TestSecurityHeaders:
+    def test_x_content_type_options_present(self, client):
+        resp = client.get("/health")
+        assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+    def test_x_frame_options_present(self, client):
+        resp = client.get("/health")
+        assert resp.headers.get("X-Frame-Options") == "DENY"
+
+    def test_referrer_policy_present(self, client):
+        resp = client.get("/health")
+        assert resp.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+
+    def test_security_headers_on_feed(self, client):
+        resp = client.get("/feed.xml")
+        assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
 
 class TestFeedEndpoint:
     def test_feed_returns_200(self, client):

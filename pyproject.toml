@@ -1,6 +1,6 @@
 [project]
 name = "bind"
-version = "1.7.1"
+version = "2.2.0"
 description = "Book Indexing Network Daemon - Audiobook metadata archival"
 readme = "README.md"
 license = {text = "MIT"}
