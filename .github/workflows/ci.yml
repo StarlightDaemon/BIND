@@ -40,7 +40,7 @@ jobs:
       - name: Run tests with coverage
         env:
           FLASK_SECRET_KEY: testsecret
-        run: pytest --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=40 -v
+        run: pytest --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=75 -v
 
   lint:
     runs-on: ubuntu-latest
