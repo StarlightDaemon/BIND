@@ -1,6 +1,6 @@
 {
-  "installed_edict_version": "0.4.0",
-  "installed_at": "2026-05-09T04:21:32.796773+00:00",
+  "installed_edict_version": "0.5.0",
+  "installed_at": "2026-05-19T06:23:30.404450+00:00",
   "managed_files": [
     {
       "path": "README.md",
@@ -17,6 +17,10 @@
     {
       "path": "WORKSPACE_AUDIT_PROTOCOL.md",
       "hash": "1fa98a0ab068349d71556b142d433fe52462de0cca237d773e4e3dc2ad5bdbb0"
+    },
+    {
+      "path": "FORK_REVIEW_PROTOCOL.md",
+      "hash": "d74579048c32e4d727e02a89e2eef9adf79c114026541b05cee63259db5667d5"
     }
   ],
   "hook_files": [
