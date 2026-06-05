@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FormShell }  from '../fujin/components/FormShell';
 import { useAuth }    from '../context/AuthContext';
 import { ApiError }   from '../api/client';
@@ -59,9 +59,22 @@ const INPUT: React.CSSProperties = {
   boxSizing:  'border-box',
 };
 
+const NOTICE: React.CSSProperties = {
+  padding:      '8px 12px',
+  marginBottom: 12,
+  fontSize:     12,
+  color:        'var(--fujin-status-success)',
+  background:   'var(--fujin-bg-elevated)',
+  border:       '1px solid var(--fujin-status-success)',
+  borderRadius: 2,
+  textAlign:    'center',
+};
+
 export default function LoginPage() {
   const { login }  = useAuth();
   const navigate   = useNavigate();
+  const location   = useLocation();
+  const notice     = (location.state as { notice?: string } | null)?.notice ?? '';
   const [fields,   setFields]  = useState({ username: '', password: '' });
   const [error,    setError]   = useState('');
   const [loading,  setLoading] = useState(false);
@@ -90,6 +103,7 @@ export default function LoginPage() {
           <div style={WORDMARK}>BIND</div>
           <p style={SUBTITLE}>Book Indexing Network Daemon</p>
         </div>
+        {notice && <div style={NOTICE}>{notice}</div>}
         <FormShell onSubmit={handleSubmit} submitLabel="Sign In" loading={loading} error={error}>
           <div>
             <label style={LABEL}>Username</label>

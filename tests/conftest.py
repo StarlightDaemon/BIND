@@ -17,6 +17,7 @@ os.remove(_MODULE_DB_PATH)  # MagnetStore creates it fresh
 os.environ.setdefault("BIND_DB_PATH", _MODULE_DB_PATH)
 os.environ.setdefault("FLASK_SECRET_KEY", "testsecret")
 os.environ.setdefault("BIND_AUTH_ENABLED", "false")
+os.environ.setdefault("SCRAPING_ENABLED", "true")
 
 
 @pytest.fixture
