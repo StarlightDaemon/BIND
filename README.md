@@ -131,6 +131,25 @@ python -m src.rss_server
 
 ---
 
+## Adding to qBittorrent
+
+1. In qBittorrent go to **RSS** → **Add feed** and enter your feed URL:
+   ```
+   http://YOUR-BIND-IP:5050/feed.xml
+   ```
+
+2. Open **RSS Downloader** → create a new rule:
+   - **Must Contain:** `.*`
+   - **Use Regular Expressions:** checked
+   - **Save to:** your audiobook download path
+   - **Apply Rule to Feeds:** check your BIND feed
+
+3. Click **Save**, then right-click the feed → **Update** to populate existing items.
+
+> ⚠️ **VPN-bound containers (e.g. binhex/qbittorrentvpn on Unraid):** The container needs outbound access to port 5050 on your LAN. Add `VPN_OUTPUT_PORTS=5050` as an environment variable in the container template and recreate it. `LAN_NETWORK` alone is not sufficient with WireGuard — `VPN_OUTPUT_PORTS` is required for the container to initiate outbound connections to local services.
+
+---
+
 ## Updating BIND
 
 ### Automatic Update (Recommended)
