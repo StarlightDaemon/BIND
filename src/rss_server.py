@@ -46,6 +46,21 @@ _SPA_DIST = os.path.join(_current_dir, "static", "dist")
 _FRONTEND_DIR = os.path.join(os.path.dirname(_current_dir), "frontend")
 
 
+def _run_npm(args: list[str], cwd: str) -> bool:
+    try:
+        result = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error("npm %s failed:\n%s", " ".join(args[1:]), result.stderr or result.stdout)
+            return False
+        return True
+    except FileNotFoundError:
+        logger.error("'npm' not found — install Node.js or run: cd frontend && npm run build")
+        return False
+    except Exception as e:
+        logger.error("Frontend build error: %s", e)
+        return False
+
+
 def _build_frontend() -> None:
     if os.path.isfile(os.path.join(_SPA_DIST, "index.html")):
         return
@@ -54,22 +69,13 @@ def _build_frontend() -> None:
             "Frontend source directory not found at %s — skipping auto-build", _FRONTEND_DIR
         )
         return
+    if not os.path.isdir(os.path.join(_FRONTEND_DIR, "node_modules")):
+        logger.info("Installing frontend dependencies (first run)...")
+        if not _run_npm(["npm", "install"], _FRONTEND_DIR):
+            return
     logger.info("Frontend not built — running 'npm run build' (this may take ~30s)...")
-    try:
-        result = subprocess.run(
-            ["npm", "run", "build"],
-            cwd=_FRONTEND_DIR,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            logger.error("Frontend build failed:\n%s", result.stderr or result.stdout)
-        else:
-            logger.info("Frontend build complete.")
-    except FileNotFoundError:
-        logger.error("'npm' not found — install Node.js or run: cd frontend && npm run build")
-    except Exception as e:
-        logger.error("Frontend build error: %s", e)
+    if _run_npm(["npm", "run", "build"], _FRONTEND_DIR):
+        logger.info("Frontend build complete.")
 
 
 _build_frontend()
