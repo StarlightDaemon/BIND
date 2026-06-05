@@ -1,6 +1,7 @@
 """Tests for MagnetStore (src/core/storage.py)."""
 
 import pytest
+from datetime import datetime, timezone
 from src.core.storage import MagnetStore, _open, _upgrade_schema
 
 HASH_A = "a" * 40
@@ -229,3 +230,42 @@ class TestUpgradeSchema:
         )
         assert conn.execute("SELECT COUNT(*) FROM scrape_runs").fetchone()[0] == 1
         conn.close()
+
+
+class TestDailyCounts:
+    def test_empty_store_returns_all_zeros(self, fresh_store):
+        result = fresh_store.daily_counts(days=7)
+        assert len(result) == 7
+        assert all(d["count"] == 0 for d in result)
+
+    def test_returns_correct_day_count(self, fresh_store):
+        result = fresh_store.daily_counts(days=30)
+        assert len(result) == 30
+
+    def test_dates_are_sorted_ascending(self, fresh_store):
+        result = fresh_store.daily_counts(days=7)
+        dates = [d["date"] for d in result]
+        assert dates == sorted(dates)
+
+    def test_today_entry_reflects_inserts(self, fresh_store):
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        fresh_store.add_magnet("a" * 40, "Book A", today)
+        fresh_store.add_magnet("b" * 40, "Book B", today)
+        result = fresh_store.daily_counts(days=7)
+        today_entry = next(d for d in result if d["date"] == today)
+        assert today_entry["count"] == 2
+
+    def test_old_entry_excluded_when_outside_window(self, fresh_store):
+        fresh_store.add_magnet("c" * 40, "Old Book", "2000-01-01")
+        result = fresh_store.daily_counts(days=7)
+        assert all(d["count"] == 0 for d in result)
+
+    def test_result_has_date_and_count_keys(self, fresh_store):
+        result = fresh_store.daily_counts(days=1)
+        assert len(result) == 1
+        assert "date" in result[0]
+        assert "count" in result[0]
+
+    def test_days_param_controls_window_size(self, fresh_store):
+        assert len(fresh_store.daily_counts(days=14)) == 14
+        assert len(fresh_store.daily_counts(days=1)) == 1

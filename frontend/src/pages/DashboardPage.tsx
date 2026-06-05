@@ -3,6 +3,7 @@ import { BindShell }    from '../components/BindShell';
 import { SectionHeader } from '../fujin/components/SectionHeader';
 import { DataTable }     from '../fujin/components/DataTable';
 import { StatusBadge }   from '../fujin/components/StatusBadge';
+import { useToast }      from '../fujin/components/FujinToastProvider';
 import type { DataColumn }    from '../fujin/components/DataTable';
 import type { DashboardData, Magnet } from '../api/endpoints';
 import { dashboard } from '../api/endpoints';
@@ -54,7 +55,9 @@ export default function DashboardPage() {
   const [data,         setData]        = useState<DashboardData | null>(null);
   const [lastChecked,  setLastChecked] = useState<string>('');
   const [loading,      setLoading]     = useState(true);
+  const [triggering,   setTriggering]  = useState(false);
   const prevHashRef = useRef('');
+  const toast = useToast();
 
   const load = useCallback(async () => {
     try {
@@ -83,6 +86,18 @@ export default function DashboardPage() {
     const id = setInterval(() => void load(), 10_000);
     return () => clearInterval(id);
   }, [load]);
+
+  const handleTrigger = async () => {
+    setTriggering(true);
+    try {
+      const result = await dashboard.triggerScrape();
+      toast.show({ status: result.ok ? 'success' : 'warning', message: result.message });
+    } catch {
+      toast.show({ status: 'danger', message: 'Failed to contact server.' });
+    } finally {
+      setTriggering(false);
+    }
+  };
 
   const statusVariant = (s: DashboardData['system_status']) => {
     if (s === 'online')  return 'success' as const;
@@ -118,7 +133,7 @@ export default function DashboardPage() {
         </div>
         <div style={TILE}>
           <div style={TILE_LABEL}>Feed Access</div>
-          <div style={{ marginTop: 6 }}>
+          <div style={{ marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <a
               href="/feed.xml"
               style={{
@@ -134,6 +149,21 @@ export default function DashboardPage() {
             >
               RSS Feed
             </a>
+            <button
+              onClick={() => { void handleTrigger(); }}
+              disabled={triggering}
+              style={{
+                fontFamily: 'inherit',
+                fontSize:   12,
+                padding:    '5px 12px',
+                border:     '1px solid var(--fujin-border-subtle)',
+                background: 'transparent',
+                color:      triggering ? 'var(--fujin-text-muted)' : 'var(--fujin-text-secondary)',
+                cursor:     triggering ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {triggering ? 'Triggering…' : 'Run Now'}
+            </button>
           </div>
         </div>
       </div>

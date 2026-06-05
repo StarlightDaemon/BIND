@@ -42,10 +42,16 @@ export interface ScrapeRun {
   duration:  number;
 }
 
+export interface DailyStat {
+  date:  string;
+  count: number;
+}
+
 export interface MetricsData {
   stats:        DbStats;
   runs:         ScrapeRun[];
   success_rate: number | null;
+  daily_counts: DailyStat[];
   now:          string;
 }
 
@@ -118,8 +124,9 @@ export const setup = {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export const dashboard = {
-  get:   () => apiFetch<DashboardData>('/api/dashboard'),
-  stats: () => apiFetch<StatsData>('/api/stats'),
+  get:          () => apiFetch<DashboardData>('/api/dashboard'),
+  stats:        () => apiFetch<StatsData>('/api/stats'),
+  triggerScrape: () => apiFetch<ApiResult>('/api/trigger-scrape', { method: 'POST' }),
 };
 
 // ── Magnets ───────────────────────────────────────────────────────────────────

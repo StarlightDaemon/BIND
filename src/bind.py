@@ -212,6 +212,8 @@ def daemon(interval: int, db_path: str) -> None:
             scraper.base_url,
         )
 
+    TRIGGER_FILE = os.path.join(data_dir, ".trigger")
+
     schedule.every(interval).minutes.do(run_job_with_timeout)
 
     run_job_with_timeout()
@@ -219,6 +221,13 @@ def daemon(interval: int, db_path: str) -> None:
     logger.info("Daemon running. Press Ctrl+C to stop.")
     while not shutdown_requested["flag"]:  # pragma: no cover
         schedule.run_pending()  # pragma: no cover
+        if os.path.exists(TRIGGER_FILE):  # pragma: no cover
+            try:  # pragma: no cover
+                os.remove(TRIGGER_FILE)  # pragma: no cover
+            except OSError:  # pragma: no cover
+                pass  # pragma: no cover
+            logger.info("Manual trigger detected — running job immediately")  # pragma: no cover
+            run_job_with_timeout()  # pragma: no cover
         time.sleep(1)  # pragma: no cover
 
     logger.info("Shutdown complete. Daemon stopped cleanly.")

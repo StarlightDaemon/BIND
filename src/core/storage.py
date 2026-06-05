@@ -1,6 +1,6 @@
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 logger = logging.getLogger("storage")
@@ -231,3 +231,19 @@ class MagnetStore:
             "INSERT INTO scrape_runs (run_at, result, items_new, duration_s) VALUES (?, ?, ?, ?)",
             (run_at, result, items_new, duration_s),
         )
+
+    def daily_counts(self, days: int = 30) -> list[dict[str, Any]]:
+        """Return per-day magnet counts for the last `days` days, zero-filled."""
+        rows = self._conn.execute(
+            "SELECT collected_date, COUNT(*) AS count FROM magnets"
+            " WHERE date(collected_date) >= date('now', ?)"
+            " GROUP BY collected_date ORDER BY collected_date ASC",
+            (f"-{days - 1} days",),
+        ).fetchall()
+        counts: dict[str, int] = {r[0]: r[1] for r in rows}
+        today = datetime.now(timezone.utc).date()
+        result = []
+        for i in range(days - 1, -1, -1):
+            d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
+            result.append({"date": d, "count": counts.get(d, 0)})
+        return result
