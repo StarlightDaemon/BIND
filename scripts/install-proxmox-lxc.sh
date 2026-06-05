@@ -171,18 +171,21 @@ sleep 5
 msg_ok "Container started"
 
 # Install BIND
-msg_info "Installing BIND (2-3 minutes)"
+msg_info "Installing BIND (3-4 minutes)"
 pct exec "$CTID" -- bash -c "
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq
     apt-get install -y -qq python3 python3-venv python3-pip git curl
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
+    apt-get install -y -qq nodejs
     git clone -q https://github.com/StarlightDaemon/BIND.git /opt/bind
     cd /opt/bind
     python3 -m venv venv
     ./venv/bin/pip install --upgrade pip -q
     ./venv/bin/pip install -r requirements.txt -q
-    cp deployment/bind.service /etc/systemd/system/
-    cp deployment/bind-rss.service /etc/systemd/system/
+    cd /opt/bind/frontend && npm ci --silent && npm run build --silent
+    cp /opt/bind/deployment/bind.service /etc/systemd/system/
+    cp /opt/bind/deployment/bind-rss.service /etc/systemd/system/
     useradd --system --no-create-home --shell /usr/sbin/nologin bind || true
     mkdir -p /opt/bind/data /opt/bind/logs
     chown -R bind:bind /opt/bind/data /opt/bind/logs
