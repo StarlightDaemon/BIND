@@ -50,7 +50,9 @@ def _build_frontend() -> None:
     if os.path.isfile(os.path.join(_SPA_DIST, "index.html")):
         return
     if not os.path.isdir(_FRONTEND_DIR):
-        logger.warning("Frontend source directory not found at %s — skipping auto-build", _FRONTEND_DIR)
+        logger.warning(
+            "Frontend source directory not found at %s — skipping auto-build", _FRONTEND_DIR
+        )
         return
     logger.info("Frontend not built — running 'npm run build' (this may take ~30s)...")
     try:
