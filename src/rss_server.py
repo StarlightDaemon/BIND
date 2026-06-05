@@ -304,7 +304,6 @@ def feed() -> Response:
             <guid isPermaLink="false">{guid}</guid>
             <pubDate>{pub_date}</pubDate>
             <description><![CDATA[Magnet link for: {title_safe}]]></description>
-            <enclosure url="{magnet_escaped}" type="application/x-bittorrent" />
         </item>
         """
         rss_items.append(item.strip())
