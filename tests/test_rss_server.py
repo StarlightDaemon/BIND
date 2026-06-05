@@ -1,5 +1,6 @@
 """Integration tests for RSS server Flask routes."""
 
+import os
 from src.rss_server import _date_to_rfc2822, _resolve_secret_key
 
 HASH_A = "a" * 40
@@ -483,3 +484,66 @@ class TestSetupRoute:
         )
         assert response.status_code == 200
         assert response.get_json()["ok"] is True
+
+
+class TestTriggerScrapeRoute:
+    def _post(self, client, tmp_path, monkeypatch):
+        monkeypatch.setattr("src.rss_server._data_dir", str(tmp_path))
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        return client.post(
+            "/api/trigger-scrape",
+            headers={"X-CSRF-Token": "test-token"},
+        )
+
+    def test_trigger_returns_200_and_ok(self, client, tmp_path, monkeypatch):
+        resp = self._post(client, tmp_path, monkeypatch)
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+
+    def test_trigger_writes_trigger_file(self, client, tmp_path, monkeypatch):
+        self._post(client, tmp_path, monkeypatch)
+        assert os.path.exists(str(tmp_path / ".trigger"))
+
+    def test_trigger_409_when_file_already_exists(self, client, tmp_path, monkeypatch):
+        (tmp_path / ".trigger").touch()
+        monkeypatch.setattr("src.rss_server._data_dir", str(tmp_path))
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        resp = client.post(
+            "/api/trigger-scrape",
+            headers={"X-CSRF-Token": "test-token"},
+        )
+        assert resp.status_code == 409
+        assert resp.get_json()["ok"] is False
+
+    def test_trigger_500_on_oserror(self, client, tmp_path, monkeypatch):
+        monkeypatch.setattr("src.rss_server._data_dir", str(tmp_path))
+        original_touch = __import__("pathlib").Path.touch
+
+        def bad_touch(self, *args, **kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr("pathlib.Path.touch", bad_touch)
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        resp = client.post(
+            "/api/trigger-scrape",
+            headers={"X-CSRF-Token": "test-token"},
+        )
+        assert resp.status_code == 500
+        assert "disk full" in resp.get_json()["message"]
+
+    def test_trigger_401_when_auth_required_and_unauthenticated(
+        self, client, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+        monkeypatch.setattr("src.rss_server._data_dir", str(tmp_path))
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+            sess.pop("authenticated", None)
+        resp = client.post(
+            "/api/trigger-scrape",
+            headers={"X-CSRF-Token": "test-token"},
+        )
+        assert resp.status_code == 401

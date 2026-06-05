@@ -11,6 +11,7 @@ Lightweight Flask server that reads from SQLite and serves:
 import logging
 import math
 import os
+import pathlib
 import secrets
 import time
 from collections.abc import Callable
@@ -451,6 +452,7 @@ def api_metrics() -> Any:
             "stats": db_stats,
             "runs": runs_out,
             "success_rate": success_rate,
+            "daily_counts": store.daily_counts(),
             "now": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
     )
@@ -565,6 +567,24 @@ def api_logs() -> Any:
             "line_count": len(logs),
         }
     )
+
+
+# =============================================================================
+# JSON API — Manual scrape trigger (auth required)
+# =============================================================================
+
+
+@app.route("/api/trigger-scrape", methods=["POST"])
+@requires_session_auth
+def api_trigger_scrape() -> Any:
+    trigger_file = os.path.join(_data_dir, ".trigger")
+    if os.path.exists(trigger_file):
+        return jsonify({"ok": False, "message": "A trigger is already pending."}), 409
+    try:
+        pathlib.Path(trigger_file).touch()
+        return jsonify({"ok": True, "message": "Scrape job triggered — results in ~60s."})
+    except OSError as e:
+        return jsonify({"ok": False, "message": f"Could not write trigger file: {e}"}), 500
 
 
 # =============================================================================
