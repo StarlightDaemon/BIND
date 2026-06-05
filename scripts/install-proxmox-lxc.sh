@@ -171,19 +171,34 @@ sleep 5
 msg_ok "Container started"
 
 # Install BIND
-msg_info "Installing BIND (3-4 minutes)"
+echo -e " ${YW}Installing BIND (3-4 minutes)...${CL}"
+
+msg_info "Updating package lists"
+pct exec "$CTID" -- bash -c "export DEBIAN_FRONTEND=noninteractive && apt-get update -qq" >/dev/null 2>&1
+msg_ok "Package lists updated"
+
+msg_info "Installing system dependencies"
+pct exec "$CTID" -- bash -c "export DEBIAN_FRONTEND=noninteractive && apt-get install -y -qq python3 python3-venv python3-pip git curl" >/dev/null 2>&1
+msg_ok "System dependencies installed"
+
+msg_info "Installing Node.js"
+pct exec "$CTID" -- bash -c "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1 && apt-get install -y -qq nodejs" >/dev/null 2>&1
+msg_ok "Node.js installed"
+
+msg_info "Cloning BIND repository"
+pct exec "$CTID" -- bash -c "git clone -q https://github.com/StarlightDaemon/BIND.git /opt/bind" >/dev/null 2>&1
+msg_ok "Repository cloned"
+
+msg_info "Installing Python dependencies"
+pct exec "$CTID" -- bash -c "cd /opt/bind && python3 -m venv venv && ./venv/bin/pip install --upgrade pip -q && ./venv/bin/pip install -r requirements.txt -q" >/dev/null 2>&1
+msg_ok "Python dependencies installed"
+
+msg_info "Building frontend"
+pct exec "$CTID" -- bash -c "cd /opt/bind/frontend && npm ci --silent && npm run build --silent" >/dev/null 2>&1
+msg_ok "Frontend built"
+
+msg_info "Configuring services"
 pct exec "$CTID" -- bash -c "
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -qq
-    apt-get install -y -qq python3 python3-venv python3-pip git curl
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
-    apt-get install -y -qq nodejs
-    git clone -q https://github.com/StarlightDaemon/BIND.git /opt/bind
-    cd /opt/bind
-    python3 -m venv venv
-    ./venv/bin/pip install --upgrade pip -q
-    ./venv/bin/pip install -r requirements.txt -q
-    cd /opt/bind/frontend && npm ci --silent && npm run build --silent
     cp /opt/bind/deployment/bind.service /etc/systemd/system/
     cp /opt/bind/deployment/bind-rss.service /etc/systemd/system/
     useradd --system --no-create-home --shell /usr/sbin/nologin bind || true
@@ -193,7 +208,7 @@ pct exec "$CTID" -- bash -c "
     systemctl enable bind bind-rss
     systemctl start bind bind-rss
 " >/dev/null 2>&1
-msg_ok "BIND installed successfully"
+msg_ok "Services configured and started"
 
 # Setup MOTD
 msg_info "Configuring login banner"
