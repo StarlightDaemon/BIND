@@ -46,14 +46,28 @@ def get_base_dir() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def get_data_dir() -> str:
+    """Get writable data directory (credentials, database)."""
+    path = os.path.join(get_base_dir(), "data")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_logs_dir() -> str:
+    """Get writable logs directory."""
+    path = os.path.join(get_base_dir(), "logs")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def get_credentials_path() -> str:
     """Get path to credentials.json file."""
-    return os.path.join(get_base_dir(), "credentials.json")
+    return os.path.join(get_data_dir(), "credentials.json")
 
 
 def get_security_log_path() -> str:
     """Get path to security.log file."""
-    return os.path.join(get_base_dir(), "security.log")
+    return os.path.join(get_logs_dir(), "security.log")
 
 
 CREDENTIALS_FILE = get_credentials_path()

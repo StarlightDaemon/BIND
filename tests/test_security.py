@@ -215,11 +215,11 @@ class TestGetBaseDirOptBind:
 
 
 class TestGetSecurityLogPath:
-    def test_path_under_base_dir(self, monkeypatch):
+    def test_path_under_base_dir(self, monkeypatch, tmp_path):
         import src.security as _sec
 
-        monkeypatch.setattr(_sec, "get_base_dir", lambda: "/opt/bind")
-        assert _sec.get_security_log_path() == "/opt/bind/security.log"
+        monkeypatch.setattr(_sec, "get_base_dir", lambda: str(tmp_path))
+        assert _sec.get_security_log_path() == str(tmp_path / "logs" / "security.log")
 
 
 class TestLogSecurityEvent:

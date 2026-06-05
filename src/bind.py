@@ -16,11 +16,15 @@ from src.core.magnet import generate_magnet
 from src.core.scraper import BindScraper
 from src.core.storage import MagnetStore
 from src.core.tracker_manager import TrackerManager
+from src.security import get_logs_dir
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler("bind.log", encoding="utf-8")],
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(os.path.join(get_logs_dir(), "bind.log"), encoding="utf-8"),
+    ],
 )
 logger = logging.getLogger("BIND")
 
