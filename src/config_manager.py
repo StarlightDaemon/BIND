@@ -58,6 +58,10 @@ class ConfigManager:
             self.config_path = config_path
         elif os.path.exists("/opt/bind/config.env"):
             self.config_path = "/opt/bind/config.env"
+        elif os.environ.get("BIND_DB_PATH"):
+            # Docker: derive config dir from the DB path (e.g. /app/data/bind.db → /app/data/config.env)
+            data_dir = os.path.dirname(os.environ["BIND_DB_PATH"])
+            self.config_path = os.path.join(data_dir, "config.env")
         else:
             # Local development fallback
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
