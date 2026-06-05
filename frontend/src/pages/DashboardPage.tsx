@@ -52,10 +52,12 @@ const COLUMNS: DataColumn<Magnet>[] = [
 ];
 
 export default function DashboardPage() {
-  const [data,         setData]        = useState<DashboardData | null>(null);
-  const [lastChecked,  setLastChecked] = useState<string>('');
-  const [loading,      setLoading]     = useState(true);
-  const [triggering,   setTriggering]  = useState(false);
+  const [data,            setData]           = useState<DashboardData | null>(null);
+  const [lastChecked,     setLastChecked]    = useState<string>('');
+  const [loading,         setLoading]        = useState(true);
+  const [triggering,      setTriggering]     = useState(false);
+  const [scrapingEnabled, setScrapingEnabled] = useState<boolean | null>(null);
+  const [enabling,        setEnabling]       = useState(false);
   const prevHashRef = useRef('');
   const toast = useToast();
 
@@ -72,6 +74,7 @@ export default function DashboardPage() {
           system_status:  d.system_status,
           status_message: d.status_message,
         });
+        setScrapingEnabled(d.scraping_enabled);
       }
       setLastChecked(new Date().toLocaleTimeString());
     } catch {
@@ -86,6 +89,23 @@ export default function DashboardPage() {
     const id = setInterval(() => void load(), 10_000);
     return () => clearInterval(id);
   }, [load]);
+
+  const handleEnable = async () => {
+    setEnabling(true);
+    try {
+      const result = await dashboard.enableScraping();
+      if (result.ok) {
+        setScrapingEnabled(true);
+        toast.show({ status: 'success', message: 'Scraping enabled. The daemon is starting up.' });
+      } else {
+        toast.show({ status: 'danger', message: result.message });
+      }
+    } catch {
+      toast.show({ status: 'danger', message: 'Failed to enable scraping.' });
+    } finally {
+      setEnabling(false);
+    }
+  };
 
   const handleTrigger = async () => {
     setTriggering(true);
@@ -108,6 +128,57 @@ export default function DashboardPage() {
   return (
     <BindShell>
       <SectionHeader title="Dashboard" description="Book Indexing Network Daemon" />
+
+      {scrapingEnabled === false && (
+        <div style={{
+          marginTop:    20,
+          marginBottom: 16,
+          padding:      '16px 20px',
+          background:   'var(--fujin-bg-surface)',
+          border:       '1px solid var(--fujin-interactive-default)',
+          display:      'flex',
+          alignItems:   'center',
+          gap:          16,
+          flexWrap:     'wrap',
+        }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{
+              fontFamily:  'var(--fujin-font-base, Verdana, sans-serif)',
+              fontWeight:  600,
+              fontSize:    13,
+              color:       'var(--fujin-text-primary)',
+              marginBottom: 4,
+            }}>
+              Archiving is paused
+            </div>
+            <div style={{
+              fontFamily: 'var(--fujin-font-base, Verdana, sans-serif)',
+              fontSize:   12,
+              color:      'var(--fujin-text-muted)',
+            }}>
+              BIND is ready but will not collect magnets until you begin archiving.
+            </div>
+          </div>
+          <button
+            onClick={() => { void handleEnable(); }}
+            disabled={enabling}
+            style={{
+              fontFamily:  'inherit',
+              fontSize:    13,
+              fontWeight:  600,
+              padding:     '8px 20px',
+              border:      '1px solid var(--fujin-interactive-default)',
+              background:  'var(--fujin-interactive-default)',
+              color:       'var(--fujin-text-primary)',
+              cursor:      enabling ? 'not-allowed' : 'pointer',
+              whiteSpace:  'nowrap',
+              opacity:     enabling ? 0.6 : 1,
+            }}
+          >
+            {enabling ? 'Starting…' : 'Begin Archiving'}
+          </button>
+        </div>
+      )}
 
       <div style={{ ...KPI_STYLE, marginTop: 20 }}>
         <div style={TILE}>

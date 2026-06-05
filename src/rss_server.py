@@ -31,6 +31,7 @@ from src.core.tracker_manager import TrackerManager
 from src.security import (
     change_password,
     get_client_ip,
+    get_data_dir,
     get_logs_dir,
     get_security_log_path,
     ip_allowlist_middleware,
@@ -400,6 +401,14 @@ def api_setup() -> Any:
         return jsonify({"error": "Passwords do not match."}), 400
     success, message = save_credentials(username, password, ip=get_client_ip(request))
     if success:
+        # Write initial config with scraping disabled so the user opts in explicitly
+        initial_config = config_manager.read_config()
+        initial_config["SCRAPING_ENABLED"] = "false"
+        write_ok, write_msg = config_manager.write_config(initial_config)
+        if not write_ok:
+            return jsonify(
+                {"error": f"Setup succeeded but config could not be written: {write_msg}"}
+            ), 500
         return jsonify({"ok": True})
     return jsonify({"error": message}), 400
 
@@ -458,6 +467,9 @@ def api_stats() -> Any:
     current_trackers = tracker_manager.get_trackers()
     recent_rows = store.recent(limit=20)
     recent_magnets = _enrich(recent_rows, current_trackers)
+    scraping_enabled = (
+        config_manager.read_config().get("SCRAPING_ENABLED", "true").lower() != "false"
+    )
     return jsonify(
         {
             "system_status": status,
@@ -467,6 +479,7 @@ def api_stats() -> Any:
             "server_time": datetime.now(timezone.utc)
             .isoformat(timespec="microseconds")
             .replace("+00:00", "Z"),
+            "scraping_enabled": scraping_enabled,
         }
     )
 
@@ -529,6 +542,7 @@ def api_settings_post() -> Any:
         "BIND_JOB_TIMEOUT": str(data.get("BIND_JOB_TIMEOUT", "3600")).strip(),
         "BIND_IP_FILTER": str(data.get("BIND_IP_FILTER", "true")).strip(),
         "BIND_AUTH_ENABLED": str(data.get("BIND_AUTH_ENABLED", "true")).strip(),
+        "SCRAPING_ENABLED": str(data.get("SCRAPING_ENABLED", "true")).strip(),
     }
     write_success, write_message = config_manager.write_config(new_config)
     if not write_success:
@@ -539,6 +553,29 @@ def api_settings_post() -> Any:
             {"ok": True, "message": "Configuration saved. Daemon restarted successfully."}
         )
     return jsonify({"ok": True, "message": f"Configuration saved. Note: {restart_message}"})
+
+
+@app.route("/api/scraping/enable", methods=["POST"])
+@requires_session_auth
+def api_scraping_enable() -> Any:
+    current = config_manager.read_config()
+    if current.get("SCRAPING_ENABLED", "true").lower() != "false":
+        return jsonify({"ok": True, "message": "Scraping is already enabled."})
+    current["SCRAPING_ENABLED"] = "true"
+    write_success, write_message = config_manager.write_config(current)
+    if not write_success:
+        return jsonify({"ok": False, "message": write_message}), 400
+    # Signal the running daemon directly via sentinel file (works in Docker/non-systemd).
+    enable_file = os.path.join(get_data_dir(), ".enable-scraping")
+    try:
+        pathlib.Path(enable_file).touch()
+    except OSError as e:
+        logger.warning("Could not write enable sentinel: %s", e)
+    # Also attempt a systemd restart for managed environments.
+    restart_success, _ = config_manager.restart_daemon()
+    if restart_success:
+        return jsonify({"ok": True, "message": "Scraping enabled. Daemon restarted."})
+    return jsonify({"ok": True, "message": "Scraping enabled. The daemon is starting up."})
 
 
 @app.route("/api/settings/trackers", methods=["POST"])

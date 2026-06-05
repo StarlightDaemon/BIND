@@ -28,6 +28,7 @@ class ConfigManager:
         "BIND_JOB_TIMEOUT": "3600",
         "BIND_IP_FILTER": "true",
         "BIND_AUTH_ENABLED": "true",
+        "SCRAPING_ENABLED": "true",
     }
 
     # Validation rules: (min, max) for integers, 'url' for URLs, 'proxy' for proxy URLs
@@ -42,6 +43,7 @@ class ConfigManager:
         "BIND_JOB_TIMEOUT": (60, 86400),
         "BIND_IP_FILTER": "boolean",
         "BIND_AUTH_ENABLED": "boolean",
+        "SCRAPING_ENABLED": "boolean",
     }
 
     def __init__(self, config_path: str | None = None):

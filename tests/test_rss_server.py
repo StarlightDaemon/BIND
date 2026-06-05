@@ -476,6 +476,11 @@ class TestSetupRoute:
     def test_api_setup_post_success(self, client, monkeypatch):
         monkeypatch.setattr("src.rss_server.is_setup_complete", lambda: False)
         monkeypatch.setattr("src.rss_server.save_credentials", lambda u, p, ip="": (True, "ok"))
+        written = {}
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.write_config",
+            lambda cfg: written.update(cfg) or (True, "ok"),
+        )
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
         response = client.post(
@@ -485,6 +490,7 @@ class TestSetupRoute:
         )
         assert response.status_code == 200
         assert response.get_json()["ok"] is True
+        assert written.get("SCRAPING_ENABLED") == "false"
 
 
 class TestTriggerScrapeRoute:

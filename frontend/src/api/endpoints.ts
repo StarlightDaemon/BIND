@@ -66,6 +66,7 @@ export interface SettingsConfig {
   BIND_JOB_TIMEOUT:          string;
   BIND_IP_FILTER:            string;
   BIND_AUTH_ENABLED:         string;
+  SCRAPING_ENABLED:          string;
 }
 
 export interface SettingsData {
@@ -81,11 +82,12 @@ export interface LogsData {
 }
 
 export interface StatsData {
-  system_status:  'online' | 'offline' | 'unknown';
-  status_message: string;
-  magnet_count:   number;
-  recent_magnets: Magnet[];
-  server_time:    string;
+  system_status:   'online' | 'offline' | 'unknown';
+  status_message:  string;
+  magnet_count:    number;
+  recent_magnets:  Magnet[];
+  server_time:     string;
+  scraping_enabled: boolean;
 }
 
 export interface ApiResult {
@@ -124,9 +126,10 @@ export const setup = {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export const dashboard = {
-  get:          () => apiFetch<DashboardData>('/api/dashboard'),
-  stats:        () => apiFetch<StatsData>('/api/stats'),
+  get:           () => apiFetch<DashboardData>('/api/dashboard'),
+  stats:         () => apiFetch<StatsData>('/api/stats'),
   triggerScrape: () => apiFetch<ApiResult>('/api/trigger-scrape', { method: 'POST' }),
+  enableScraping: () => apiFetch<ApiResult>('/api/scraping/enable', { method: 'POST' }),
 };
 
 // ── Magnets ───────────────────────────────────────────────────────────────────

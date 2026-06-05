@@ -80,7 +80,11 @@ function BindIcon() {
   );
 }
 
-export default function SetupPage() {
+interface SetupPageProps {
+  onSetupComplete?: () => void;
+}
+
+export default function SetupPage({ onSetupComplete }: SetupPageProps) {
   const navigate = useNavigate();
   const [fields,   setFields]  = useState({ username: '', password: '', confirm: '' });
   const [error,    setError]   = useState('');
@@ -96,7 +100,8 @@ export default function SetupPage() {
     setLoading(true);
     try {
       await setup.create(fields.username, fields.password, fields.confirm);
-      navigate('/login');
+      onSetupComplete?.();
+      navigate('/login', { state: { notice: 'Account created — please sign in.' } });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Setup failed.');
     } finally {

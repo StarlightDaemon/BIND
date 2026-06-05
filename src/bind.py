@@ -217,14 +217,27 @@ def daemon(interval: int, db_path: str) -> None:
         )
 
     TRIGGER_FILE = os.path.join(data_dir, ".trigger")
+    ENABLE_FILE = os.path.join(data_dir, ".enable-scraping")
 
-    schedule.every(interval).minutes.do(run_job_with_timeout)
-
-    run_job_with_timeout()
+    scraping_enabled = os.getenv("SCRAPING_ENABLED", "true").lower() != "false"
+    if scraping_enabled:
+        schedule.every(interval).minutes.do(run_job_with_timeout)
+        run_job_with_timeout()
+    else:
+        logger.info("Scraping is disabled (SCRAPING_ENABLED=false). Waiting for manual enable.")
 
     logger.info("Daemon running. Press Ctrl+C to stop.")
     while not shutdown_requested["flag"]:  # pragma: no cover
         schedule.run_pending()  # pragma: no cover
+        if not scraping_enabled and os.path.exists(ENABLE_FILE):  # pragma: no cover
+            try:  # pragma: no cover
+                os.remove(ENABLE_FILE)  # pragma: no cover
+            except OSError:  # pragma: no cover
+                pass  # pragma: no cover
+            logger.info("Enable signal received — starting scraping schedule.")  # pragma: no cover
+            scraping_enabled = True  # pragma: no cover
+            schedule.every(interval).minutes.do(run_job_with_timeout)  # pragma: no cover
+            run_job_with_timeout()  # pragma: no cover
         if os.path.exists(TRIGGER_FILE):  # pragma: no cover
             try:  # pragma: no cover
                 os.remove(TRIGGER_FILE)  # pragma: no cover

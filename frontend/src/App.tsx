@@ -44,7 +44,7 @@ function AppRoutes() {
       <Route path="/metrics"  element={<MetricsPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/logs"     element={<LogsPage />} />
-      <Route path="/setup"    element={<SetupPage />} />
+      <Route path="/setup"    element={<SetupPage onSetupComplete={() => setSetupComplete(true)} />} />
       <Route path="/login"    element={<LoginPage />} />
       <Route path="*"         element={<Navigate to="/" replace />} />
     </Routes>
