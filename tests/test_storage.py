@@ -1,7 +1,8 @@
 """Tests for MagnetStore (src/core/storage.py)."""
 
-import pytest
 from datetime import datetime, timezone
+
+import pytest
 from src.core.storage import MagnetStore, _open, _upgrade_schema
 
 HASH_A = "a" * 40

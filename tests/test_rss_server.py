@@ -1,6 +1,7 @@
 """Integration tests for RSS server Flask routes."""
 
 import os
+
 from src.rss_server import _date_to_rfc2822, _resolve_secret_key
 
 HASH_A = "a" * 40
@@ -519,7 +520,6 @@ class TestTriggerScrapeRoute:
 
     def test_trigger_500_on_oserror(self, client, tmp_path, monkeypatch):
         monkeypatch.setattr("src.rss_server._data_dir", str(tmp_path))
-        original_touch = __import__("pathlib").Path.touch
 
         def bad_touch(self, *args, **kwargs):
             raise OSError("disk full")
