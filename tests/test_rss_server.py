@@ -278,7 +278,7 @@ class TestLogsRoute:
         assert any("Log file not found:" in line for line in data["logs"])
 
     def test_logs_daemon_log_type(self, client, monkeypatch, tmp_path):
-        monkeypatch.setattr("os.getcwd", lambda: str(tmp_path))
+        monkeypatch.setattr("src.rss_server.get_logs_dir", lambda: str(tmp_path))
         log_file = tmp_path / "bind.log"
         log_file.write_text("daemon log content")
         response = client.get("/api/logs?log=daemon")
@@ -336,7 +336,7 @@ class TestCheckDaemonStatus:
     def test_status_online(self, monkeypatch, tmp_path):
         from src.rss_server import check_daemon_status
 
-        monkeypatch.setattr("os.getcwd", lambda: str(tmp_path))
+        monkeypatch.setattr("src.rss_server.get_logs_dir", lambda: str(tmp_path))
         monkeypatch.setattr(
             "src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "60"}
         )
@@ -352,7 +352,7 @@ class TestCheckDaemonStatus:
 
         from src.rss_server import check_daemon_status
 
-        monkeypatch.setattr("os.getcwd", lambda: str(tmp_path))
+        monkeypatch.setattr("src.rss_server.get_logs_dir", lambda: str(tmp_path))
         monkeypatch.setattr(
             "src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "60"}
         )
@@ -366,7 +366,7 @@ class TestCheckDaemonStatus:
     def test_status_unknown_no_log_file(self, monkeypatch, tmp_path):
         from src.rss_server import check_daemon_status
 
-        monkeypatch.setattr("os.getcwd", lambda: str(tmp_path))
+        monkeypatch.setattr("src.rss_server.get_logs_dir", lambda: str(tmp_path))
         monkeypatch.setattr(
             "src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "60"}
         )

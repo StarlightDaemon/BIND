@@ -31,6 +31,7 @@ from src.core.tracker_manager import TrackerManager
 from src.security import (
     change_password,
     get_client_ip,
+    get_logs_dir,
     get_security_log_path,
     ip_allowlist_middleware,
     is_setup_complete,
@@ -258,7 +259,7 @@ def check_daemon_status() -> tuple[str, str, float]:
     try:
         config = config_manager.read_config()
         interval = int(config.get("SCRAPE_INTERVAL", 60))
-        log_path = os.path.join(os.getcwd(), "bind.log")
+        log_path = os.path.join(get_logs_dir(), "bind.log")
 
         if not os.path.exists(log_path):
             return "unknown", "Log file not found", 0
@@ -578,7 +579,7 @@ def api_logs() -> Any:
     log_type = request.args.get("log", "security")
     if log_type == "daemon":
         filename = "bind.log"
-        filepath = os.path.join(os.getcwd(), filename)
+        filepath = os.path.join(get_logs_dir(), filename)
     else:
         log_type = "security"
         filename = "security.log"
