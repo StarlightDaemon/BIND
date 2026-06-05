@@ -4,6 +4,15 @@ from unittest.mock import MagicMock, patch
 from src.config_manager import ConfigManager
 
 
+class TestConfigManagerInit:
+    def test_bind_db_path_env_sets_config_in_data_dir(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BIND_DB_PATH", str(tmp_path / "data" / "bind.db"))
+        monkeypatch.delenv("opt_bind_sentinel", raising=False)
+        # Ensure /opt/bind/config.env doesn't exist in this test (it won't in CI)
+        cm = ConfigManager()
+        assert cm.config_path == str(tmp_path / "data" / "config.env")
+
+
 class TestReadConfig:
     def test_new_defaults_keys_present(self):
         """All four new keys must appear in DEFAULTS."""
