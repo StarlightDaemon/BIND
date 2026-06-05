@@ -13,6 +13,7 @@ import math
 import os
 import pathlib
 import secrets
+import subprocess
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -42,6 +43,34 @@ logger = logging.getLogger("rss_server")
 _probe_cache: dict[str, Any] = {"result": None, "expires": 0.0}
 _current_dir = os.path.dirname(os.path.abspath(__file__))
 _SPA_DIST = os.path.join(_current_dir, "static", "dist")
+_FRONTEND_DIR = os.path.join(os.path.dirname(_current_dir), "frontend")
+
+
+def _build_frontend() -> None:
+    if os.path.isfile(os.path.join(_SPA_DIST, "index.html")):
+        return
+    if not os.path.isdir(_FRONTEND_DIR):
+        logger.warning("Frontend source directory not found at %s — skipping auto-build", _FRONTEND_DIR)
+        return
+    logger.info("Frontend not built — running 'npm run build' (this may take ~30s)...")
+    try:
+        result = subprocess.run(
+            ["npm", "run", "build"],
+            cwd=_FRONTEND_DIR,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            logger.error("Frontend build failed:\n%s", result.stderr or result.stdout)
+        else:
+            logger.info("Frontend build complete.")
+    except FileNotFoundError:
+        logger.error("'npm' not found — install Node.js or run: cd frontend && npm run build")
+    except Exception as e:
+        logger.error("Frontend build error: %s", e)
+
+
+_build_frontend()
 
 app = Flask(__name__, template_folder=os.path.join(_current_dir, "templates"))
 
