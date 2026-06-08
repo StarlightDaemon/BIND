@@ -9,3 +9,8 @@
 
 - Status: Closed (implemented in v1.7.0, 2026-05-12)
 - Closed by: `MagnetStore` with SQLite WAL + FTS5 trigram implemented in `src/core/storage.py`; flat-file storage and `history.log` / `HistoryManager` retired; one-shot migration script at `src/core/migrate.py`; 193 tests pass.
+
+## OL-3: .gitignore anomaly concern (WSL→macOS migration audit)
+
+- Status: Closed (investigated 2026-06-07, NOT confirmed)
+- Closed by: Migration audit on 2026-06-07 reviewed `.gitignore` scope. Anomaly was NOT present — `.gitignore` is correctly scoped for the macOS environment. No corrective action required.
