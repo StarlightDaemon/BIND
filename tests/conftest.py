@@ -9,7 +9,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Must be set before rss_server is imported so MagnetStore initialises against
-# a valid path on a WAL-compatible filesystem (/tmp, not /mnt/e/).
+# a valid path on a WAL-compatible filesystem.
 _db_fd, _MODULE_DB_PATH = tempfile.mkstemp(suffix=".db", prefix="bind_test_module_")
 os.close(_db_fd)
 os.remove(_MODULE_DB_PATH)  # MagnetStore creates it fresh
