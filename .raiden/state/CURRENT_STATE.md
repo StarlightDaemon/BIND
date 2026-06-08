@@ -1,6 +1,6 @@
 # Current State
 
-**Last updated:** 2026-06-04
+**Last updated:** 2026-06-07
 **Version:** v2.1.0
 **Test suite:** 397 passed, 0 failed
 **Coverage:** 97.50% (gate: 75%)
@@ -22,8 +22,9 @@ BIND (Book Indexing Network Daemon) is a Python daemon that archives audiobook m
 - v2.0.0 shipped (2026-06-04): domain resilience probe, metrics dashboard, CI dev dep audit.
 - v2.1.0 shipped (2026-06-04): coverage gate raised 40%→75%, storage+resilience test suites, Codecov integration.
 - Coverage push session (2026-06-04): multi-agent wave system; 76.54% → 97.50% (397 tests); agent prompts at `reports/coverage-prompts/`; Wave 2 prompts (B, E) ready but not yet run.
-- RAIDEN Instance installed at Edict v0.5.0.
+- RAIDEN Instance installed at Edict v0.6.1.
 - All v2 agent prompts archived at `.raiden/local/prompts/v2-completion/`.
+- WSL→macOS migration remediation complete (2026-06-07): hook permissions fixed, CRLF stripped from 2 Python files, `/mnt/e/` paths corrected across AGENTS.md, prompt files, audit docs, and conftest.py. `.gitignore` anomaly concern investigated and confirmed NOT present.
 
 ## v2 Feature Summary
 
