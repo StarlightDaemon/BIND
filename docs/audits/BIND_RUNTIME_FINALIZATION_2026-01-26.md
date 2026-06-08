@@ -53,9 +53,9 @@ The following precedence order is now explicitly enforced across both the Daemon
 
 ## 4. Final Layout Status
 
-*   **Runtime Data**: `/mnt/e/BIND/data/magnets/` (Active)
-*   **Legacy Data**: `/mnt/e/BIND/magnets/` (Absent/Clean)
-*   **Config**: `/mnt/e/BIND/config.env` (Source of Truth for non-systemd setups)
+*   **Runtime Data**: `/Users/dante/Citadel/BIND/data/magnets/` (Active)
+*   **Legacy Data**: `/Users/dante/Citadel/BIND/magnets/` (Absent/Clean)
+*   **Config**: `/Users/dante/Citadel/BIND/config.env` (Source of Truth for non-systemd setups)
 
 ---
 

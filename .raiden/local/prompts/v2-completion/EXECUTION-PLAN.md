@@ -64,7 +64,7 @@ dependency CVEs (like the pytest one caught manually) are caught automatically
 on every push.
 
 **How to run:**
-- Open a Claude Code session at `/mnt/e/BIND`
+- Open a Claude Code session at `/Users/dante/Citadel/BIND`
 - Paste the contents of the **Prompt** section from the file above
 - Expected duration: ~10 minutes
 - Expected output: 1 CI file modified, possibly requirements-dev.txt updated
@@ -89,7 +89,7 @@ and logs a startup WARNING when the domain is unreachable or serving wrong
 content.
 
 **How to run:**
-- Open a Claude Code session at `/mnt/e/BIND`
+- Open a Claude Code session at `/Users/dante/Citadel/BIND`
 - Paste the contents of the **Prompt** section from the file above
 - Expected duration: 45–90 minutes
 - Files touched: `src/core/scraper.py`, `src/bind.py`, `src/rss_server.py`,
@@ -115,7 +115,7 @@ ruff check src/ tests/
 each cycle, and adds an auth-gated `/metrics` HTML page in the Vesper theme.
 
 **How to run:**
-- Open a Claude Code session at `/mnt/e/BIND`
+- Open a Claude Code session at `/Users/dante/Citadel/BIND`
 - Paste the contents of the **Prompt** section from the file above
 - Expected duration: 2–3 hours
 - Files touched: `src/core/storage.py`, `src/rss_server.py`, `src/bind.py`,
@@ -150,7 +150,7 @@ mypy src/
 **How to run:**
 - Confirm Phase 1 is merged: `git log --oneline -5`
 - Confirm CI is green on main before starting
-- Open a Claude Code session at `/mnt/e/BIND`
+- Open a Claude Code session at `/Users/dante/Citadel/BIND`
 - Paste the contents of the **Prompt** section from the file above
 - Expected duration: 2–3 hours
 
@@ -184,7 +184,7 @@ This must exit 0. If it exits non-zero the task is not complete.
    dashboard) — you will give this to the agent
 
 **How to run the agent:**
-- Open a Claude Code session at `/mnt/e/BIND`
+- Open a Claude Code session at `/Users/dante/Citadel/BIND`
 - Paste the **Prompt** section from the file above
 - Supply the graph token when instructed in the prompt (replace
   `CODECOV_GRAPH_TOKEN` placeholder)

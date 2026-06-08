@@ -37,7 +37,7 @@ sequentially, apply T2 first, then T3 — the merge is trivial.
 
 ## Prompt
 
-You are working in the repository at `/mnt/e/BIND`.
+You are working in the repository at `/Users/dante/Citadel/BIND`.
 
 BIND is a Python audiobook metadata daemon (v1.7.1). It scrapes AudioBookBay,
 stores records in a SQLite database via `MagnetStore` (WAL + FTS5), and serves

@@ -1,4 +1,4 @@
-You are the BIND Instance agent, operating inside /mnt/e/BIND (or the repo root wherever BIND is checked out).
+You are the BIND Instance agent, operating inside /Users/dante/Citadel/BIND (or the repo root wherever BIND is checked out).
 
 Read first:
 - AGENTS.md
@@ -30,10 +30,10 @@ Still open:
    or untracked. Any unexpected files: stop and surface to operator before proceeding.
 2. Run `grep installed_edict_version .raiden/instance/metadata.json`
    → expected: "0.4.0"
-3. Run from /mnt/e/Raiden/toolkit/updater/ (RAIDEN central):
+3. Run from /Users/dante/Citadel/Raiden/toolkit/updater/ (RAIDEN central):
      python3 -m raiden_updater.cli plan \
-       --instance /mnt/e/BIND \
-       --package /mnt/e/Raiden/toolkit/updater/fixtures/sample_package
+       --instance /Users/dante/Citadel/BIND \
+       --package /Users/dante/Citadel/Raiden/toolkit/updater/fixtures/sample_package
    → expected: Block reason: Already up to date — no changes needed
    If any other result: stop and surface to operator.
 4. Stage and commit the following files:
