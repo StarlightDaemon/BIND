@@ -1,6 +1,7 @@
 """Integration tests for RSS server Flask routes."""
 
 import os
+import pathlib
 
 from src.rss_server import _date_to_rfc2822, _resolve_secret_key
 
@@ -553,3 +554,242 @@ class TestTriggerScrapeRoute:
             headers={"X-CSRF-Token": "test-token"},
         )
         assert resp.status_code == 401
+
+
+class TestLoginRoute:
+    def _post(self, client, payload, token="test-token"):
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = token
+        return client.post("/api/login", json=payload, headers={"X-CSRF-Token": token})
+
+    def test_valid_credentials_returns_ok(self, client, monkeypatch):
+        monkeypatch.setattr("src.rss_server.verify_credentials", lambda u, p, ip="": True)
+        resp = self._post(client, {"username": "admin", "password": "secret"})
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+
+    def test_invalid_credentials_returns_401(self, client, monkeypatch):
+        monkeypatch.setattr("src.rss_server.verify_credentials", lambda u, p, ip="": False)
+        resp = self._post(client, {"username": "admin", "password": "wrong"})
+        assert resp.status_code == 401
+        assert "Invalid credentials" in resp.get_json()["error"]
+
+
+class TestLogoutRoute:
+    def test_logout_returns_ok(self, client):
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+            sess["authenticated"] = True
+        resp = client.post("/api/logout", headers={"X-CSRF-Token": "test-token"})
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+
+
+class TestMeRoute:
+    def test_me_auth_enabled_unauthenticated(self, client, monkeypatch):
+        monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+        resp = client.get("/api/me")
+        data = resp.get_json()
+        assert data["auth_enabled"] is True
+        assert data["authenticated"] is False
+
+    def test_me_auth_enabled_with_valid_session(self, client, monkeypatch):
+        monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+        with client.session_transaction() as sess:
+            sess["authenticated"] = True
+        resp = client.get("/api/me")
+        data = resp.get_json()
+        assert data["auth_enabled"] is True
+        assert data["authenticated"] is True
+
+
+class TestSessionAuthProceedsWhenAuthenticated:
+    """Covers requires_session_auth line 224: auth enabled + authenticated session → proceed."""
+
+    def test_authenticated_session_returns_200_when_auth_enabled(
+        self, client, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+        monkeypatch.setattr("src.rss_server._data_dir", str(tmp_path))
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+            sess["authenticated"] = True
+        resp = client.post("/api/trigger-scrape", headers={"X-CSRF-Token": "test-token"})
+        assert resp.status_code == 200
+
+
+class TestSetupRouteAdditional:
+    def test_setup_already_complete_returns_400(self, client):
+        # autouse mock_setup_complete keeps is_setup_complete → True
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        resp = client.post(
+            "/api/setup",
+            json={"username": "admin", "password": "pass", "confirm_password": "pass"},
+            headers={"X-CSRF-Token": "test-token"},
+        )
+        assert resp.status_code == 400
+        assert "already complete" in resp.get_json()["error"]
+
+    def test_setup_save_credentials_failure_returns_400(self, client, monkeypatch):
+        monkeypatch.setattr("src.rss_server.is_setup_complete", lambda: False)
+        monkeypatch.setattr(
+            "src.rss_server.save_credentials",
+            lambda u, p, ip="": (False, "Username too short"),
+        )
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        resp = client.post(
+            "/api/setup",
+            json={"username": "a", "password": "pass", "confirm_password": "pass"},
+            headers={"X-CSRF-Token": "test-token"},
+        )
+        assert resp.status_code == 400
+        assert "Username too short" in resp.get_json()["error"]
+
+    def test_setup_write_config_failure_returns_500(self, client, monkeypatch):
+        monkeypatch.setattr("src.rss_server.is_setup_complete", lambda: False)
+        monkeypatch.setattr("src.rss_server.save_credentials", lambda u, p, ip="": (True, "ok"))
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.write_config",
+            lambda cfg: (False, "disk full"),
+        )
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        resp = client.post(
+            "/api/setup",
+            json={"username": "admin", "password": "pass", "confirm_password": "pass"},
+            headers={"X-CSRF-Token": "test-token"},
+        )
+        assert resp.status_code == 500
+        assert "disk full" in resp.get_json()["error"]
+
+
+class TestScrapingEnableRoute:
+    def _post(self, client):
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "test-token"
+        return client.post("/api/scraping/enable", headers={"X-CSRF-Token": "test-token"})
+
+    def test_already_enabled_returns_ok(self, client, monkeypatch):
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.read_config",
+            lambda: {"SCRAPING_ENABLED": "true"},
+        )
+        resp = self._post(client)
+        assert resp.status_code == 200
+        assert "already enabled" in resp.get_json()["message"]
+
+    def test_write_failure_returns_400(self, client, monkeypatch):
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.read_config",
+            lambda: {"SCRAPING_ENABLED": "false"},
+        )
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.write_config",
+            lambda cfg: (False, "write error"),
+        )
+        resp = self._post(client)
+        assert resp.status_code == 400
+        assert resp.get_json()["ok"] is False
+
+    def test_sentinel_oserror_is_swallowed(self, client, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.read_config",
+            lambda: {"SCRAPING_ENABLED": "false"},
+        )
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.write_config",
+            lambda cfg: (True, "ok"),
+        )
+        monkeypatch.setattr("src.rss_server.get_data_dir", lambda: str(tmp_path))
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.restart_daemon", lambda: (False, "no systemd")
+        )
+
+        def raise_oserror(self, *args, **kwargs):
+            raise OSError("read-only filesystem")
+
+        monkeypatch.setattr(pathlib.Path, "touch", raise_oserror)
+        resp = self._post(client)
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+
+    def test_daemon_restart_success_message(self, client, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.read_config",
+            lambda: {"SCRAPING_ENABLED": "false"},
+        )
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.write_config",
+            lambda cfg: (True, "ok"),
+        )
+        monkeypatch.setattr("src.rss_server.get_data_dir", lambda: str(tmp_path))
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.restart_daemon", lambda: (True, "restarted")
+        )
+        resp = self._post(client)
+        assert resp.status_code == 200
+        assert "Daemon restarted" in resp.get_json()["message"]
+
+
+class TestLogsReadError:
+    def test_logs_read_exception_returns_error_entry(self, client, monkeypatch, tmp_path):
+        log_file = tmp_path / "security.log"
+        log_file.write_text("data")
+        monkeypatch.setattr("src.rss_server.get_security_log_path", lambda: str(log_file))
+
+        real_open = open
+
+        def bad_open(path, *args, **kwargs):
+            if str(log_file) == str(path):
+                raise OSError("permission denied")
+            return real_open(path, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.open", bad_open)
+        resp = client.get("/api/logs?log=security")
+        assert resp.status_code == 200
+        assert any("Error reading log file" in line for line in resp.get_json()["logs"])
+
+
+class TestSpaFallback:
+    def test_returns_503_when_frontend_not_built(self, client, monkeypatch):
+        from src.rss_server import _SPA_DIST
+
+        spa_html = os.path.join(_SPA_DIST, "index.html")
+        original_isfile = os.path.isfile
+
+        def mock_isfile(path):
+            if path == spa_html:
+                return False
+            return original_isfile(path)
+
+        monkeypatch.setattr(os.path, "isfile", mock_isfile)
+        resp = client.get("/some-spa-page")
+        assert resp.status_code == 503
+        assert b"Frontend not built" in resp.data
+
+
+class TestCsrfJsonRejection:
+    def test_api_post_without_csrf_header_returns_403(self, client):
+        resp = client.post("/api/login", json={"username": "x", "password": "y"})
+        assert resp.status_code == 403
+
+    def test_api_post_with_wrong_csrf_header_returns_403(self, client):
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "real-token"
+        resp = client.post(
+            "/api/login",
+            json={"username": "x", "password": "y"},
+            headers={"X-CSRF-Token": "wrong-token"},
+        )
+        assert resp.status_code == 403
+
+
+class TestCsrfFormValidToken:
+    def test_form_post_with_valid_csrf_passes_validation(self, client):
+        # Covers _validate_csrf_form 171->exit: condition is False (token matches)
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "valid-token"
+        resp = client.post("/some-page", data={"csrf_token": "valid-token"})
+        assert resp.status_code != 403

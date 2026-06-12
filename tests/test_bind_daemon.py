@@ -175,6 +175,20 @@ class TestRunJobEdgeCases:
 
         assert fresh_store.stats()["total"] == 0
 
+    def test_saved_counter_is_updated_on_save(self, fresh_store):
+        scraper = MagicMock()
+        scraper.get_recent_books.return_value = [{"title": "Book A", "link": "/a/"}]
+        scraper.extract_info_hash.return_value = "aa" * 20
+        counter = [0]
+        run_job(
+            str(fresh_store.db_path),
+            scraper,
+            fresh_store,
+            _make_tracker_manager(),
+            _saved_counter=counter,
+        )
+        assert counter[0] == 1
+
 
 class TestDaemonConfigLoading:
     def test_config_key_already_in_env_logs_mismatch(self, tmp_path, caplog):
@@ -213,6 +227,46 @@ class TestDaemonConfigLoading:
                 CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
 
         assert any("Failed to load config.env" in r.message for r in caplog.records)
+
+    def test_config_key_not_in_env_is_loaded(self, tmp_path, monkeypatch, caplog):
+        mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks()
+        # Use a key guaranteed absent from the test environment
+        test_key = "BIND_COVERAGE_TEST_KEY_NOT_IN_ENV"
+        monkeypatch.delenv(test_key, raising=False)
+
+        with (
+            patch("src.bind.ConfigManager") as mock_cm,
+            patch("src.bind.MagnetStore", return_value=mock_store),
+            patch("src.bind.BindScraper", return_value=mock_scraper),
+            patch("src.bind.TrackerManager"),
+            patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_executor),
+            patch("src.bind.schedule"),
+            patch("time.sleep", side_effect=SystemExit(0)),
+        ):
+            mock_cm.return_value.read_config.return_value = {test_key: "test_value"}
+            with caplog.at_level(logging.INFO, logger="BIND"):
+                CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
+
+        assert any("Loaded" in r.message for r in caplog.records)
+
+    def test_scraping_disabled_logs_waiting_message(self, tmp_path, monkeypatch, caplog):
+        mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks()
+        monkeypatch.setenv("SCRAPING_ENABLED", "false")
+
+        with (
+            patch("src.bind.ConfigManager") as mock_cm,
+            patch("src.bind.MagnetStore", return_value=mock_store),
+            patch("src.bind.BindScraper", return_value=mock_scraper),
+            patch("src.bind.TrackerManager"),
+            patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_executor),
+            patch("src.bind.schedule"),
+            patch("time.sleep", side_effect=SystemExit(0)),
+        ):
+            mock_cm.return_value.read_config.return_value = {}
+            with caplog.at_level(logging.INFO, logger="BIND"):
+                CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
+
+        assert any("Scraping is disabled" in r.message for r in caplog.records)
 
 
 class TestDaemonStartupFailures:
