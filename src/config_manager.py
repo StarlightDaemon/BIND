@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import subprocess
+import tempfile
 
 logger = logging.getLogger("ConfigManager")
 
@@ -159,16 +160,29 @@ class ConfigManager:
 
         content = "\n".join(lines) + "\n"
 
+        config_dir = os.path.dirname(self.config_path) or "."
+        tmp_path: str | None = None
         try:
-            with open(self.config_path, "w", encoding="utf-8") as f:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                try:
+            fd, tmp_path = tempfile.mkstemp(dir=config_dir, prefix=".config_tmp_")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
                     f.write(content)
-                finally:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                    f.flush()
+                    os.fsync(f.fileno())
+            except Exception:
+                os.close(fd)
+                raise
+            os.replace(tmp_path, self.config_path)
+            tmp_path = None  # replacement succeeded; no cleanup needed
             return True, "Configuration saved successfully."
         except OSError as e:
             return False, f"Failed to write config: {e}"
+        finally:
+            if tmp_path is not None:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
     def _validate(self, key: str, value: str) -> tuple[bool, str]:
         """

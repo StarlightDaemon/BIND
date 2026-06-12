@@ -311,6 +311,61 @@ class TestRecordScrapeRun:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# FTS trigger sync (TEST-4)
+# ---------------------------------------------------------------------------
+
+
+class TestFtsTriggerSync:
+    """Verify the magnets_au / magnets_ad triggers keep magnets_fts in sync."""
+
+    def test_insert_is_searchable(self, tmp_path):
+        """After insertion, the FTS index finds the record by a word in its title."""
+        store = _store(tmp_path)
+        store.add_magnet(HASH_A, "alpha beta gamma", "2024-01-01")
+        rows, total = store.search("beta")
+        store.close()
+        assert total == 1
+        assert rows[0]["title"] == "alpha beta gamma"
+
+    def test_update_trigger_syncs_fts(self, tmp_path):
+        """After a direct UPDATE on magnets, the FTS index reflects the new title."""
+        store = _store(tmp_path)
+        store.add_magnet(HASH_A, "alpha beta gamma", "2024-01-01")
+
+        # Bypass the ORM layer — direct SQL update to exercise the magnets_au trigger.
+        store._conn.execute(
+            "UPDATE magnets SET title = 'delta epsilon' WHERE info_hash = ?", (HASH_A,)
+        )
+
+        rows_new, total_new = store.search("epsilon")
+        rows_old, total_old = store.search("beta")
+        store.close()
+
+        assert total_new == 1, "Updated title should be findable via FTS"
+        assert rows_new[0]["title"] == "delta epsilon"
+        assert total_old == 0, "Old title should no longer appear in FTS"
+
+    def test_delete_trigger_removes_from_fts(self, tmp_path):
+        """After a direct DELETE from magnets, FTS returns nothing and fts rowcount is 0."""
+        store = _store(tmp_path)
+        store.add_magnet(HASH_A, "alpha beta gamma", "2024-01-01")
+
+        # Direct DELETE to exercise the magnets_ad trigger.
+        store._conn.execute("DELETE FROM magnets WHERE info_hash = ?", (HASH_A,))
+
+        rows_alpha, _ = store.search("alpha")
+        rows_gamma, _ = store.search("gamma")
+        fts_count = store._conn.execute(
+            "SELECT count(*) FROM magnets_fts WHERE magnets_fts MATCH 'alpha'"
+        ).fetchone()[0]
+        store.close()
+
+        assert rows_alpha == [] or len(rows_alpha) == 0
+        assert rows_gamma == [] or len(rows_gamma) == 0
+        assert fts_count == 0
+
+
 class TestWALProbe:
     def test_wal_probe_does_not_raise_on_local_path(self, tmp_path):
         """MagnetStore on a local tmp_path must not raise (WAL works locally)."""

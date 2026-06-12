@@ -1,5 +1,6 @@
 import concurrent.futures
 import logging
+import logging.handlers
 import os
 import shutil
 import signal
@@ -23,7 +24,12 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(os.path.join(get_logs_dir(), "bind.log"), encoding="utf-8"),
+        logging.handlers.RotatingFileHandler(
+            os.path.join(get_logs_dir(), "bind.log"),
+            maxBytes=10 * 1024 * 1024,
+            backupCount=3,
+            encoding="utf-8",
+        ),
     ],
 )
 logger = logging.getLogger("BIND")
