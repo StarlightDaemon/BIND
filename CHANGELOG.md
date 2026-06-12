@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed: `/api/magnets` now requires session authentication. (SEC-1)
 - Fixed: retry engine now classifies transient network errors by real library exception types (RES-2).
 
+### Security
+- Fixed: `get_client_ip()` now uses rightmost-untrusted X-Forwarded-For parsing against a configurable trusted-proxy set (`BIND_TRUSTED_PROXIES`, default `127.0.0.1/32,::1/128`), closing the XFF spoofing and containerized-proxy fail-open holes in the IP allowlist. Default behavior is unchanged when the key is unset. (SEC-3)
+
 ## [1.2.1] - 2026-01-15 (Verified 2026-01-26)
 
 ### 🚀 Status Update

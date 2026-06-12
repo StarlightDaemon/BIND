@@ -295,6 +295,43 @@ class TestNewValidators:
         assert "ftp://host:21" in msg
 
 
+class TestCidrListValidator:
+    """SEC-3: cidr_list validator (modeled on proxy_list) for trusted-proxy CIDRs."""
+
+    def _cm(self):
+        cm = ConfigManager()
+        # Register the validator against a throwaway key on the instance so the
+        # validator logic is exercised without coupling to DEFAULTS placement.
+        cm.VALIDATORS = {**cm.VALIDATORS, "TEST_CIDRS": "cidr_list"}
+        return cm
+
+    def test_empty_valid(self):
+        assert self._cm()._validate("TEST_CIDRS", "") == (True, "")
+
+    def test_single_ipv4_cidr_valid(self):
+        assert self._cm()._validate("TEST_CIDRS", "127.0.0.1/32") == (True, "")
+
+    def test_single_ipv6_cidr_valid(self):
+        assert self._cm()._validate("TEST_CIDRS", "::1/128") == (True, "")
+
+    def test_bare_ip_valid(self):
+        # ip_network with strict=False accepts a bare host address.
+        assert self._cm()._validate("TEST_CIDRS", "10.0.0.5") == (True, "")
+
+    def test_comma_separated_valid(self):
+        ok, _ = self._cm()._validate("TEST_CIDRS", "127.0.0.1/32, ::1/128, 172.18.0.0/16")
+        assert ok is True
+
+    def test_invalid_entry_rejected(self):
+        ok, msg = self._cm()._validate("TEST_CIDRS", "127.0.0.1/32, not-a-cidr")
+        assert ok is False
+        assert "not-a-cidr" in msg
+
+    def test_invalid_prefix_rejected(self):
+        ok, msg = self._cm()._validate("TEST_CIDRS", "192.168.0.0/99")
+        assert ok is False
+
+
 class TestConfigManagerInitPaths:
     def test_uses_opt_bind_path_when_it_exists(self, monkeypatch):
         monkeypatch.setattr(
