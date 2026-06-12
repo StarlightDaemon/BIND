@@ -24,17 +24,16 @@ All six prompts ran. Coverage jumped from 76.54% → 97.50%, far exceeding the 8
 
 ---
 
-## Wave 2 — Ready to ship
+## Wave 2 — COMPLETE ✅ (verified 2026-06-12)
 
-B and E are reviewed and ready. Each appends to a file Wave 1 already modified —
-do not run until the Wave 1 commit is on main.
+Verification agents confirmed all Wave 2 targets were already covered by tests
+present in the tree (uncommitted leftovers from earlier runs, landed in commit
+e431099). No new tests were needed. Suite: 455 passed, 97.18% coverage.
 
-| | Prompt | Model | Est. gain | Prereq |
+| | Prompt | Model | Est. gain | Status |
 |---|---|---|---|---|
-| B | [wave2-b-rss-csrf-setup.md](wave2-b-rss-csrf-setup.md) | 🔵 Claude Sonnet | +1.5% | A committed ✅ |
-| E | [wave2-e-scraper-parse-strategies.md](wave2-e-scraper-parse-strategies.md) | 🔵 Claude Sonnet | +1.2% | D committed ✅ |
-
-Both can run simultaneously. Expected coverage after Wave 2: 98%+.
+| B | [wave2-b-rss-csrf-setup.md](wave2-b-rss-csrf-setup.md) | 🔵 Claude Sonnet | +1.5% | ✅ Already covered |
+| E | [wave2-e-scraper-parse-strategies.md](wave2-e-scraper-parse-strategies.md) | 🔵 Claude Sonnet | +1.2% | ✅ Already covered |
 
 ---
 
