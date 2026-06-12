@@ -25,11 +25,16 @@ F = TypeVar("F", bound=Callable[..., Any])
 # Constants
 # =============================================================================
 
-CREDENTIALS_VERSION = 2
+CREDENTIALS_VERSION = 3
 PASSWORD_MIN_LENGTH = 8
 PASSWORD_PATTERN = r"^(?=.*[0-9!@#$%^&*()\-_=+\[\]{}|;:,.<>?]).{8,}$"
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 15
+# A distributed attack spread across many source IPs would never trip any single
+# per-IP counter. The global counter is kept as a ceiling: once total failures
+# across all IPs reach this many, the account locks globally regardless of source.
+GLOBAL_LOCKOUT_MULTIPLIER = 5
+GLOBAL_MAX_FAILED_ATTEMPTS = MAX_FAILED_ATTEMPTS * GLOBAL_LOCKOUT_MULTIPLIER  # 25
 _IP_BLOCKED_LAST_LOG: dict[str, float] = {}  # IP → monotonic timestamp of last logged event
 _IP_BLOCKED_RATE_LIMIT_SECS = 60.0
 
@@ -161,18 +166,37 @@ def load_credentials() -> dict[str, Any]:
 
 
 def _migrate_credentials(creds: dict[str, Any]) -> dict[str, Any]:
-    """Migrate credentials to latest version."""
+    """
+    Migrate credentials to the latest schema version.
+
+    Migration is incremental (v1 → v2 → v3) and idempotent: every step uses
+    ``setdefault`` so existing fields — including an active ``locked_until`` /
+    ``failed_attempts`` lockout — are preserved untouched.
+    """
     version = creds.get("version", 1)
+    dirty = False
 
     if version < 2:
         # Add v2 fields
         creds["version"] = 2
+        version = 2
         creds.setdefault("updated_at", creds.get("created_at"))
         creds.setdefault("failed_attempts", 0)
         creds.setdefault("locked_until", None)
         creds.setdefault("last_login", None)
         creds.setdefault("last_login_ip", None)
+        dirty = True
 
+    if version < 3:
+        # v3 adds per-IP failure tracking. The existing global failed_attempts /
+        # locked_until are deliberately left as-is (they remain the global
+        # ceiling), so an account that is currently locked stays locked.
+        creds["version"] = 3
+        version = 3
+        creds.setdefault("failed_by_ip", {})
+        dirty = True
+
+    if dirty:
         # Save migrated credentials
         _save_credentials_raw(creds)
 
@@ -192,6 +216,100 @@ def _save_credentials_raw(creds: dict[str, Any]) -> bool:
         return True
     except OSError:
         return False
+
+
+def _locked_update(mutator: Callable[[dict[str, Any]], dict[str, Any]]) -> bool:
+    """
+    Apply ``mutator`` to the credentials file under a single exclusive lock held
+    across the full read-modify-write cycle.
+
+    Opens the file ``r+``, takes ``fcntl.LOCK_EX``, loads the current JSON,
+    runs the (possibly migrating) mutator, then ``seek(0)`` / write / ``truncate``
+    while still holding the lock. This closes the lost-update race between
+    concurrent gunicorn workers, where locks previously covered only the
+    individual read and write.
+
+    Returns False (without raising) if the file is missing or unreadable, so
+    callers keep their historical "no creds → silent no-op" behaviour.
+    """
+    try:
+        with open(CREDENTIALS_FILE, "r+", encoding="utf-8") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                try:
+                    creds = json.load(f)
+                except json.JSONDecodeError:
+                    return False
+
+                # Migrate in-place under the lock so a v1/v2 file gains the v3
+                # fields before mutation, without a second unlocked write.
+                if creds.get("version", 1) < CREDENTIALS_VERSION:
+                    creds = _migrate_in_place(creds)
+
+                creds = mutator(creds)
+
+                f.seek(0)
+                json.dump(creds, f, indent=2)
+                f.truncate()
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        os.chmod(CREDENTIALS_FILE, 0o600)
+        return True
+    except OSError:
+        return False
+
+
+def _migrate_in_place(creds: dict[str, Any]) -> dict[str, Any]:
+    """
+    Schema upgrade used inside _locked_update — same field additions as
+    _migrate_credentials but WITHOUT writing (the caller already holds the lock
+    and will persist). Idempotent and lockout-preserving.
+    """
+    version = creds.get("version", 1)
+    if version < 2:
+        creds["version"] = 2
+        version = 2
+        creds.setdefault("updated_at", creds.get("created_at"))
+        creds.setdefault("failed_attempts", 0)
+        creds.setdefault("locked_until", None)
+        creds.setdefault("last_login", None)
+        creds.setdefault("last_login_ip", None)
+    if version < 3:
+        creds["version"] = 3
+        creds.setdefault("failed_by_ip", {})
+    return creds
+
+
+def _now_iso() -> str:
+    """Return the current UTC time as a 'Z'-suffixed ISO-8601 string."""
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+
+def _is_locked_until(locked_until: Any) -> bool:
+    """True if the given ISO timestamp is a still-active lockout (future)."""
+    if not locked_until:
+        return False
+    try:
+        locked_time = datetime.fromisoformat(str(locked_until).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return False
+    return datetime.now(timezone.utc) < locked_time
+
+
+def _prune_ip_entries(failed_by_ip: dict[str, Any]) -> dict[str, Any]:
+    """
+    Drop per-IP entries that are both expired (no active lockout) and have a
+    zero count, so the file does not grow unboundedly. Kept entries are those
+    still counting toward a lockout or currently locked.
+    """
+    pruned: dict[str, Any] = {}
+    for ip, entry in failed_by_ip.items():
+        if not isinstance(entry, dict):
+            continue
+        count = int(entry.get("count", 0) or 0)
+        if count > 0 or _is_locked_until(entry.get("locked_until")):
+            pruned[ip] = entry
+    return pruned
 
 
 def validate_password(password: str) -> tuple[bool, str]:
@@ -241,6 +359,7 @@ def save_credentials(username: str, password: str, ip: str = "") -> tuple[bool, 
         "updated_at": now,
         "failed_attempts": 0,
         "locked_until": None,
+        "failed_by_ip": {},
         "last_login": None,
         "last_login_ip": None,
     }
@@ -297,31 +416,51 @@ def change_password(current_password: str, new_password: str, ip: str = "") -> t
         return False, "Failed to save new password."
 
 
-def is_account_locked() -> tuple[bool, int | None]:
+def _minutes_remaining(locked_until: Any) -> int:
+    """Whole minutes (rounded up, min 1) until the given ISO lockout expires."""
+    locked_time = datetime.fromisoformat(str(locked_until).replace("Z", "+00:00"))
+    remaining = (locked_time - datetime.now(timezone.utc)).total_seconds() / 60
+    return int(remaining) + 1
+
+
+def is_account_locked(ip: str | None = None) -> tuple[bool, int | None]:
     """
-    Check if account is currently locked.
+    Check whether authentication is currently locked.
+
+    Two layers are evaluated:
+      1. Global ceiling (``locked_until`` / ``failed_attempts``): trips only at
+         GLOBAL_MAX_FAILED_ATTEMPTS total failures across all source IPs, so a
+         distributed attack is still stopped while a single misbehaving IP can
+         no longer DoS the only account.
+      2. Per-IP lockout (``failed_by_ip[ip]``): today's semantics (5 failures →
+         15 min) scoped to the requesting source IP.
+
+    When ``ip`` is None only the global ceiling is checked (used by callers that
+    have no request context).
+
+    Expired lockouts are cleared in place under an exclusive lock; clearing the
+    global lockout emits ACCOUNT_UNLOCKED exactly as before.
 
     Returns:
         Tuple of (is_locked: bool, minutes_remaining: Optional[int])
     """
     creds = load_credentials()
-
-    locked_until = creds.get("locked_until")
-    if not locked_until:
+    if not creds:
         return False, None
 
-    try:
-        locked_time = datetime.fromisoformat(locked_until.replace("Z", "+00:00"))
-        now = datetime.now(timezone.utc)
+    # --- Global ceiling -----------------------------------------------------
+    global_locked_until = creds.get("locked_until")
+    if global_locked_until:
+        if _is_locked_until(global_locked_until):
+            return True, _minutes_remaining(global_locked_until)
+        # Global lockout expired — clear it (and reset the global counter) under
+        # the lock, preserving the ACCOUNT_UNLOCKED audit event.
+        def _clear_global(c: dict[str, Any]) -> dict[str, Any]:
+            c["locked_until"] = None
+            c["failed_attempts"] = 0
+            return c
 
-        if now < locked_time:
-            remaining = (locked_time - now).total_seconds() / 60
-            return True, int(remaining) + 1
-        else:
-            # Lockout expired, clear it
-            creds["locked_until"] = None
-            creds["failed_attempts"] = 0
-            _save_credentials_raw(creds)
+        if _locked_update(_clear_global):
             try:
                 client_ip = get_client_ip(request)
             except RuntimeError:
@@ -331,54 +470,116 @@ def is_account_locked() -> tuple[bool, int | None]:
                 creds.get("username", "unknown"),
                 client_ip,
             )
-            return False, None
-    except (ValueError, TypeError):
-        return False, None
+
+    # --- Per-IP lockout -----------------------------------------------------
+    if ip:
+        entry = creds.get("failed_by_ip", {}).get(ip)
+        if entry and _is_locked_until(entry.get("locked_until")):
+            return True, _minutes_remaining(entry["locked_until"])
+
+    return False, None
 
 
 def record_failed_login(ip: str) -> None:
-    """Record a failed login attempt and lock account if threshold exceeded."""
-    creds = load_credentials()
-    if not creds:
+    """
+    Record a failed login attempt.
+
+    Increments both the per-IP counter (locking that IP at MAX_FAILED_ATTEMPTS)
+    and the global counter (locking the whole account at the
+    GLOBAL_MAX_FAILED_ATTEMPTS ceiling). The full read-modify-write runs under a
+    single exclusive lock so concurrent workers cannot lose an increment.
+
+    Audit events (LOGIN_FAILED, ACCOUNT_LOCKED) are emitted after the locked
+    write using the values captured during mutation.
+    """
+    events: dict[str, Any] = {}
+
+    def _mutate(creds: dict[str, Any]) -> dict[str, Any]:
+        # Global counter
+        creds["failed_attempts"] = int(creds.get("failed_attempts", 0)) + 1
+        events["global_attempts"] = creds["failed_attempts"]
+        events["username"] = creds.get("username", "unknown")
+
+        # Per-IP counter
+        failed_by_ip = creds.get("failed_by_ip", {})
+        if not isinstance(failed_by_ip, dict):
+            failed_by_ip = {}
+        entry = failed_by_ip.get(ip) or {"count": 0, "locked_until": None}
+        entry["count"] = int(entry.get("count", 0)) + 1
+        events["ip_attempts"] = entry["count"]
+
+        # Per-IP lockout
+        if entry["count"] >= MAX_FAILED_ATTEMPTS:
+            lock_time = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+            entry["locked_until"] = lock_time.isoformat(timespec="microseconds").replace(
+                "+00:00", "Z"
+            )
+            events["ip_locked"] = True
+        failed_by_ip[ip] = entry
+
+        # Prune stale entries (expired + zero count); the active entry survives.
+        creds["failed_by_ip"] = _prune_ip_entries(failed_by_ip)
+
+        # Global ceiling lockout
+        if creds["failed_attempts"] >= GLOBAL_MAX_FAILED_ATTEMPTS:
+            lock_time = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+            creds["locked_until"] = lock_time.isoformat(timespec="microseconds").replace(
+                "+00:00", "Z"
+            )
+            events["global_locked"] = True
+        return creds
+
+    if not _locked_update(_mutate):
         return
 
-    creds["failed_attempts"] = creds.get("failed_attempts", 0) + 1
-
-    log_security_event(
-        "LOGIN_FAILED", creds.get("username", "unknown"), ip, f"attempt={creds['failed_attempts']}"
-    )
-
-    if creds["failed_attempts"] >= MAX_FAILED_ATTEMPTS:
-        # Lock account
-        lock_time = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
-        creds["locked_until"] = lock_time.isoformat(timespec="microseconds").replace("+00:00", "Z")
+    username = events.get("username", "unknown")
+    log_security_event("LOGIN_FAILED", username, ip, f"attempt={events.get('ip_attempts')}")
+    if events.get("ip_locked"):
         log_security_event(
             "ACCOUNT_LOCKED",
-            creds.get("username", "unknown"),
+            username,
             ip,
-            f"duration={LOCKOUT_DURATION_MINUTES}min",
+            f"scope=ip duration={LOCKOUT_DURATION_MINUTES}min",
         )
-
-    _save_credentials_raw(creds)
+    if events.get("global_locked"):
+        log_security_event(
+            "ACCOUNT_LOCKED",
+            username,
+            ip,
+            f"scope=global duration={LOCKOUT_DURATION_MINUTES}min",
+        )
 
 
 def record_successful_login(ip: str) -> None:
-    """Record a successful login attempt."""
-    creds = load_credentials()
-    if not creds:
+    """
+    Record a successful login.
+
+    A successful auth proves the credential, so this clears the global counter
+    and lockout and removes this IP's failure entry. Other IPs' counters are
+    intentionally left intact (a successful login from one source does not prove
+    that concurrent attempts from a different source are benign). The full
+    read-modify-write runs under a single exclusive lock.
+    """
+    events: dict[str, Any] = {}
+
+    def _mutate(creds: dict[str, Any]) -> dict[str, Any]:
+        events["username"] = creds.get("username", "unknown")
+        creds["failed_attempts"] = 0
+        creds["locked_until"] = None
+        failed_by_ip = creds.get("failed_by_ip", {})
+        if isinstance(failed_by_ip, dict):
+            failed_by_ip.pop(ip, None)
+            creds["failed_by_ip"] = _prune_ip_entries(failed_by_ip)
+        else:
+            creds["failed_by_ip"] = {}
+        creds["last_login"] = _now_iso()
+        creds["last_login_ip"] = ip
+        return creds
+
+    if not _locked_update(_mutate):
         return
 
-    # Clear failed attempts
-    creds["failed_attempts"] = 0
-    creds["locked_until"] = None
-    creds["last_login"] = (
-        datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
-    )
-    creds["last_login_ip"] = ip
-
-    log_security_event("LOGIN_SUCCESS", creds.get("username", "unknown"), ip)
-
-    _save_credentials_raw(creds)
+    log_security_event("LOGIN_SUCCESS", events.get("username", "unknown"), ip)
 
 
 def verify_credentials(username: str, password: str, ip: str = "") -> bool:
@@ -388,8 +589,8 @@ def verify_credentials(username: str, password: str, ip: str = "") -> bool:
     if not creds:
         return False
 
-    # Check if locked
-    is_locked, minutes = is_account_locked()
+    # Check if locked (per-IP + global ceiling)
+    is_locked, minutes = is_account_locked(ip=ip or None)
     if is_locked:
         return False
 
@@ -632,8 +833,8 @@ def requires_auth(f: F) -> F:
         if os.getenv("BIND_AUTH_ENABLED", "true").lower() == "false":
             return f(*args, **kwargs)
 
-        # Check if locked
-        is_locked, minutes = is_account_locked()
+        # Check if locked (per-IP for this client + global ceiling)
+        is_locked, minutes = is_account_locked(ip=get_client_ip(request))
         if is_locked:
             return Response(
                 f"Account locked. Try again in {minutes} minutes.",

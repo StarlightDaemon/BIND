@@ -329,10 +329,11 @@ class TestMigrateCredentials:
         from src.security import _migrate_credentials
 
         result = _migrate_credentials(v1_creds.copy())
-        assert result["version"] == 2
+        assert result["version"] == 3
         assert "failed_attempts" in result
         assert "locked_until" in result
         assert "last_login" in result
+        assert result["failed_by_ip"] == {}
 
     def test_load_credentials_triggers_migration(self, tmp_path, monkeypatch):
         """load_credentials auto-migrates v1 creds when file contains version=1."""
@@ -353,7 +354,7 @@ class TestMigrateCredentials:
         monkeypatch.setattr(sec, "CREDENTIALS_FILE", cred_path)
 
         result = sec.load_credentials()
-        assert result["version"] == 2
+        assert result["version"] == 3
         assert result.get("failed_attempts") == 0
 
 

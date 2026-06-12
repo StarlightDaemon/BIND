@@ -30,6 +30,7 @@ class ConfigManager:
         "BIND_IP_FILTER": "true",
         "BIND_AUTH_ENABLED": "true",
         "SCRAPING_ENABLED": "true",
+        "BIND_COOKIE_SECURE": "false",
     }
 
     # Validation rules: (min, max) for integers, 'url' for URLs, 'proxy' for proxy URLs
@@ -45,6 +46,7 @@ class ConfigManager:
         "BIND_IP_FILTER": "boolean",
         "BIND_AUTH_ENABLED": "boolean",
         "SCRAPING_ENABLED": "boolean",
+        "BIND_COOKIE_SECURE": "boolean",
     }
 
     def __init__(self, config_path: str | None = None):

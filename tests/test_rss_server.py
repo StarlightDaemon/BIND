@@ -773,3 +773,147 @@ class TestCsrfFormValidToken:
             sess["csrf_token"] = "valid-token"
         resp = client.post("/some-page", data={"csrf_token": "valid-token"})
         assert resp.status_code != 403
+
+
+# ---------------------------------------------------------------------------
+# Wave 4-C — TEST-2: CSRF binding-depth (cross-channel, cross-session, rotation)
+# ---------------------------------------------------------------------------
+
+
+class TestCsrfBindingDepth:
+    def test_api_route_rejects_form_field_token(self, client):
+        """Cross-channel: a valid token supplied only as a *form field* (not the
+        X-CSRF-Token header) must be rejected on an /api/ route → 403."""
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "the-token"
+        # Token is sent as a form field, never as the header the /api/ path reads.
+        resp = client.post("/api/login", data={"csrf_token": "the-token"})
+        assert resp.status_code == 403
+
+    def test_token_from_other_session_rejected(self, client):
+        """Cross-session: a token obtained in client A's session is rejected when
+        replayed from a fresh client B → 403."""
+        # Client A obtains a token bound to its own session.
+        client.get("/api/csrf-token")
+        with client.session_transaction() as sess:
+            token_a = sess["csrf_token"]
+
+        # Client B is a brand-new session with no csrf_token.
+        client_b = client.application.test_client()
+        resp = client_b.post(
+            "/api/login",
+            json={"username": "x", "password": "y"},
+            headers={"X-CSRF-Token": token_a},
+        )
+        assert resp.status_code == 403
+
+    def test_csrf_token_rotates_on_login(self, client, monkeypatch):
+        """Rotation: the CSRF token before login differs from the one after a
+        successful login."""
+        monkeypatch.setattr("src.rss_server.verify_credentials", lambda u, p, ip="": True)
+        # Establish a pre-login token.
+        client.get("/api/csrf-token")
+        with client.session_transaction() as sess:
+            token_before = sess["csrf_token"]
+
+        resp = client.post(
+            "/api/login",
+            json={"username": "admin", "password": "secret"},
+            headers={"X-CSRF-Token": token_before},
+        )
+        assert resp.status_code == 200
+        with client.session_transaction() as sess:
+            token_after = sess.get("csrf_token")
+        assert token_after is not None
+        assert token_after != token_before
+
+    def test_login_clears_pre_auth_session(self, client, monkeypatch):
+        """Session-fixation hygiene: a planted pre-auth session key does not
+        survive a successful login (session.clear() ran)."""
+        monkeypatch.setattr("src.rss_server.verify_credentials", lambda u, p, ip="": True)
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "pre-login"
+            sess["attacker_planted"] = "value"
+        resp = client.post(
+            "/api/login",
+            json={"username": "admin", "password": "secret"},
+            headers={"X-CSRF-Token": "pre-login"},
+        )
+        assert resp.status_code == 200
+        with client.session_transaction() as sess:
+            assert "attacker_planted" not in sess
+            assert sess.get("authenticated") is True
+
+
+# ---------------------------------------------------------------------------
+# Wave 4-C — SEC-6: secret-key ordering, ephemeral CRITICAL log, Secure cookie
+# ---------------------------------------------------------------------------
+
+
+class TestSecretKeyOrdering:
+    def test_secret_key_resolved_after_config_load(self):
+        """The secret key must be set on the app (config load precedes the
+        resolution at import time, so this never raises)."""
+        from src.rss_server import app
+
+        assert app.secret_key
+
+    def test_ephemeral_fallback_logs_critical(self, tmp_path, monkeypatch, caplog):
+        import builtins
+        import logging
+
+        import src.rss_server as rss
+
+        monkeypatch.delenv("FLASK_SECRET_KEY", raising=False)
+        # No existing key file, and writing one raises OSError → ephemeral branch.
+        monkeypatch.setattr(rss.os.path, "isfile", lambda p: False)
+        real_open = builtins.open
+
+        def fake_open(*args, **kwargs):
+            if args and str(args[0]).endswith(".secret_key"):
+                raise OSError("unwritable")
+            return real_open(*args, **kwargs)
+
+        monkeypatch.setattr(builtins, "open", fake_open)
+        with caplog.at_level(logging.CRITICAL, logger="rss_server"):
+            key = rss._resolve_secret_key(str(tmp_path))
+        assert key  # ephemeral key still returned
+        assert any(r.levelno == logging.CRITICAL for r in caplog.records)
+        assert any("worker" in r.getMessage().lower() for r in caplog.records)
+
+
+class TestCookieSecureConfig:
+    def test_cookie_secure_present_in_defaults(self):
+        from src.config_manager import ConfigManager
+
+        assert "BIND_COOKIE_SECURE" in ConfigManager.DEFAULTS
+        assert ConfigManager.DEFAULTS["BIND_COOKIE_SECURE"] == "false"
+        assert ConfigManager.VALIDATORS["BIND_COOKIE_SECURE"] == "boolean"
+
+    def test_settings_post_preserves_cookie_secure(self, client, monkeypatch):
+        """A UI settings save must not reset BIND_COOKIE_SECURE: the route carries
+        the stored value through from read_config() (ARCH-4 clobber guard)."""
+        captured = {}
+
+        def fake_read_config():
+            return {"BIND_COOKIE_SECURE": "true"}
+
+        def fake_write_config(cfg):
+            captured.update(cfg)
+            return True, "ok"
+
+        monkeypatch.setenv("BIND_AUTH_ENABLED", "false")
+        monkeypatch.setattr("src.rss_server.config_manager.read_config", fake_read_config)
+        monkeypatch.setattr("src.rss_server.config_manager.write_config", fake_write_config)
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.restart_daemon", lambda: (True, "restarted")
+        )
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = "t"
+        resp = client.post(
+            "/api/settings",
+            json={"ABB_URL": "http://example.com", "SCRAPE_INTERVAL": "60"},
+            headers={"X-CSRF-Token": "t"},
+        )
+        assert resp.status_code == 200
+        assert captured["BIND_COOKIE_SECURE"] == "true"

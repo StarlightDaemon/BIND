@@ -8,6 +8,7 @@ Lightweight Flask server that reads from SQLite and serves:
 - Health check at /health
 """
 
+import hmac
 import logging
 import math
 import os
@@ -110,12 +111,28 @@ def _resolve_secret_key(data_dir: str) -> str:
         return key
     except OSError:
         key = secrets.token_hex(32)
-        logger.warning(
-            "FLASK_SECRET_KEY not set and data dir is not writable — "
-            "using ephemeral key; sessions reset on every restart."
+        logger.critical(
+            "FLASK_SECRET_KEY not set and data dir is not writable — using an "
+            "EPHEMERAL key. Sessions reset on every restart, and under gunicorn "
+            "EACH worker generates its own key, so sessions/CSRF tokens signed by "
+            "one worker are rejected by the others (login appears to fail at "
+            "random). Set FLASK_SECRET_KEY or fix data-dir permissions."
         )
         return key
 
+
+# Load config.env into the environment BEFORE resolving the secret key: the key
+# file location is derived from BIND_DB_PATH, which an operator may set only in
+# config.env (not the process environment). Resolving the key first would put
+# the key file in the wrong data dir (SEC-6 ordering fix).
+try:
+    _config_mgr = ConfigManager()
+    _config = _config_mgr.read_config()
+    for _key, _value in _config.items():
+        if _key not in os.environ:
+            os.environ[_key] = str(_value)
+except Exception as e:
+    logger.warning(f"Failed to load config.env: {e}")
 
 app.secret_key = _resolve_secret_key(
     os.path.dirname(os.path.abspath(os.getenv("BIND_DB_PATH", "data/bind.db")))
@@ -123,6 +140,7 @@ app.secret_key = _resolve_secret_key(
 
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("BIND_COOKIE_SECURE", "false").lower() == "true"
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
 
 
@@ -133,15 +151,6 @@ def _add_security_headers(response: Response) -> Response:
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     return response
 
-
-try:
-    _config_mgr = ConfigManager()
-    _config = _config_mgr.read_config()
-    for _key, _value in _config.items():
-        if _key not in os.environ:
-            os.environ[_key] = str(_value)
-except Exception as e:
-    logger.warning(f"Failed to load config.env: {e}")
 
 BIND_DB_PATH = os.getenv("BIND_DB_PATH", "data/bind.db")
 FEED_TITLE = "BIND - Book Indexing Network"
@@ -169,7 +178,9 @@ def generate_csrf_token() -> str:
 def _validate_csrf_form() -> None:
     token = session.get("csrf_token")
     form_token = request.form.get("csrf_token")
-    if not token or token != form_token:
+    # Guard for None before compare_digest (it raises on None) and use a
+    # constant-time comparison to avoid leaking the token via timing.
+    if not token or not form_token or not hmac.compare_digest(token, form_token):
         log_security_event("CSRF_FAILED", "-", get_client_ip(request), f"path={request.path}")
         abort(403, description="CSRF token missing or invalid.")
 
@@ -177,7 +188,7 @@ def _validate_csrf_form() -> None:
 def _validate_csrf_json() -> None:
     token = session.get("csrf_token")
     request_token = request.headers.get("X-CSRF-Token")
-    if not token or token != request_token:
+    if not token or not request_token or not hmac.compare_digest(token, request_token):
         log_security_event("CSRF_FAILED", "-", get_client_ip(request), f"path={request.path}")
         abort(403, description="CSRF token missing or invalid.")
 
@@ -358,8 +369,14 @@ def api_login() -> Any:
     username = data.get("username", "")
     password = data.get("password", "")
     if verify_credentials(username, password, ip=get_client_ip(request)):
+        # Session-fixation hygiene (SEC-9): drop any pre-auth session before
+        # marking authenticated. Then rotate the CSRF token (SEC-8) so a token
+        # issued pre-login does not survive privilege elevation.
+        session.clear()
         session["authenticated"] = True
         session.permanent = True
+        session.pop("csrf_token", None)
+        generate_csrf_token()
         return jsonify({"ok": True})
     return jsonify({"error": "Invalid credentials"}), 401
 
@@ -519,6 +536,7 @@ def api_settings_get() -> Any:
 @requires_session_auth
 def api_settings_post() -> Any:
     data = request.get_json(silent=True) or {}
+    current = config_manager.read_config()
     new_config = {
         "ABB_URL": str(data.get("ABB_URL", "")).strip(),
         "SCRAPE_INTERVAL": str(data.get("SCRAPE_INTERVAL", "60")).strip(),
@@ -531,6 +549,9 @@ def api_settings_post() -> Any:
         "BIND_IP_FILTER": str(data.get("BIND_IP_FILTER", "true")).strip(),
         "BIND_AUTH_ENABLED": str(data.get("BIND_AUTH_ENABLED", "true")).strip(),
         "SCRAPING_ENABLED": str(data.get("SCRAPING_ENABLED", "true")).strip(),
+        # Not exposed in the Settings UI: carry the stored value through so a UI
+        # save cannot reset it to the default (ARCH-4 clobber shape).
+        "BIND_COOKIE_SECURE": str(current.get("BIND_COOKIE_SECURE", "false")).strip(),
     }
     write_success, write_message = config_manager.write_config(new_config)
     if not write_success:

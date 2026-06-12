@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Fixed: `get_client_ip()` now uses rightmost-untrusted X-Forwarded-For parsing against a configurable trusted-proxy set (`BIND_TRUSTED_PROXIES`, default `127.0.0.1/32,::1/128`), closing the XFF spoofing and containerized-proxy fail-open holes in the IP allowlist. Default behavior is unchanged when the key is unset. (SEC-3)
+- Fixed: secret-key resolution now runs **after** `config.env` is loaded, so a `BIND_DB_PATH` set only in config.env points the key file at the correct data dir. Ephemeral-key fallback (unwritable data dir) now logs `CRITICAL` and warns that each gunicorn worker generates its own key, breaking sessions across workers. (SEC-6)
+- Added: `BIND_COOKIE_SECURE` config key (boolean, default `false`) sets `SESSION_COOKIE_SECURE`. Recommended `true` for TLS/Cloudflare-Tunnel deployments. Admin-managed (not in the Settings UI); a UI save preserves the on-disk value. (SEC-6)
+- Fixed: account lockout is now **per source IP** (5 failures → 15 min for that IP) with the global counter retained as a ceiling (25 total failures across all IPs → global lock). This removes the unauthenticated remote-DoS where any IP could lock the only account. Credentials schema bumped to **v3** (`failed_by_ip`); migration preserves any active lockout. (SEC-7)
+- Fixed: `record_failed_login` / `record_successful_login` / lockout-expiry now hold a single `fcntl.LOCK_EX` across the full read-modify-write, closing the lost-update race between concurrent gunicorn workers. (SEC-7)
+- Fixed: CSRF token comparison now uses `hmac.compare_digest` (constant-time, `None`-guarded), and the token is rotated on successful login so a pre-login token cannot survive privilege elevation. (SEC-8)
+- Fixed: `api_login` now calls `session.clear()` before marking the session authenticated, hardening against session fixation. (SEC-9)
 
 ## [1.2.1] - 2026-01-15 (Verified 2026-01-26)
 
