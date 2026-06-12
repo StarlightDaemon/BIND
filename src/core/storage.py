@@ -21,6 +21,12 @@ _SCHEMA_DDL = [
         items_new  INTEGER NOT NULL DEFAULT 0,
         duration_s REAL    NOT NULL DEFAULT 0.0
     )""",
+    """CREATE TABLE IF NOT EXISTS daemon_heartbeat (
+        id           INTEGER PRIMARY KEY CHECK (id = 1),
+        beat_at      TEXT    NOT NULL,
+        state        TEXT    NOT NULL,
+        interval_min INTEGER NOT NULL
+    )""",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_magnets_info_hash ON magnets(info_hash)",
     "CREATE INDEX IF NOT EXISTS idx_magnets_date_id ON magnets(collected_date DESC, id DESC)",
     """CREATE VIRTUAL TABLE IF NOT EXISTS magnets_fts USING fts5(
@@ -231,6 +237,33 @@ class MagnetStore:
             "INSERT INTO scrape_runs (run_at, result, items_new, duration_s) VALUES (?, ?, ?, ?)",
             (run_at, result, items_new, duration_s),
         )
+
+    def beat(self, state: str, interval_min: int) -> None:
+        """Write the daemon liveness heartbeat (single row, id=1).
+
+        Uses a short-lived connection rather than self._conn: the daemon writes
+        beats from its main thread while a scrape job may be using self._conn on
+        the executor thread (see ARCH-5 / wave 5-C). At a 30s cadence the
+        per-call connect cost is negligible and avoids widening that window.
+        """
+        beat_at = datetime.now(timezone.utc).isoformat()
+        conn = sqlite3.connect(self.db_path, timeout=30.0, isolation_level=None)
+        try:
+            conn.execute("PRAGMA busy_timeout = 5000")
+            conn.execute(
+                "INSERT OR REPLACE INTO daemon_heartbeat (id, beat_at, state, interval_min)"
+                " VALUES (1, ?, ?, ?)",
+                (beat_at, state, interval_min),
+            )
+        finally:
+            conn.close()
+
+    def last_heartbeat(self) -> dict[str, Any] | None:
+        """Return the latest heartbeat row, or None if the daemon never beat."""
+        row = self._conn.execute(
+            "SELECT beat_at, state, interval_min FROM daemon_heartbeat WHERE id = 1"
+        ).fetchone()
+        return dict(row) if row else None
 
     def daily_counts(self, days: int = 30) -> list[dict[str, Any]]:
         """Return per-day magnet counts for the last `days` days, zero-filled."""
