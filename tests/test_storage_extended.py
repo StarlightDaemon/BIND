@@ -378,3 +378,28 @@ class TestWALProbe:
         store.add_magnet(HASH_A, "Probed Book", TODAY)
         assert store.has_hash(HASH_A) is True
         store.close()
+
+
+class TestDaemonHeartbeat:
+    def test_beat_and_last_heartbeat_roundtrip(self, tmp_path):
+        store = MagnetStore(str(tmp_path / "hb.db"))
+        assert store.last_heartbeat() is None
+        store.beat("idle", 60)
+        hb = store.last_heartbeat()
+        assert hb is not None
+        assert hb["state"] == "idle"
+        assert hb["interval_min"] == 60
+        assert hb["beat_at"]
+        store.close()
+
+    def test_beat_replaces_single_row(self, tmp_path):
+        store = MagnetStore(str(tmp_path / "hb2.db"))
+        store.beat("idle", 60)
+        store.beat("scraping", 30)
+        # INSERT OR REPLACE on id=1 — exactly one row, latest state wins.
+        count = store._conn.execute("SELECT COUNT(*) FROM daemon_heartbeat").fetchone()[0]
+        assert count == 1
+        hb = store.last_heartbeat()
+        assert hb["state"] == "scraping"
+        assert hb["interval_min"] == 30
+        store.close()

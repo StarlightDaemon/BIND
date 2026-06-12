@@ -274,22 +274,38 @@ def check_daemon_status() -> tuple[str, str, float]:
     try:
         config = config_manager.read_config()
         interval = int(config.get("SCRAPE_INTERVAL", 60))
-        log_path = os.path.join(get_logs_dir(), "bind.log")
 
+        # Primary signal: the daemon's heartbeat row in the shared SQLite DB —
+        # the only channel both processes share in every deployment mode (ARCH-1).
+        hb = store.last_heartbeat()
+        if hb is not None:
+            beat_at = datetime.fromisoformat(hb["beat_at"])
+            if beat_at.tzinfo is None:
+                beat_at = beat_at.replace(tzinfo=timezone.utc)
+            ts = beat_at.timestamp()
+            age_s = (datetime.now(timezone.utc) - beat_at).total_seconds()
+            if hb["state"] == "disabled":
+                return "online", "Scraping disabled", ts
+            if age_s <= 90:
+                return "online", f"Active ({hb['state']}, beat {int(age_s)}s ago)", ts
+            return "offline", f"No heartbeat for {int(age_s)}s", ts
+
+        # Fallback: no heartbeat row (old daemon, or before its first beat).
+        # Degrade to the legacy log-mtime heuristic so a new RSS server against an
+        # old daemon does not report a dead daemon.
+        # REMOVE in the release after daemon heartbeat ships.
+        log_path = os.path.join(get_logs_dir(), "bind.log")
         if not os.path.exists(log_path):
             return "unknown", "Log file not found", 0
-
         mtime = os.path.getmtime(log_path)
         last_active = datetime.fromtimestamp(mtime, tz=timezone.utc)
-        now = datetime.now(timezone.utc)
-        diff_minutes = (now - last_active).total_seconds() / 60
-
+        diff_minutes = (datetime.now(timezone.utc) - last_active).total_seconds() / 60
         if diff_minutes < (interval * 2) + 5:
             return "online", f"Active (Last job: {int(diff_minutes)}m ago)", mtime
-        else:
-            return "offline", f"Stalled (Last job: {int(diff_minutes)}m ago)", mtime
+        return "offline", f"Stalled (Last job: {int(diff_minutes)}m ago)", mtime
     except Exception as e:
-        return "unknown", f"Error checking status: {str(e)}", 0
+        logger.warning("Error checking daemon status: %s", e)
+        return "unknown", "Error checking daemon status", 0
 
 
 # =============================================================================
@@ -341,15 +357,16 @@ def feed() -> Response:
 
 @app.route("/health")
 def health() -> dict[str, Any]:
-    if time.monotonic() > _probe_cache["expires"]:
-        _probe_cache["result"] = BindScraper().probe_target()
-        _probe_cache["expires"] = time.monotonic() + 300
+    # DB-only: a container HEALTHCHECK target must not depend on a third party's
+    # reachability or block on a 10s outbound probe. The ABB probe moved to
+    # /api/stats (authenticated, polled). (DEP-2)
     db_stats = store.stats()
+    daemon_status, _, _ = check_daemon_status()
     return {
         "status": "ok",
         "magnet_count": db_stats["total"],
         "last_date": db_stats["last_date"],
-        "target_probe": _probe_cache["result"],
+        "daemon": daemon_status,
     }
 
 
@@ -475,6 +492,10 @@ def api_stats() -> Any:
     scraping_enabled = (
         config_manager.read_config().get("SCRAPING_ENABLED", "true").lower() != "false"
     )
+    # ABB reachability probe (cached 5 min) — relocated here from /health (DEP-2).
+    if time.monotonic() > _probe_cache["expires"]:
+        _probe_cache["result"] = BindScraper().probe_target()
+        _probe_cache["expires"] = time.monotonic() + 300
     return jsonify(
         {
             "system_status": status,
@@ -485,6 +506,7 @@ def api_stats() -> Any:
             .isoformat(timespec="microseconds")
             .replace("+00:00", "Z"),
             "scraping_enabled": scraping_enabled,
+            "target_probe": _probe_cache["result"],
         }
     )
 

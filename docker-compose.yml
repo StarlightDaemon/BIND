@@ -13,7 +13,15 @@ services:
     volumes:
       - data:/app/data
       - ./logs:/app/logs
-    command: [ "python", "-m", "src.bind", "daemon", "--interval", "60" ]
+    # Interval comes from SCRAPE_INTERVAL (env or config.env), not a hardcoded
+    # flag — a CLI --interval would override config and the Settings UI (ARCH-6).
+    command: [ "python", "-m", "src.bind", "daemon" ]
+    healthcheck:
+      test: ["CMD", "python", "-m", "src.healthcheck"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
 
   # RSS Server: Serves Web UI and RSS feed on port 5050
   bind-rss:
@@ -32,6 +40,12 @@ services:
     volumes:
       - data:/app/data
     command: ["gunicorn", "--workers", "2", "--bind", "0.0.0.0:5050", "--timeout", "30", "src.rss_server:app"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5050/health', timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
     depends_on:
       - bind-daemon
 

@@ -88,6 +88,7 @@ export interface StatsData {
   recent_magnets:  Magnet[];
   server_time:     string;
   scraping_enabled: boolean;
+  target_probe?:   string;
 }
 
 export interface ApiResult {

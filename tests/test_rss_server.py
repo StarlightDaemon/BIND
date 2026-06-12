@@ -407,7 +407,7 @@ class TestCheckDaemonStatus:
         )
         status, msg, mtime = check_daemon_status()
         assert status == "unknown"
-        assert "Error checking status" in msg
+        assert "Error checking daemon status" in msg
 
 
 class TestMetricsRoute:
@@ -961,3 +961,84 @@ class TestCookieSecureConfig:
         )
         assert resp.status_code == 200
         assert captured["BIND_COOKIE_SECURE"] == "true"
+
+
+class TestCheckDaemonStatusHeartbeat:
+    """ARCH-1: heartbeat row is the primary daemon-liveness signal."""
+
+    def _store_with_beat(self, tmp_path, state, age_s):
+        from datetime import datetime, timedelta, timezone
+
+        from src.core.storage import MagnetStore
+
+        store = MagnetStore(str(tmp_path / "hb_rss.db"))
+        store.beat(state, 60)
+        beat_at = (datetime.now(timezone.utc) - timedelta(seconds=age_s)).isoformat()
+        store._conn.execute("UPDATE daemon_heartbeat SET beat_at = ? WHERE id = 1", (beat_at,))
+        return store
+
+    def test_fresh_heartbeat_online(self, monkeypatch, tmp_path):
+        from src.rss_server import check_daemon_status
+
+        monkeypatch.setattr("src.rss_server.store", self._store_with_beat(tmp_path, "idle", 5))
+        status, msg, _ = check_daemon_status()
+        assert status == "online"
+        assert "idle" in msg
+
+    def test_stale_heartbeat_offline(self, monkeypatch, tmp_path):
+        from src.rss_server import check_daemon_status
+
+        monkeypatch.setattr("src.rss_server.store", self._store_with_beat(tmp_path, "idle", 200))
+        status, msg, _ = check_daemon_status()
+        assert status == "offline"
+        assert "No heartbeat" in msg
+
+    def test_disabled_heartbeat_online_with_message(self, monkeypatch, tmp_path):
+        from src.rss_server import check_daemon_status
+
+        monkeypatch.setattr("src.rss_server.store", self._store_with_beat(tmp_path, "disabled", 5))
+        status, msg, _ = check_daemon_status()
+        assert status == "online"
+        assert "disabled" in msg.lower()
+
+    def test_no_heartbeat_falls_back_to_mtime(self, monkeypatch, tmp_path):
+        from src.core.storage import MagnetStore
+        from src.rss_server import check_daemon_status
+
+        # Fresh store, no beat -> last_heartbeat None -> mtime fallback engages.
+        store = MagnetStore(str(tmp_path / "nohb.db"))
+        monkeypatch.setattr("src.rss_server.store", store)
+        monkeypatch.setattr("src.rss_server.get_logs_dir", lambda: str(tmp_path))
+        monkeypatch.setattr(
+            "src.rss_server.config_manager.read_config", lambda: {"SCRAPE_INTERVAL": "60"}
+        )
+        (tmp_path / "bind.log").touch()
+        status, msg, _ = check_daemon_status()
+        assert status == "online"
+        assert "Last job" in msg
+
+
+class TestHealthIsDbOnly:
+    def test_health_does_not_probe_target(self, client, monkeypatch):
+        """DEP-2: /health must not call the ABB probe."""
+
+        def _boom(*a, **k):
+            raise AssertionError("/health must not probe the target")
+
+        monkeypatch.setattr("src.rss_server.BindScraper.probe_target", _boom)
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "daemon" in data
+        assert "target_probe" not in data
+
+    def test_api_stats_carries_target_probe(self, client, monkeypatch):
+        from unittest.mock import patch
+
+        monkeypatch.setattr("src.rss_server.BindScraper.probe_target", lambda self: "reachable")
+        # Force probe cache miss.
+        monkeypatch.setattr("src.rss_server._probe_cache", {"result": None, "expires": 0.0})
+        with patch("src.rss_server.check_daemon_status", return_value=("online", "ok", 0)):
+            resp = client.get("/api/stats")
+        assert resp.status_code == 200
+        assert resp.get_json()["target_probe"] == "reachable"

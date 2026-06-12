@@ -226,6 +226,32 @@ def daemon(interval: int, db_path: str) -> None:
     ENABLE_FILE = os.path.join(data_dir, ".enable-scraping")
 
     scraping_enabled = os.getenv("SCRAPING_ENABLED", "true").lower() != "false"
+
+    HEARTBEAT_INTERVAL_S = 30
+    _last_beat: dict[str, Any] = {"at": 0.0, "state": None}
+
+    def _current_state() -> str:
+        if not scraping_enabled:
+            return "disabled"
+        fut = _last_future["future"]
+        if fut is not None and not fut.done():
+            return "scraping"
+        return "idle"
+
+    def _maybe_beat(force: bool = False) -> None:
+        """Write a liveness heartbeat, throttled to HEARTBEAT_INTERVAL_S or on state change."""
+        state = _current_state()
+        now = time.monotonic()
+        if force or state != _last_beat["state"] or now - _last_beat["at"] >= HEARTBEAT_INTERVAL_S:
+            try:
+                store.beat(state, interval)
+            except Exception as e:  # heartbeat is best-effort, never fatal
+                logger.debug(f"Heartbeat write failed: {e}")
+            _last_beat["at"] = now
+            _last_beat["state"] = state
+
+    _maybe_beat(force=True)  # flip UI status promptly, before the first (blocking) job
+
     if scraping_enabled:
         schedule.every(interval).minutes.do(run_job_with_timeout)
         run_job_with_timeout()
@@ -235,6 +261,7 @@ def daemon(interval: int, db_path: str) -> None:
     logger.info("Daemon running. Press Ctrl+C to stop.")
     while not shutdown_requested["flag"]:  # pragma: no cover
         schedule.run_pending()  # pragma: no cover
+        _maybe_beat()  # pragma: no cover
         if not scraping_enabled and os.path.exists(ENABLE_FILE):  # pragma: no cover
             try:  # pragma: no cover
                 os.remove(ENABLE_FILE)  # pragma: no cover
