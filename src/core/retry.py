@@ -5,7 +5,29 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+import curl_cffi.requests.exceptions as curl_exc
+import requests.exceptions as requests_exc
+
 logger = logging.getLogger("RetryEngine")
+
+# Transient network failures that warrant in-layer retry with backoff.
+# These are the *real* exception types raised by the two egress libraries
+# (both are hard deps in requirements.txt). Neither subclasses the Python
+# builtin ConnectionError/TimeoutError — requests/cloudscraper raise
+# requests.exceptions.{ConnectionError,Timeout} (subclassing OSError), and
+# curl_cffi raises its own curl_cffi.requests.exceptions.{ConnectionError,
+# Timeout} (subclassing CurlError -> OSError). Their connect-refused, DNS,
+# and timeout subclasses (ConnectTimeout, ReadTimeout, DNSError, ...) all
+# derive from these, so the four named classes cover every transient case.
+# The builtins are retained for direct-socket callers and the existing tests.
+TRANSIENT_NETWORK_ERRORS: tuple[type[BaseException], ...] = (
+    requests_exc.ConnectionError,
+    requests_exc.Timeout,
+    curl_exc.ConnectionError,
+    curl_exc.Timeout,
+    ConnectionError,
+    TimeoutError,
+)
 
 
 @dataclass
@@ -68,7 +90,7 @@ class RetryEngine:
                     )
                     return None
 
-                elif isinstance(e, (ConnectionError, TimeoutError)):
+                elif isinstance(e, TRANSIENT_NETWORK_ERRORS):
                     if attempt == config.max_attempts:
                         return None
                     delay = self._jitter(config.base_delay * (2**attempt), config.max_delay)
