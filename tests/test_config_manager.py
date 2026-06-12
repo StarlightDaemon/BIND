@@ -293,3 +293,92 @@ class TestNewValidators:
         ok, msg = cm._validate("BIND_PROXIES", "ftp://host:21")
         assert ok is False
         assert "ftp://host:21" in msg
+
+
+class TestConfigManagerInitPaths:
+    def test_uses_opt_bind_path_when_it_exists(self, monkeypatch):
+        monkeypatch.setattr(
+            "src.config_manager.os.path.exists",
+            lambda p: p == "/opt/bind/config.env",
+        )
+        cm = ConfigManager()
+        assert cm.config_path == "/opt/bind/config.env"
+
+    def test_uses_local_fallback_when_no_env_and_no_opt(self, monkeypatch):
+        monkeypatch.setattr("src.config_manager.os.path.exists", lambda p: False)
+        monkeypatch.delenv("BIND_DB_PATH", raising=False)
+        cm = ConfigManager()
+        assert cm.config_path.endswith("config.env")
+
+
+class TestReadConfigEdgeCases:
+    def test_skips_lines_without_equals(self, tmp_path):
+        config_file = tmp_path / "config.env"
+        config_file.write_text("INVALID_NO_EQUALS\nSCRAPE_INTERVAL=30\n")
+        cm = ConfigManager(config_path=str(config_file))
+        config = cm.read_config()
+        assert config["SCRAPE_INTERVAL"] == "30"
+
+    def test_oserror_returns_defaults(self, tmp_path, monkeypatch):
+        config_file = tmp_path / "config.env"
+        config_file.write_text("SCRAPE_INTERVAL=30\n")
+        cm = ConfigManager(config_path=str(config_file))
+
+        real_open = open
+
+        def bad_open(path, *args, **kwargs):
+            if str(config_file) == str(path):
+                raise OSError("permission denied")
+            return real_open(path, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.open", bad_open)
+        config = cm.read_config()
+        assert config.keys() == ConfigManager.DEFAULTS.keys()
+        assert config["SCRAPE_INTERVAL"] == ConfigManager.DEFAULTS["SCRAPE_INTERVAL"]
+
+
+class TestWriteConfigEdgeCases:
+    def test_non_validated_key_is_written_without_error(self, tmp_path):
+        cm = ConfigManager(config_path=str(tmp_path / "config.env"))
+        ok, _ = cm.write_config({"BIND_DB_PATH": "custom/bind.db"})
+        assert ok is True
+
+    def test_preserved_keys_skips_blank_lines_and_non_equals(self, tmp_path):
+        config_file = tmp_path / "config.env"
+        config_file.write_text("ADMIN_KEY=secret\n\n# a comment\nINVALID_LINE\n")
+        cm = ConfigManager(config_path=str(config_file))
+        ok, _ = cm.write_config({"SCRAPING_ENABLED": "true"})
+        assert ok is True
+        content = config_file.read_text()
+        assert "ADMIN_KEY=secret" in content
+
+    def test_oserror_reading_preserved_keys_is_swallowed(self, tmp_path, monkeypatch):
+        config_file = tmp_path / "config.env"
+        config_file.write_text("ADMIN_KEY=value\n")
+        cm = ConfigManager(config_path=str(config_file))
+
+        real_open = open
+
+        def bad_open(path, *args, **kwargs):
+            if str(config_file) == str(path) and "w" not in args:
+                raise OSError("locked")
+            return real_open(path, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.open", bad_open)
+        ok, _ = cm.write_config({"SCRAPING_ENABLED": "true"})
+        assert ok is True
+
+
+class TestValidateEdgeCases:
+    def test_validate_returns_true_for_key_without_validator(self, tmp_path):
+        cm = ConfigManager(config_path=str(tmp_path / "config.env"))
+        is_valid, err = cm._validate("BIND_DB_PATH", "any/path.db")
+        assert is_valid is True
+        assert err == ""
+
+    def test_validate_returns_true_for_unknown_validator_type(self, tmp_path):
+        cm = ConfigManager(config_path=str(tmp_path / "config.env"))
+        cm.VALIDATORS = {"CUSTOM_KEY": "unknown_type"}
+        is_valid, err = cm._validate("CUSTOM_KEY", "value")
+        assert is_valid is True
+        assert err == ""
