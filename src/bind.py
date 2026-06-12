@@ -136,7 +136,7 @@ def daemon(interval: int, db_path: str) -> None:
                 os.environ[key] = str(value)
                 loaded_count += 1
             elif os.environ[key] != str(value):
-                logger.debug(f"Config mismatch for {key}: Env={os.environ[key]} vs File={value}")
+                logger.debug(f"Config mismatch for {key}: env and file values differ")
         logger.info(f"Loaded {loaded_count} configuration values from config.env")
     except Exception as e:
         logger.warning(f"Failed to load config.env: {e}")

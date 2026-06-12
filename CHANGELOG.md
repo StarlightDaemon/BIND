@@ -5,6 +5,13 @@ All notable changes to BIND will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Removed: `/api/dashboard` route deleted (dead code — frontend already uses `/api/stats`). (SEC-1)
+- Changed: `/api/magnets` now requires session authentication. (SEC-1)
+- Fixed: retry engine now classifies transient network errors by real library exception types (RES-2).
+
 ## [1.2.1] - 2026-01-15 (Verified 2026-01-26)
 
 ### 🚀 Status Update

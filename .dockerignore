@@ -1,0 +1,17 @@
+data/
+logs/
+credentials.json
+.git/
+.github/
+tests/
+docs/
+reports/
+audit-reports/
+.raiden/
+frontend/node_modules/
+**/__pycache__
+*.log
+.pytest_cache/
+.ruff_cache/
+.venv/
+src/static/dist/

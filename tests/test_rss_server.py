@@ -78,26 +78,6 @@ class TestFeedEndpoint:
         assert b"<item>" not in data
 
 
-class TestIndexEndpoint:
-    def test_index_returns_200(self, client):
-        assert client.get("/api/dashboard").status_code == 200
-
-    def test_index_returns_json(self, client):
-        assert client.get("/api/dashboard").is_json
-
-    def test_index_contains_expected_keys(self, client):
-        data = client.get("/api/dashboard").get_json()
-        assert "magnet_count" in data
-        assert "magnets" in data
-        assert "system_status" in data
-
-    def test_index_shows_magnets(self, client, fresh_store):
-        fresh_store.add_magnet(HASH_A, "My Audiobook Title", "2024-01-01")
-        data = client.get("/api/dashboard").get_json()
-        titles = [m["title"] for m in data["magnets"]]
-        assert "My Audiobook Title" in titles
-
-
 class TestMagnetsEndpoint:
     def test_magnets_returns_200(self, client):
         assert client.get("/api/magnets").status_code == 200

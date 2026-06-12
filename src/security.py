@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -29,6 +30,8 @@ PASSWORD_MIN_LENGTH = 8
 PASSWORD_PATTERN = r"^(?=.*[0-9!@#$%^&*()\-_=+\[\]{}|;:,.<>?]).{8,}$"
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 15
+_IP_BLOCKED_LAST_LOG: dict[str, float] = {}  # IP → monotonic timestamp of last logged event
+_IP_BLOCKED_RATE_LIMIT_SECS = 60.0
 
 # Security logger
 security_logger = logging.getLogger("BIND.security")
@@ -82,7 +85,8 @@ def log_security_event(event_type: str, username: str, ip: str, details: str = "
     """
     Log a security event to security.log.
 
-    Event types: LOGIN_SUCCESS, LOGIN_FAILED, ACCOUNT_LOCKED, PASSWORD_CHANGED, ACCOUNT_CREATED
+    Event types: LOGIN_SUCCESS, LOGIN_FAILED, ACCOUNT_LOCKED, PASSWORD_CHANGED, ACCOUNT_CREATED,
+                 CSRF_FAILED, IP_BLOCKED, SETUP_REJECTED, LOGOUT, ACCOUNT_UNLOCKED
     """
     timestamp = datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
     log_line = f"{timestamp} {event_type} {username} {ip}"
@@ -318,6 +322,15 @@ def is_account_locked() -> tuple[bool, int | None]:
             creds["locked_until"] = None
             creds["failed_attempts"] = 0
             _save_credentials_raw(creds)
+            try:
+                client_ip = get_client_ip(request)
+            except RuntimeError:
+                client_ip = "0.0.0.0"
+            log_security_event(
+                "ACCOUNT_UNLOCKED",
+                creds.get("username", "unknown"),
+                client_ip,
+            )
             return False, None
     except (ValueError, TypeError):
         return False, None
@@ -487,6 +500,11 @@ def ip_allowlist_middleware(app: Flask) -> None:
         client_ip = get_client_ip(request)
 
         if not is_ip_allowed(client_ip):
+            now = time.monotonic()
+            last = _IP_BLOCKED_LAST_LOG.get(client_ip, 0.0)
+            if now - last >= _IP_BLOCKED_RATE_LIMIT_SECS:
+                _IP_BLOCKED_LAST_LOG[client_ip] = now
+                log_security_event("IP_BLOCKED", "-", client_ip, f"path={request.path}")
             return Response(
                 f"Access denied. Your IP ({client_ip}) is not in the allowlist.",
                 status=403,

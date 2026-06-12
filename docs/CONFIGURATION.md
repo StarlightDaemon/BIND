@@ -131,6 +131,17 @@ systemctl daemon-reload
 systemctl restart bind
 ```
 
+## RSS Feed Authentication
+
+`/feed.xml` is **intentionally unauthenticated**. RSS consumers (torrent clients, feed readers)
+cannot participate in session-cookie authentication, so requiring a session would break
+every downstream client. Instead, `/feed.xml` is protected solely by the IP allowlist
+(`BIND_IP_FILTER` / `BIND_ALLOWED_IPS`). Restrict the allowlist to trusted IPs or a
+reverse-proxy address to limit who can reach the feed.
+
+All JSON API endpoints under `/api/` (except `/api/login`, `/api/logout`, `/api/me`,
+`/api/csrf-token`, and the first-time setup routes) require a valid session cookie.
+
 ## See Current Configuration
 
 View active environment variables:
