@@ -702,3 +702,101 @@ class TestRemainingBranches:
 
         resp = app.test_client().get("/open")
         assert resp.status_code == 200
+
+
+def _mock_req(remote_addr, xff=None):
+    """Build a mock request with a given peer and optional X-Forwarded-For."""
+    req = MagicMock()
+    req.remote_addr = remote_addr
+
+    def _get(key, default=""):
+        if key == "X-Forwarded-For":
+            return xff if xff is not None else default
+        return default
+
+    req.headers.get = _get
+    return req
+
+
+class TestGetClientIpTopologies:
+    """SEC-3: rightmost-untrusted XFF parsing against real ingress topologies."""
+
+    def test_no_proxy_ignores_spoofed_xff(self):
+        # Direct internet client, untrusted peer; spoofed XFF must be ignored.
+        req = _mock_req("203.0.113.7", xff="192.168.1.1")
+        assert get_client_ip(req) == "203.0.113.7"
+
+    def test_loopback_nginx_honest_client(self):
+        # nginx on loopback forwards a single honest client.
+        req = _mock_req("127.0.0.1", xff="203.0.113.7")
+        assert get_client_ip(req) == "203.0.113.7"
+
+    def test_loopback_nginx_spoofing_client(self):
+        # Attacker prepends a private IP; nginx appends the real client + peer.
+        # Rightmost-untrusted must return the real client, not the spoof. <- the fix
+        req = _mock_req("127.0.0.1", xff="192.168.1.10, 203.0.113.7")
+        assert get_client_ip(req) == "203.0.113.7"
+
+    def test_container_proxy(self, monkeypatch):
+        # Proxy in another container: peer is RFC-1918, declared trusted. <- the fix
+        monkeypatch.setenv("BIND_TRUSTED_PROXIES", "172.18.0.0/16")
+        req = _mock_req("172.18.0.5", xff="203.0.113.7")
+        assert get_client_ip(req) == "203.0.113.7"
+
+    def test_container_proxy_with_spoof(self, monkeypatch):
+        # Attacker prepends a private IP behind a container proxy.
+        monkeypatch.setenv("BIND_TRUSTED_PROXIES", "172.18.0.0/16")
+        req = _mock_req("172.18.0.5", xff="10.0.0.1, 203.0.113.7")
+        assert get_client_ip(req) == "203.0.113.7"
+
+    def test_chain_fully_trusted_returns_leftmost(self):
+        # Whole chain is loopback: prefer leftmost XFF entry.
+        req = _mock_req("127.0.0.1", xff="127.0.0.1")
+        assert get_client_ip(req) == "127.0.0.1"
+
+    def test_empty_xff_trusted_peer_returns_peer(self):
+        req = _mock_req("127.0.0.1", xff="")
+        assert get_client_ip(req) == "127.0.0.1"
+
+    def test_malformed_xff_entry_returned_verbatim(self):
+        # Documented choice: stop at the malformed token and return it verbatim.
+        # The rightmost token here ("203.0.113.7") is parseable, so confirm a
+        # malformed rightmost token is the one that surfaces.
+        req = _mock_req("127.0.0.1", xff="203.0.113.7, garbage")
+        assert get_client_ip(req) == "garbage"
+
+    def test_malformed_entry_denied_by_is_ip_allowed(self):
+        # Confirm the safety premise: unparseable input fails the allowlist.
+        assert is_ip_allowed("garbage") is False
+
+    def test_default_trusted_proxies_unset_matches_loopback(self, monkeypatch):
+        # With BIND_TRUSTED_PROXIES unset, behaviour is byte-identical to the
+        # historical loopback-only trust model for the honest-client case.
+        monkeypatch.delenv("BIND_TRUSTED_PROXIES", raising=False)
+        req = _mock_req("127.0.0.1", xff="203.0.113.7")
+        assert get_client_ip(req) == "203.0.113.7"
+
+    def test_spoofed_private_ip_denied_end_to_end(self, monkeypatch):
+        # End-to-end: loopback peer + spoofed private XFF must NOT pass the
+        # allowlist (the real client 203.0.113.7 is not allowed).
+        import src.security as _sec
+        from flask import Flask
+
+        monkeypatch.setenv("BIND_IP_FILTER", "true")
+        monkeypatch.setenv("BIND_ALLOWED_IPS", "192.168.1.0/24")
+        monkeypatch.delenv("BIND_TRUSTED_PROXIES", raising=False)
+
+        app = Flask(__name__)
+        app.config["TESTING"] = True
+        _sec.ip_allowlist_middleware(app)
+
+        @app.route("/probe")
+        def probe():
+            return "ok"
+
+        resp = app.test_client().get(
+            "/probe",
+            environ_base={"REMOTE_ADDR": "127.0.0.1"},
+            headers={"X-Forwarded-For": "192.168.1.10, 203.0.113.7"},
+        )
+        assert resp.status_code == 403

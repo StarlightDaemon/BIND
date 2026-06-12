@@ -142,6 +142,45 @@ reverse-proxy address to limit who can reach the feed.
 All JSON API endpoints under `/api/` (except `/api/login`, `/api/logout`, `/api/me`,
 `/api/csrf-token`, and the first-time setup routes) require a valid session cookie.
 
+### Trusted Proxies (`BIND_TRUSTED_PROXIES`)
+
+The IP allowlist evaluates the *real* client IP. When BIND runs behind a reverse
+proxy, the real client is carried in the `X-Forwarded-For` (XFF) header, but XFF
+can be forged by anyone who can reach the proxy. BIND only trusts XFF hops that
+come from a configured trusted-proxy set.
+
+| Key | Default | Format |
+|-----|---------|--------|
+| `BIND_TRUSTED_PROXIES` | `127.0.0.1/32,::1/128` | Comma-separated CIDRs / IPs |
+
+**Default behavior:** when unset, only loopback (`127.0.0.1`, `::1`) is trusted —
+identical to BIND's historical behavior. This is correct for the common
+loopback-proxy path (Cloudflare Tunnel → nginx on the same host → gunicorn).
+
+**Parsing model (rightmost-untrusted):** BIND builds the chain
+`[XFF entries…, TCP peer]` and walks it from the right, skipping every hop inside
+`BIND_TRUSTED_PROXIES`. The first untrusted hop is treated as the real client.
+This defeats both XFF spoofing (an attacker prepending a fake IP) and the
+containerized-proxy fail-open mode (where the proxy's private IP would otherwise
+be treated as every visitor).
+
+**When to set it:**
+- **Containerized / Docker-network proxy** (proxy in a separate container, or
+  Docker's userland proxy): the TCP peer is the proxy's RFC-1918 address, not
+  loopback. Add that source range, e.g. `BIND_TRUSTED_PROXIES=172.18.0.0/16`.
+- **Cloudflare Tunnel:** put the `cloudflared` connector's source range in this
+  key if it is not loopback. For Cloudflare deployments, the
+  `CF-Connecting-IP` header is a more reliable single-hop source of the client
+  IP than parsing XFF, and is a candidate for future first-class support.
+
+A malformed XFF entry encountered during the walk is returned verbatim and fails
+the allowlist (fail-closed), so the request is denied and the audit log records
+exactly what the upstream sent.
+
+`BIND_TRUSTED_PROXIES` is an admin-managed environment variable: set it in
+`config.env` or the systemd unit. It is read from the environment at request time
+and is intentionally **not** editable from the Settings UI.
+
 ## See Current Configuration
 
 View active environment variables:

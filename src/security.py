@@ -458,31 +458,110 @@ def is_ip_allowed(ip_str: str) -> bool:
     return False
 
 
-_TRUSTED_PROXY_NETS = [
-    ipaddress.ip_network("127.0.0.1/32"),
-    ipaddress.ip_network("::1/128"),
-]
+DEFAULT_TRUSTED_PROXIES = "127.0.0.1/32,::1/128"
+
+# Module-level parse cache for BIND_TRUSTED_PROXIES. Parsing CIDRs on every
+# request is wasteful, but the env var can change between requests (tests,
+# config reloads), so the cache is keyed on the raw string and invalidated
+# whenever that string changes.
+_TRUSTED_PROXY_CACHE_KEY: str | None = None
+_TRUSTED_PROXY_NETS: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+
+
+def get_trusted_proxy_networks() -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """
+    Parse the trusted-proxy CIDR set from the environment.
+
+    Read from BIND_TRUSTED_PROXIES (comma-separated CIDRs) at request time,
+    mirroring how BIND_ALLOWED_IPS is read. Default
+    "127.0.0.1/32,::1/128" exactly preserves the historical loopback-only
+    trust behaviour when the variable is unset. Unparseable entries are
+    skipped. Results are cached per raw value to avoid re-parsing on every
+    request.
+    """
+    global _TRUSTED_PROXY_CACHE_KEY, _TRUSTED_PROXY_NETS
+
+    raw = os.getenv("BIND_TRUSTED_PROXIES", "") or DEFAULT_TRUSTED_PROXIES
+    if raw == _TRUSTED_PROXY_CACHE_KEY:
+        return _TRUSTED_PROXY_NETS
+
+    nets: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        try:
+            nets.append(ipaddress.ip_network(entry, strict=False))
+        except ValueError:
+            continue
+
+    _TRUSTED_PROXY_CACHE_KEY = raw
+    _TRUSTED_PROXY_NETS = nets
+    return nets
+
+
+def _is_trusted_proxy(ip_str: str) -> bool:
+    """Return True if ip_str parses and falls inside the trusted-proxy set."""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    return any(ip in net for net in get_trusted_proxy_networks())
 
 
 def get_client_ip(req: Any) -> str:
     """
-    Extract client IP from request.
+    Extract the real client IP using rightmost-untrusted XFF parsing.
 
-    X-Forwarded-For is only trusted when the direct TCP connection
-    comes from a known trusted proxy (loopback). Otherwise the direct
-    remote_addr is used, preventing XFF spoofing by external clients.
+    The direct TCP peer (``req.remote_addr``) is checked against the
+    configurable trusted-proxy set (``BIND_TRUSTED_PROXIES``):
+
+    - If the peer is NOT trusted, it is the client and is returned verbatim;
+      X-Forwarded-For is ignored (an untrusted peer can forge it).
+    - If the peer IS trusted, the chain ``[XFF entries..., peer]`` is walked
+      from the right, skipping every address inside the trusted set. The
+      first untrusted address encountered is the real client.
+    - If the entire chain is trusted (or XFF is empty), the leftmost XFF
+      entry is returned if present, else the peer.
+
+    Malformed XFF entries: if an unparseable token is reached during the
+    right-to-left walk, the walk stops and that token is returned verbatim.
+    This is safe because ``is_ip_allowed`` returns False for any unparseable
+    input, so the request is denied (fail-closed) and the audit log records
+    exactly what the upstream sent rather than silently skipping it (which
+    could let a forged entry hide behind a malformed one).
     """
     if req is None:
         return "0.0.0.0"
+
+    peer = (req.remote_addr or "0.0.0.0").strip()
     try:
-        direct_ip = ipaddress.ip_address(req.remote_addr or "0.0.0.0")
+        ipaddress.ip_address(peer)
     except ValueError:
         return "0.0.0.0"
-    if any(direct_ip in net for net in _TRUSTED_PROXY_NETS):
-        forwarded = req.headers.get("X-Forwarded-For", "")
-        if forwarded:
-            return cast(str, forwarded.split(",")[0].strip())
-    return str(direct_ip)
+
+    # Untrusted direct peer: it is the client; never trust its XFF.
+    if not _is_trusted_proxy(peer):
+        return peer
+
+    forwarded = req.headers.get("X-Forwarded-For", "") or ""
+    xff_entries = [e.strip() for e in forwarded.split(",") if e.strip()]
+
+    # Chain is [client, ...proxies, peer]; peer is appended as the final hop.
+    chain = xff_entries + [peer]
+
+    # Walk from the right, skipping trusted hops.
+    for hop in reversed(chain):
+        if _is_trusted_proxy(hop):
+            continue
+        # First untrusted hop (or a malformed/unparseable token) — return it
+        # verbatim. is_ip_allowed denies unparseable input, so this is safe.
+        return hop
+
+    # Entire chain trusted: prefer the leftmost XFF entry, else the peer.
+    if xff_entries:
+        return xff_entries[0]
+    return peer
 
 
 def ip_allowlist_middleware(app: Flask) -> None:

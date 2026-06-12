@@ -4,6 +4,7 @@ Handles reading/writing config.env and daemon restart.
 """
 
 import fcntl
+import ipaddress
 import logging
 import os
 import re
@@ -227,6 +228,22 @@ class ConfigManager:
                     return (
                         False,
                         f"{key}: '{entry}' is not a valid proxy URL (http/https/socks4/socks5).",
+                    )
+            return True, ""
+
+        if validator == "cidr_list":
+            if not value:
+                return True, ""
+            for entry in value.split(","):
+                entry = entry.strip()
+                if not entry:
+                    continue
+                try:
+                    ipaddress.ip_network(entry, strict=False)
+                except ValueError:
+                    return (
+                        False,
+                        f"{key}: '{entry}' is not a valid CIDR/IP network.",
                     )
             return True, ""
 
