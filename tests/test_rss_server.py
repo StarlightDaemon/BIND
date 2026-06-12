@@ -267,6 +267,50 @@ class TestLogsRoute:
         data = response.get_json()
         assert "daemon log content" in data["logs"]
 
+    def test_logs_tail_read_large_file(self, client, monkeypatch, tmp_path):
+        """When the log exceeds the read window, only the last N lines are returned."""
+        log_file = tmp_path / "security.log"
+        monkeypatch.setattr("src.rss_server.get_security_log_path", lambda: str(log_file))
+        # Write 1200 uniquely-identifiable lines — more than MAX_LINES=1000.
+        lines = [f"line_{i:04d}" for i in range(1200)]
+        log_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        response = client.get("/api/logs?log=security")
+        assert response.status_code == 200
+        data = response.get_json()
+        logs = data["logs"]
+        # Must not exceed 1000 lines
+        assert len(logs) <= 1000
+        # The very last line in the file must appear (it's newest, so index 0 reversed)
+        assert "line_1199" in logs
+
+    def test_logs_small_file_unchanged(self, client, monkeypatch, tmp_path):
+        """Files smaller than the read window are returned in full."""
+        log_file = tmp_path / "security.log"
+        monkeypatch.setattr("src.rss_server.get_security_log_path", lambda: str(log_file))
+        lines = [f"entry_{i}" for i in range(10)]
+        log_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        response = client.get("/api/logs?log=security")
+        data = response.get_json()
+        logs = data["logs"]
+        assert len(logs) == 10
+        # All entries present
+        for entry in lines:
+            assert entry in logs
+
+    def test_logs_response_shape_preserved(self, client, monkeypatch, tmp_path):
+        """Response JSON must contain logs, current_log, log_file, line_count keys."""
+        log_file = tmp_path / "security.log"
+        log_file.write_text("a line\n")
+        monkeypatch.setattr("src.rss_server.get_security_log_path", lambda: str(log_file))
+        response = client.get("/api/logs?log=security")
+        data = response.get_json()
+        assert "logs" in data
+        assert "current_log" in data
+        assert "log_file" in data
+        assert "line_count" in data
+        assert isinstance(data["logs"], list)
+        assert data["line_count"] == len(data["logs"])
+
 
 class TestChangePasswordRoute:
     def test_change_password_mismatch(self, client):

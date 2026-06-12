@@ -536,23 +536,27 @@ def api_settings_get() -> Any:
 @requires_session_auth
 def api_settings_post() -> Any:
     data = request.get_json(silent=True) or {}
-    current = config_manager.read_config()
-    new_config = {
-        "ABB_URL": str(data.get("ABB_URL", "")).strip(),
-        "SCRAPE_INTERVAL": str(data.get("SCRAPE_INTERVAL", "60")).strip(),
-        "BIND_PROXY": str(data.get("BIND_PROXY", "")).strip(),
-        "BASE_URL": str(data.get("BASE_URL", "")).strip(),
-        "CIRCUIT_BREAKER_THRESHOLD": str(data.get("CIRCUIT_BREAKER_THRESHOLD", "3")).strip(),
-        "CIRCUIT_BREAKER_COOLDOWN": str(data.get("CIRCUIT_BREAKER_COOLDOWN", "300")).strip(),
-        "BIND_PROXIES": str(data.get("BIND_PROXIES", "")).strip(),
-        "BIND_JOB_TIMEOUT": str(data.get("BIND_JOB_TIMEOUT", "3600")).strip(),
-        "BIND_IP_FILTER": str(data.get("BIND_IP_FILTER", "true")).strip(),
-        "BIND_AUTH_ENABLED": str(data.get("BIND_AUTH_ENABLED", "true")).strip(),
-        "SCRAPING_ENABLED": str(data.get("SCRAPING_ENABLED", "true")).strip(),
-        # Not exposed in the Settings UI: carry the stored value through so a UI
-        # save cannot reset it to the default (ARCH-4 clobber shape).
-        "BIND_COOKIE_SECURE": str(current.get("BIND_COOKIE_SECURE", "false")).strip(),
-    }
+    # Start from the stored config so any key not exposed in the UI (e.g.
+    # BIND_DB_PATH, BIND_COOKIE_SECURE, future additions) is preserved
+    # automatically — no key enumeration required here. (ARCH-4)
+    new_config = config_manager.read_config()
+    # UI-exposed keys: overlay submitted values (string-coerced and stripped)
+    ui_keys = (
+        "ABB_URL",
+        "SCRAPE_INTERVAL",
+        "BIND_PROXY",
+        "BASE_URL",
+        "CIRCUIT_BREAKER_THRESHOLD",
+        "CIRCUIT_BREAKER_COOLDOWN",
+        "BIND_PROXIES",
+        "BIND_JOB_TIMEOUT",
+        "BIND_IP_FILTER",
+        "BIND_AUTH_ENABLED",
+        "SCRAPING_ENABLED",
+    )
+    for key in ui_keys:
+        if key in data:
+            new_config[key] = str(data[key]).strip()
     write_success, write_message = config_manager.write_config(new_config)
     if not write_success:
         return jsonify({"ok": False, "message": write_message}), 400
@@ -632,12 +636,24 @@ def api_logs() -> Any:
         filepath = get_security_log_path()
 
     MAX_LINES = 1000
+    READ_WINDOW = 512 * 1024  # 512 KB tail window
     logs: list[str] = []
     if os.path.exists(filepath):
         try:
-            with open(filepath, encoding="utf-8") as f:
-                lines = f.readlines()
-                logs = [line.strip() for line in reversed(lines[-MAX_LINES:])]
+            with open(filepath, encoding="utf-8", errors="replace") as f:
+                f.seek(0, 2)  # seek to end
+                size = f.tell()
+                offset = max(0, size - READ_WINDOW)
+                f.seek(offset)
+                raw = f.read()
+                # When we seeked into the middle of a file, the first "line" is
+                # likely a partial line — discard it.
+                if offset > 0:
+                    newline_pos = raw.find("\n")
+                    if newline_pos != -1:
+                        raw = raw[newline_pos + 1 :]
+                all_lines = raw.splitlines()
+                logs = [line.strip() for line in reversed(all_lines[-MAX_LINES:])]
         except Exception as e:
             logs = [f"Error reading log file: {e}"]
     else:

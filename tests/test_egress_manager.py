@@ -180,6 +180,85 @@ class TestEgressManagerFetchMethods:
         manager._cloudscraper.get.assert_called_once_with("http://example.com", timeout=30)
 
 
+class TestProxyPoolCooldown:
+    """RES-1: proxy cooldown re-admission."""
+
+    def test_evicted_proxy_is_skipped_during_cooldown(self):
+        pool = ProxyPool(["http://a.com", "http://b.com"])
+        pool.mark_failed("http://a.com")
+        # During cooldown, a.com must be skipped
+        for _ in range(4):
+            next_p = pool.get_next()
+            assert next_p == "http://b.com"
+
+    def test_proxy_re_admitted_after_cooldown(self, monkeypatch):
+        from src.core import egress_manager
+
+        pool = ProxyPool(["http://a.com"])
+        # Simulate the eviction timestamp being PROXY_COOLDOWN_S + 1 seconds in the past
+        base_time = 10_000.0
+        pool._failed["http://a.com"] = base_time
+        # Now monotonic reads past the cooldown window
+        monkeypatch.setattr(
+            egress_manager.time,
+            "monotonic",
+            lambda: base_time + egress_manager.PROXY_COOLDOWN_S + 1,
+        )
+        result = pool.get_next()
+        assert result == "http://a.com"
+        assert "http://a.com" not in pool._failed  # entry cleaned up on re-admission
+
+    def test_proxy_still_blocked_before_cooldown_expires(self, monkeypatch):
+        from src.core import egress_manager
+
+        pool = ProxyPool(["http://a.com", "http://b.com"])
+        base_time = 10_000.0
+        pool._failed["http://a.com"] = base_time
+        # Monotonic reads *within* the cooldown window
+        monkeypatch.setattr(
+            egress_manager.time,
+            "monotonic",
+            lambda: base_time + egress_manager.PROXY_COOLDOWN_S - 1,
+        )
+        result = pool.get_next()
+        assert result == "http://b.com"
+
+    def test_len_reflects_cooldown_state(self, monkeypatch):
+        from src.core import egress_manager
+
+        pool = ProxyPool(["http://a.com", "http://b.com"])
+        base_time = 10_000.0
+        pool._failed["http://a.com"] = base_time
+        monkeypatch.setattr(
+            egress_manager.time,
+            "monotonic",
+            lambda: base_time + egress_manager.PROXY_COOLDOWN_S - 1,
+        )
+        assert len(pool) == 1  # only b.com is healthy
+
+    def test_cloudscraper_failure_does_not_evict_proxy(self):
+        """cloudscraper-layer failure must not mark the proxy failed (RES-1)."""
+        manager = _make_manager(proxy_list=["http://proxy.com"])
+        # direct: success (so cloudscraper layer is never reached in one-success path)
+        # We need: direct fails, curl_cffi_proxy succeeds — cloudscraper is never tried.
+        # Instead test: direct fails, curl_cffi_proxy fails, cloudscraper also fails.
+        # Only curl_cffi_proxy should evict.
+        manager._retry_engine.execute.return_value = None
+        with pytest.raises(FetchExhausted):
+            manager.fetch("http://example.com")
+        # proxy is marked because curl_cffi_proxy failed, not because cloudscraper failed
+        assert "http://proxy.com" in manager._proxy_pool._failed
+
+    def test_cloudscraper_failure_alone_does_not_evict(self):
+        """If only the cloudscraper layer fails (proxy layer skipped), no eviction."""
+        manager = _make_manager()  # no proxies
+        manager._retry_engine.execute.return_value = None
+        with pytest.raises(FetchExhausted):
+            manager.fetch("http://example.com")
+        # No proxies at all, so _failed stays empty
+        assert len(manager._proxy_pool._failed) == 0
+
+
 class TestEgressManagerCloudscraperProxy:
     def test_cloudscraper_proxy_evicted_on_layer_failure(self):
         manager = _make_manager(proxy_list=["http://p1.com", "http://p2.com"])

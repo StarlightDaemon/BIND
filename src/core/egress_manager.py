@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from collections import deque
 from typing import Any, cast
 from urllib.parse import urlparse, urlunparse
@@ -31,6 +32,8 @@ def redact_proxy(url: str) -> str:
 
 TIMEOUT = 30
 MAX_RETRIES = 3
+# Seconds a failed proxy is kept out of rotation before being re-admitted.
+PROXY_COOLDOWN_S: float = float(os.environ.get("BIND_PROXY_COOLDOWN", "1800"))
 
 
 class FetchExhausted(Exception):
@@ -42,28 +45,43 @@ class FetchExhausted(Exception):
 
 
 class ProxyPool:
-    """Round-robin proxy rotation with health eviction."""
+    """Round-robin proxy rotation with timed cooldown eviction."""
 
     def __init__(self, proxies: list[str]) -> None:
         self._pool: deque[str] = deque(proxies)
-        self._failed: set[str] = set()
+        # Maps proxy URL → monotonic timestamp of eviction.
+        self._failed: dict[str, float] = {}
+
+    def _is_healthy(self, proxy: str) -> bool:
+        """Return True if the proxy is healthy (never failed or cooldown expired)."""
+        ts = self._failed.get(proxy)
+        if ts is None:
+            return True
+        if time.monotonic() - ts >= PROXY_COOLDOWN_S:
+            # Cooldown expired — re-admit and clean up the entry.
+            del self._failed[proxy]
+            return True
+        return False
 
     def get_next(self) -> str | None:
         """Return the next healthy proxy, or None if none are available."""
         for _ in range(len(self._pool)):
             candidate = self._pool[0]
             self._pool.rotate(-1)
-            if candidate not in self._failed:
+            if self._is_healthy(candidate):
                 return candidate
         return None
 
     def mark_failed(self, proxy: str) -> None:
-        """Evict a proxy from rotation permanently for this session."""
-        self._failed.add(proxy)
-        logger.warning(f"Proxy {redact_proxy(proxy)!r} marked unhealthy and removed from rotation")
+        """Evict a proxy from rotation for PROXY_COOLDOWN_S seconds."""
+        self._failed[proxy] = time.monotonic()
+        logger.warning(
+            f"Proxy {redact_proxy(proxy)!r} marked unhealthy — "
+            f"cooling down for {PROXY_COOLDOWN_S:.0f}s"
+        )
 
     def __len__(self) -> int:
-        return sum(1 for p in self._pool if p not in self._failed)
+        return sum(1 for p in self._pool if self._is_healthy(p))
 
 
 class EgressManager:
@@ -123,7 +141,10 @@ class EgressManager:
                 logger.debug(f"✓ [{layer_name}] fetched {url}")
                 return cast(str, result)
             logger.warning(f"[{layer_name}] all retries exhausted for {url}")
-            if layer_name in ("curl_cffi_proxy", "cloudscraper") and proxy:
+            # Only a curl_cffi_proxy failure reliably indicates a bad proxy.
+            # cloudscraper failures are too noisy (JS-challenge mismatch, etc.)
+            # to be attributed to the proxy.
+            if layer_name == "curl_cffi_proxy" and proxy:
                 self._proxy_pool.mark_failed(proxy)
 
         raise FetchExhausted(url)

@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed: `/api/dashboard` route deleted (dead code — frontend already uses `/api/stats`). (SEC-1)
 - Changed: `/api/magnets` now requires session authentication. (SEC-1)
 - Fixed: retry engine now classifies transient network errors by real library exception types (RES-2).
+- Fixed: `write_config` now writes to a temp file then calls `os.replace` (atomic); a concurrent reader can never see an empty file (ARCH-4).
+- Fixed: `api_settings_post` now starts from `read_config()` and overlays UI keys, so any key not exposed in the UI (e.g. `BIND_DB_PATH`, `BIND_COOKIE_SECURE`, future additions) is preserved across every settings save (ARCH-4).
+- Fixed: `ProxyPool` eviction is now time-bounded; proxies are re-admitted after `PROXY_COOLDOWN_S` (default 1800 s, env `BIND_PROXY_COOLDOWN`). Only `curl_cffi_proxy`-layer failure marks a proxy failed — cloudscraper-layer failure no longer double-evicts (RES-1).
+- Changed: daemon log (`bind.log`) is now managed by `RotatingFileHandler` (10 MB × 3 backups) instead of `FileHandler` (RES-5).
+- Fixed: `/api/logs` tail-reads at most 512 KB from the end of the log file and returns the last 1000 lines, preventing unbounded memory use on large log files (RES-5).
 
 ### Security
 - Fixed: `get_client_ip()` now uses rightmost-untrusted X-Forwarded-For parsing against a configurable trusted-proxy set (`BIND_TRUSTED_PROXIES`, default `127.0.0.1/32,::1/128`), closing the XFF spoofing and containerized-proxy fail-open holes in the IP allowlist. Default behavior is unchanged when the key is unset. (SEC-3)

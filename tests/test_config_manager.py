@@ -69,7 +69,7 @@ class TestWriteConfig:
 
     def test_oserror_on_write_returns_false(self, tmp_path):
         cm = ConfigManager(config_path=str(tmp_path / "config.env"))
-        with patch("builtins.open", side_effect=OSError("disk full")):
+        with patch("tempfile.mkstemp", side_effect=OSError("disk full")):
             success, msg = cm.write_config({"SCRAPE_INTERVAL": "30"})
             assert success is False
             assert "disk full" in msg
@@ -419,3 +419,71 @@ class TestValidateEdgeCases:
         is_valid, err = cm._validate("CUSTOM_KEY", "value")
         assert is_valid is True
         assert err == ""
+
+
+class TestAtomicWrite:
+    """ARCH-4: write_config must use os.replace (atomic), not open(..., 'w')."""
+
+    def test_uses_os_replace_not_truncating_open(self):
+        """Verify no open(config_path, 'w') call exists — atomicity is via os.replace."""
+        import inspect
+
+        from src.config_manager import ConfigManager
+
+        source = inspect.getsource(ConfigManager.write_config)
+        # The atomic pattern writes to a tmp file and replaces — never truncates config_path directly.
+        # We confirm the source has os.replace and does NOT have open(..., "w") on config_path.
+        assert "os.replace" in source
+        # There must be no bare open with "w" mode directly to config_path
+        assert 'open(self.config_path, "w"' not in source
+
+    def test_no_tmp_file_left_on_success(self, tmp_path):
+        """After a successful write, no .config_tmp_* file is left behind."""
+        cm = ConfigManager(config_path=str(tmp_path / "config.env"))
+        ok, _ = cm.write_config({"SCRAPE_INTERVAL": "30"})
+        assert ok is True
+        leftovers = list(tmp_path.glob(".config_tmp_*"))
+        assert leftovers == []
+
+    def test_no_tmp_file_left_on_failure(self, tmp_path, monkeypatch):
+        """On write failure, no .config_tmp_* file is left behind."""
+        cm = ConfigManager(config_path=str(tmp_path / "config.env"))
+
+        def bad_replace(src, dst):
+            raise OSError("disk full")
+
+        # Patch os.replace to simulate a failure after the tmp file is written.
+        monkeypatch.setattr("src.config_manager.os.replace", bad_replace)
+        ok, msg = cm.write_config({"SCRAPE_INTERVAL": "30"})
+        assert ok is False
+        leftovers = list(tmp_path.glob(".config_tmp_*"))
+        assert leftovers == []
+
+
+class TestBindDbPathPreservation:
+    """ARCH-4(b): api_settings_post must not clobber BIND_DB_PATH."""
+
+    def test_custom_bind_db_path_survives_write(self, tmp_path):
+        """write_config called with a dict containing BIND_DB_PATH=/custom/bind.db
+        must preserve that value after a round-trip through read_config."""
+        config_file = tmp_path / "config.env"
+        cm = ConfigManager(config_path=str(config_file))
+        # Write initial config with custom DB path
+        initial = cm.DEFAULTS.copy()
+        initial["BIND_DB_PATH"] = "/custom/bind.db"
+        ok, _ = cm.write_config(initial)
+        assert ok is True
+
+        # Now simulate what api_settings_post does: read → overlay UI keys → write
+        merged = cm.read_config()
+        # Overlay only the UI keys (do NOT include BIND_DB_PATH in the overlay)
+        ui_overlay = {"SCRAPE_INTERVAL": "45", "ABB_URL": "http://example.com"}
+        merged.update(ui_overlay)
+        ok2, _ = cm.write_config(merged)
+        assert ok2 is True
+
+        final = cm.read_config()
+        assert final["BIND_DB_PATH"] == "/custom/bind.db", (
+            "BIND_DB_PATH must survive a settings POST that does not include it"
+        )
+        assert final["SCRAPE_INTERVAL"] == "45"
