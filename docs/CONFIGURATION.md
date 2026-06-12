@@ -181,6 +181,25 @@ exactly what the upstream sent.
 `config.env` or the systemd unit. It is read from the environment at request time
 and is intentionally **not** editable from the Settings UI.
 
+### Secure Session Cookie (`BIND_COOKIE_SECURE`)
+
+Controls the `Secure` attribute on the session cookie. When `true`, browsers only
+send the cookie over HTTPS, never over a plain-HTTP hop.
+
+| Key | Default | Format |
+|-----|---------|--------|
+| `BIND_COOKIE_SECURE` | `false` | `true` / `false` |
+
+**Default (`false`)** suits the common LAN-over-HTTP homelab deployment, where the
+session cookie must be sent over plain HTTP.
+
+**Set `true`** if you front BIND with TLS — e.g. a Cloudflare Tunnel, an HTTPS
+reverse proxy, or any setup where the browser reaches BIND over `https://`.
+Without it, the session cookie can leak over an accidental plain-HTTP hop. Like
+`BIND_TRUSTED_PROXIES`, this key is admin-managed (set it in `config.env` or the
+unit) and is intentionally **not** editable from the Settings UI; a UI save
+preserves whatever value is already on disk.
+
 ## See Current Configuration
 
 View active environment variables:

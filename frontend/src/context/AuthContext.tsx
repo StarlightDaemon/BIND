@@ -42,6 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     await auth.login(username, password);
+    // The server rotates the CSRF token on successful login; drop the cached
+    // pre-login token so the client refetches instead of failing one request.
+    invalidateCsrf();
     await refresh();
   }, [refresh]);
 

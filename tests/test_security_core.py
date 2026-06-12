@@ -68,11 +68,12 @@ def test_migrate_credentials_v1_to_v2(isolated_credentials):
     }
     result = _migrate_credentials(v1)
 
-    assert result["version"] == 2
+    assert result["version"] == 3
     assert "failed_attempts" in result
     assert "locked_until" in result
     assert "last_login" in result
     assert "last_login_ip" in result
+    assert result["failed_by_ip"] == {}
 
 
 # ---------------------------------------------------------------------------

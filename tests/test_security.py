@@ -168,13 +168,21 @@ class TestAccountLockout:
     @patch("src.security.get_client_ip", return_value="1.2.3.4")
     @patch("src.security.log_security_event")
     def test_lockout_triggered_after_max_attempts(self, mock_log, mock_ip, monkeypatch, tmp_path):
+        # v3 semantics: MAX_FAILED_ATTEMPTS from one IP locks *that IP*, not the
+        # global account (which only trips at the GLOBAL ceiling).
         creds_file = tmp_path / "creds.json"
         creds_file.write_text(json.dumps(self.minimal_creds))
         monkeypatch.setattr("src.security.CREDENTIALS_FILE", str(creds_file))
         for _ in range(MAX_FAILED_ATTEMPTS):
             record_failed_login("1.2.3.4")
         creds = json.loads(creds_file.read_text())
-        assert creds["locked_until"] is not None
+        # Global lockout NOT yet engaged (below the global ceiling).
+        assert creds["locked_until"] is None
+        # The offending IP is locked.
+        assert creds["failed_by_ip"]["1.2.3.4"]["locked_until"] is not None
+        assert is_account_locked(ip="1.2.3.4")[0] is True
+        # A different IP is still allowed.
+        assert is_account_locked(ip="9.9.9.9")[0] is False
 
 
 class TestVerifyCredentials:
@@ -262,11 +270,12 @@ class TestCredentialMigration:
         creds_file.write_text(json.dumps(v1))
         monkeypatch.setattr(_sec, "CREDENTIALS_FILE", str(creds_file))
         result = _sec.load_credentials()
-        assert result["version"] == 2
+        assert result["version"] == 3
         assert "failed_attempts" in result
         assert "locked_until" in result
         assert "last_login" in result
         assert result["last_login_ip"] is None
+        assert result["failed_by_ip"] == {}
 
     def test_migrate_preserves_username(self):
         import src.security as _sec
@@ -275,7 +284,7 @@ class TestCredentialMigration:
         with patch("src.security._save_credentials_raw", return_value=True):
             result = _sec._migrate_credentials(v1)
         assert result["username"] == "admin"
-        assert result["version"] == 2
+        assert result["version"] == 3
 
 
 class TestSaveCredentialsRawOsError:
@@ -619,7 +628,7 @@ class TestRemainingBranches:
     """Five small tests for the last uncovered branches."""
 
     # 145->157: _migrate_credentials with version already >= 2 skips the if block
-    def test_migrate_already_v2_returns_unchanged(self):
+    def test_migrate_v2_to_v3_adds_failed_by_ip(self):
         import src.security as _sec
 
         v2 = {
@@ -629,9 +638,28 @@ class TestRemainingBranches:
             "failed_attempts": 0,
             "locked_until": None,
         }
-        result = _sec._migrate_credentials(v2.copy())
-        assert result["version"] == 2
+        with patch("src.security._save_credentials_raw", return_value=True):
+            result = _sec._migrate_credentials(v2.copy())
+        assert result["version"] == 3
         assert result["username"] == "admin"
+        assert result["failed_by_ip"] == {}
+
+    def test_migrate_already_v3_returns_unchanged(self):
+        import src.security as _sec
+
+        v3 = {
+            "version": 3,
+            "username": "admin",
+            "password_hash": "x",
+            "failed_attempts": 0,
+            "locked_until": None,
+            "failed_by_ip": {"1.2.3.4": {"count": 2, "locked_until": None}},
+        }
+        result = _sec._migrate_credentials(v3.copy())
+        assert result["version"] == 3
+        assert result["username"] == "admin"
+        # Idempotent: existing per-IP state untouched.
+        assert result["failed_by_ip"]["1.2.3.4"]["count"] == 2
 
     # 270-273: change_password success path (log + return True)
     @patch("src.security.log_security_event")
@@ -800,3 +828,151 @@ class TestGetClientIpTopologies:
             headers={"X-Forwarded-For": "192.168.1.10, 203.0.113.7"},
         )
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Wave 4-C — SEC-7: per-IP lockout (schema v3), global ceiling, migration,
+# concurrent read-modify-write integrity.
+# ---------------------------------------------------------------------------
+
+
+class TestPerIpLockout:
+    def _setup(self, tmp_path, monkeypatch):
+        import src.security as _sec
+
+        creds_file = tmp_path / "creds.json"
+        monkeypatch.setattr(_sec, "CREDENTIALS_FILE", str(creds_file))
+        with patch("src.security.log_security_event"):
+            _sec.save_credentials("admin", "Secure1!")
+        return _sec, creds_file
+
+    def test_one_ip_locked_other_ip_allowed(self, tmp_path, monkeypatch):
+        _sec, creds_file = self._setup(tmp_path, monkeypatch)
+        with patch("src.security.log_security_event"):
+            for _ in range(MAX_FAILED_ATTEMPTS):
+                _sec.record_failed_login("1.1.1.1")
+        # Offending IP is locked.
+        assert _sec.is_account_locked(ip="1.1.1.1")[0] is True
+        # A different IP is still allowed.
+        assert _sec.is_account_locked(ip="2.2.2.2")[0] is False
+        # Global account is NOT locked (below the global ceiling).
+        assert _sec.is_account_locked()[0] is False
+
+    def test_global_ceiling_locks_all_ips(self, tmp_path, monkeypatch):
+        from src.security import GLOBAL_MAX_FAILED_ATTEMPTS
+
+        _sec, creds_file = self._setup(tmp_path, monkeypatch)
+        with patch("src.security.log_security_event"):
+            # Spread failures across distinct IPs so no single per-IP counter is
+            # what trips the lock — only the global ceiling.
+            for i in range(GLOBAL_MAX_FAILED_ATTEMPTS):
+                _sec.record_failed_login(f"10.0.0.{i}")
+        # Global lock engaged → even an unseen IP is locked.
+        assert _sec.is_account_locked()[0] is True
+        assert _sec.is_account_locked(ip="9.9.9.9")[0] is True
+
+    def test_successful_login_clears_own_ip_and_global(self, tmp_path, monkeypatch):
+        _sec, creds_file = self._setup(tmp_path, monkeypatch)
+        with patch("src.security.log_security_event"):
+            for _ in range(3):
+                _sec.record_failed_login("1.1.1.1")
+            _sec.record_successful_login("1.1.1.1")
+        creds = json.loads(creds_file.read_text())
+        assert creds["failed_attempts"] == 0
+        assert creds["locked_until"] is None
+        assert "1.1.1.1" not in creds["failed_by_ip"]
+
+    def test_stale_zero_count_entries_pruned(self, tmp_path, monkeypatch):
+        _sec, creds_file = self._setup(tmp_path, monkeypatch)
+        # Inject a stale entry: expired lockout, zero count.
+        creds = json.loads(creds_file.read_text())
+        creds["failed_by_ip"]["8.8.8.8"] = {"count": 0, "locked_until": None}
+        creds_file.write_text(json.dumps(creds))
+        with patch("src.security.log_security_event"):
+            _sec.record_failed_login("1.1.1.1")
+        creds = json.loads(creds_file.read_text())
+        assert "8.8.8.8" not in creds["failed_by_ip"]
+        assert creds["failed_by_ip"]["1.1.1.1"]["count"] == 1
+
+
+class TestCredentialMigrationV3:
+    def test_v2_active_lockout_migrates_to_v3_still_locked(self, tmp_path, monkeypatch):
+        import src.security as _sec
+
+        creds_file = tmp_path / "creds.json"
+        future = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(
+            timespec="microseconds"
+        ).replace("+00:00", "Z")
+        v2 = {
+            "version": 2,
+            "username": "admin",
+            "password_hash": "x",
+            "failed_attempts": 5,
+            "locked_until": future,
+            "last_login": None,
+            "last_login_ip": None,
+        }
+        creds_file.write_text(json.dumps(v2))
+        monkeypatch.setattr(_sec, "CREDENTIALS_FILE", str(creds_file))
+
+        result = _sec.load_credentials()
+        assert result["version"] == 3
+        assert result["failed_by_ip"] == {}
+        # The pre-existing global lockout is preserved untouched.
+        assert result["locked_until"] == future
+        assert result["failed_attempts"] == 5
+        assert _sec.is_account_locked()[0] is True
+
+    def test_migration_is_idempotent(self, tmp_path, monkeypatch):
+        import src.security as _sec
+
+        creds_file = tmp_path / "creds.json"
+        v3 = {
+            "version": 3,
+            "username": "admin",
+            "password_hash": "x",
+            "failed_attempts": 0,
+            "locked_until": None,
+            "failed_by_ip": {"7.7.7.7": {"count": 2, "locked_until": None}},
+        }
+        creds_file.write_text(json.dumps(v3))
+        monkeypatch.setattr(_sec, "CREDENTIALS_FILE", str(creds_file))
+        result = _sec.load_credentials()
+        assert result["version"] == 3
+        assert result["failed_by_ip"]["7.7.7.7"]["count"] == 2
+
+
+class TestConcurrentRecordFailedLogin:
+    def test_interleaved_failed_logins_no_lost_update(self, tmp_path, monkeypatch):
+        """Two interleaved record_failed_login calls via threads against a tmp_path
+        credentials file → final count == 2 (no lost update under the full-cycle
+        exclusive lock)."""
+        import threading
+
+        import src.security as _sec
+
+        creds_file = tmp_path / "creds.json"
+        monkeypatch.setattr(_sec, "CREDENTIALS_FILE", str(creds_file))
+        with patch("src.security.log_security_event"):
+            _sec.save_credentials("admin", "Secure1!")
+
+        barrier = threading.Barrier(2)
+
+        def worker():
+            barrier.wait()
+            for _ in range(10):
+                with patch("src.security.log_security_event"):
+                    _sec.record_failed_login("3.3.3.3")
+
+        t1 = threading.Thread(target=worker)
+        t2 = threading.Thread(target=worker)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        creds = json.loads(creds_file.read_text())
+        # 20 total failed logins from one IP; the global counter must reflect all
+        # of them with no dropped increments.
+        assert creds["failed_attempts"] == 20
+        assert creds["failed_by_ip"]["3.3.3.3"]["count"] == 20
