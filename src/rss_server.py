@@ -36,6 +36,7 @@ from src.security import (
     get_security_log_path,
     ip_allowlist_middleware,
     is_setup_complete,
+    log_security_event,
     save_credentials,
     verify_credentials,
 )
@@ -169,6 +170,7 @@ def _validate_csrf_form() -> None:
     token = session.get("csrf_token")
     form_token = request.form.get("csrf_token")
     if not token or token != form_token:
+        log_security_event("CSRF_FAILED", "-", get_client_ip(request), f"path={request.path}")
         abort(403, description="CSRF token missing or invalid.")
 
 
@@ -176,6 +178,7 @@ def _validate_csrf_json() -> None:
     token = session.get("csrf_token")
     request_token = request.headers.get("X-CSRF-Token")
     if not token or token != request_token:
+        log_security_event("CSRF_FAILED", "-", get_client_ip(request), f"path={request.path}")
         abort(403, description="CSRF token missing or invalid.")
 
 
@@ -363,6 +366,8 @@ def api_login() -> Any:
 
 @app.route("/api/logout", methods=["POST"])
 def api_logout() -> Any:
+    if session.get("authenticated"):
+        log_security_event("LOGOUT", "-", get_client_ip(request))
     session.clear()
     return jsonify({"ok": True})
 
@@ -391,6 +396,7 @@ def api_setup_status() -> Any:
 @app.route("/api/setup", methods=["POST"])
 def api_setup() -> Any:
     if is_setup_complete():
+        log_security_event("SETUP_REJECTED", "-", get_client_ip(request), "setup already complete")
         return jsonify({"error": "Setup already complete"}), 400
     data = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
@@ -413,29 +419,12 @@ def api_setup() -> Any:
 
 
 # =============================================================================
-# JSON API — Dashboard & Magnets (public)
+# JSON API — Magnets
 # =============================================================================
 
 
-@app.route("/api/dashboard")
-def api_dashboard() -> Any:
-    current_trackers = tracker_manager.get_trackers()
-    rows = store.recent(limit=20)
-    magnets = _enrich(rows, current_trackers)
-    total_count = store.stats()["total"]
-    status, message, _ = check_daemon_status()
-    return jsonify(
-        {
-            "magnets": magnets,
-            "magnet_count": total_count,
-            "display_count": len(magnets),
-            "system_status": status,
-            "status_message": message,
-        }
-    )
-
-
 @app.route("/api/magnets")
+@requires_session_auth
 def api_magnets() -> Any:
     query = request.args.get("q", "").strip()
     try:

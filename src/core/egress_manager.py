@@ -4,12 +4,30 @@ import logging
 import os
 from collections import deque
 from typing import Any, cast
+from urllib.parse import urlparse, urlunparse
 
 import cloudscraper
 
 from src.core.retry import RetryConfig, RetryEngine
 
 logger = logging.getLogger("EgressManager")
+
+
+def redact_proxy(url: str) -> str:
+    """Strip user:pass@ from a proxy URL for safe logging."""
+    try:
+        parsed = urlparse(url)
+        if parsed.username or parsed.password:
+            # Reconstruct without credentials
+            netloc = parsed.hostname or ""
+            if parsed.port:
+                netloc = f"{netloc}:{parsed.port}"
+            redacted = parsed._replace(netloc=netloc)
+            return urlunparse(redacted)
+    except Exception:
+        pass
+    return url
+
 
 TIMEOUT = 30
 MAX_RETRIES = 3
@@ -42,7 +60,7 @@ class ProxyPool:
     def mark_failed(self, proxy: str) -> None:
         """Evict a proxy from rotation permanently for this session."""
         self._failed.add(proxy)
-        logger.warning(f"Proxy {proxy!r} marked unhealthy and removed from rotation")
+        logger.warning(f"Proxy {redact_proxy(proxy)!r} marked unhealthy and removed from rotation")
 
     def __len__(self) -> int:
         return sum(1 for p in self._pool if p not in self._failed)

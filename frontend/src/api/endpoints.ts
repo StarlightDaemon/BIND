@@ -126,7 +126,6 @@ export const setup = {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export const dashboard = {
-  get:           () => apiFetch<DashboardData>('/api/dashboard'),
   stats:         () => apiFetch<StatsData>('/api/stats'),
   triggerScrape: () => apiFetch<ApiResult>('/api/trigger-scrape', { method: 'POST' }),
   enableScraping: () => apiFetch<ApiResult>('/api/scraping/enable', { method: 'POST' }),
