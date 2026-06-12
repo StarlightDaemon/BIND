@@ -1,7 +1,11 @@
-```gemini-3-flash
+# Group E — scraper.py: Parse Strategies + _ensure_hex Edge Cases
+
+**Model: 🔵 Claude Sonnet** (reassigned from Gemini 3 Flash — Gemini models no longer available)
+**Prereq: Wave 1 Group D committed** ✅ (both append to `tests/test_scraper.py`)
+**Working directory:** `/Users/dante/Citadel/BIND`
+**Activate the venv before running anything:** `source .venv/bin/activate`
+
 You are adding pytest tests to the BIND project to improve code coverage.
-Working directory: /mnt/e/BIND
-Activate the venv before running anything: source .venv/bin/activate
 
 ## Your task
 
@@ -14,6 +18,9 @@ Do NOT modify any existing tests.
 ```
 src/core/scraper.py   Missing: 140-143, 149-153, 159-163, 169-171, 218, 228-233
 ```
+
+(Line numbers from the audit-time coverage run — if they have drifted, locate by
+method name and confirm against a fresh `--cov-report=term-missing` run first.)
 
 Map to methods:
 - 140–143 → `_parse_hash_table_td()` — `<td>Info Hash:</td>` sibling found → returns hex
@@ -104,4 +111,3 @@ python -m pytest tests/test_scraper.py -v --cov=src/core/scraper --cov-report=te
 ```
 All tests must pass. Confirm lines 140-143, 149-153, 159-163, 169-171, 218, 228-233
 are no longer in the Missing column. Report the final coverage percentage.
-```

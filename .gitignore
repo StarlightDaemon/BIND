@@ -64,7 +64,7 @@ old_brain/
 docs/research/
 
 # Raiden agent tooling — local operational prompts and context, kept on disk but not tracked
-reports/
+reports/*
 !reports/coverage-prompts/
 !reports/coverage-prompts/**
 docs/governance/
