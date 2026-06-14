@@ -74,9 +74,9 @@ def _make_request(
 
 
 @pytest.mark.parametrize("method,path,needs_json_body", PROTECTED_ROUTES)
-def test_returns_401_when_unauthenticated(method, path, needs_json_body, client, monkeypatch):
+def test_returns_401_when_unauthenticated(method, path, needs_json_body, client, set_live_flag):
     """Each protected route must return 401 with auth enabled and no session."""
-    monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+    set_live_flag("BIND_AUTH_ENABLED", "true")
     _set_csrf(client)
     resp = _make_request(client, method, path, needs_json_body)
     assert resp.status_code == 401, (
@@ -90,9 +90,11 @@ def test_returns_401_when_unauthenticated(method, path, needs_json_body, client,
 
 
 @pytest.mark.parametrize("method,path,needs_json_body", PROTECTED_ROUTES)
-def test_auth_guard_passes_when_authenticated(method, path, needs_json_body, client, monkeypatch):
+def test_auth_guard_passes_when_authenticated(
+    method, path, needs_json_body, client, set_live_flag
+):
     """Each protected route must not return 401 when auth is enabled + session authenticated."""
-    monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+    set_live_flag("BIND_AUTH_ENABLED", "true")
     with client.session_transaction() as sess:
         sess["csrf_token"] = "test-csrf-token"
         sess["authenticated"] = True

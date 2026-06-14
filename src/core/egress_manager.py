@@ -9,6 +9,7 @@ from urllib.parse import urlparse, urlunparse
 
 import cloudscraper
 
+from src.config_manager import LiveConfig
 from src.core.retry import RetryConfig, RetryEngine
 
 logger = logging.getLogger("EgressManager")
@@ -107,10 +108,13 @@ class EgressManager:
     def from_env(cls) -> EgressManager:
         """
         Factory: reads BIND_PROXIES (comma-separated list) with fallback to
-        BIND_PROXY (single value). Both env vars are supported for backward
-        compatibility.
+        BIND_PROXY (single value), via LiveConfig (process-start env >
+        config.env > default). Both keys are supported for backward
+        compatibility. Read at call time — config.env is no longer seeded
+        into os.environ (ARCH-2/SEC-2).
         """
-        raw = os.getenv("BIND_PROXIES") or os.getenv("BIND_PROXY") or ""
+        cfg = LiveConfig()
+        raw = cfg.get("BIND_PROXIES") or cfg.get("BIND_PROXY") or ""
         proxies = [p.strip() for p in raw.split(",") if p.strip()]
         return cls(proxy_list=proxies)
 

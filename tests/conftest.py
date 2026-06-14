@@ -21,6 +21,26 @@ os.environ.setdefault("SCRAPING_ENABLED", "true")
 
 
 @pytest.fixture
+def set_live_flag(monkeypatch):
+    """Flip a managed config flag for the module-level LiveConfig instances.
+
+    Wave 5-B precedence: managed keys present in os.environ at LiveConfig
+    construction are snapshotted and win permanently, so monkeypatch.setenv
+    after import has NO effect on src.rss_server / src.security. Tests flip
+    flags by patching the env snapshot instead (auto-restored by monkeypatch),
+    which models an operator-exported environment variable.
+    """
+
+    def _set(key: str, value: str) -> None:
+        from src import rss_server, security
+
+        monkeypatch.setitem(rss_server.live_config.env_snapshot, key, value)
+        monkeypatch.setitem(security.live_config.env_snapshot, key, value)
+
+    return _set
+
+
+@pytest.fixture
 def fresh_store(tmp_path):
     """Fresh, empty MagnetStore in a temp directory per test."""
     from src.core.storage import MagnetStore

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 from src.bind import check_disk_space, cli, run_job
+from src.config_manager import LiveConfig
 
 
 def _make_scraper(books=None, info_hash="aabbccdd" * 5):
@@ -107,14 +108,15 @@ class TestRunJob:
 
 class TestDaemonCommand:
     def test_permission_error_on_makedirs_exits_1(self, tmp_path):
+        # Point LiveConfig at an empty tmp config so the cleared environment
+        # cannot fall back to the repository's real config.env.
         with patch.dict("os.environ", {}, clear=True):
             os.environ["FLASK_SECRET_KEY"] = "testsecret"
             with (
-                patch("src.bind.ConfigManager") as mock_cm,
+                patch("src.bind.LiveConfig", lambda: LiveConfig(str(tmp_path / "config.env"))),
                 patch("src.bind.BindScraper"),
                 patch("src.bind.TrackerManager"),
             ):
-                mock_cm.return_value.read_config.return_value = {}
                 with patch("os.makedirs", side_effect=PermissionError):
                     result = CliRunner().invoke(
                         cli, ["daemon", "--db-path", "/no/permission/bind.db"]
@@ -125,11 +127,10 @@ class TestDaemonCommand:
         with patch.dict("os.environ", {}, clear=True):
             os.environ["FLASK_SECRET_KEY"] = "testsecret"
             with (
-                patch("src.bind.ConfigManager") as mock_cm,
+                patch("src.bind.LiveConfig", lambda: LiveConfig(str(tmp_path / "config.env"))),
                 patch("src.bind.BindScraper"),
                 patch("src.bind.TrackerManager"),
             ):
-                mock_cm.return_value.read_config.return_value = {}
                 with patch("os.makedirs", side_effect=OSError("disk full")):
                     result = CliRunner().invoke(cli, ["daemon", "--db-path", "/bad/path/bind.db"])
         assert result.exit_code == 1
@@ -191,70 +192,18 @@ class TestRunJobEdgeCases:
 
 
 class TestDaemonConfigLoading:
-    def test_config_key_already_in_env_logs_mismatch(self, tmp_path, caplog):
-        mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks()
-
-        with patch.dict("os.environ", {"BIND_MISMATCH_TEST": "30"}):
-            with (
-                patch("src.bind.ConfigManager") as mock_cm,
-                patch("src.bind.MagnetStore", return_value=mock_store),
-                patch("src.bind.BindScraper", return_value=mock_scraper),
-                patch("src.bind.TrackerManager"),
-                patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_executor),
-                patch("src.bind.schedule"),
-                patch("time.sleep", side_effect=SystemExit(0)),
-            ):
-                mock_cm.return_value.read_config.return_value = {"BIND_MISMATCH_TEST": "60"}
-                with caplog.at_level(logging.DEBUG, logger="BIND"):
-                    CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
-
-        assert any("Config mismatch for" in r.message for r in caplog.records)
-
-    def test_config_load_exception_logs_warning(self, tmp_path, caplog):
-        mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks()
-
-        with (
-            patch("src.bind.ConfigManager") as mock_cm,
-            patch("src.bind.MagnetStore", return_value=mock_store),
-            patch("src.bind.BindScraper", return_value=mock_scraper),
-            patch("src.bind.TrackerManager"),
-            patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_executor),
-            patch("src.bind.schedule"),
-            patch("time.sleep", side_effect=SystemExit(0)),
-        ):
-            mock_cm.return_value.read_config.side_effect = Exception("file not found")
-            with caplog.at_level(logging.WARNING, logger="BIND"):
-                CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
-
-        assert any("Failed to load config.env" in r.message for r in caplog.records)
-
-    def test_config_key_not_in_env_is_loaded(self, tmp_path, monkeypatch, caplog):
-        mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks()
-        # Use a key guaranteed absent from the test environment
-        test_key = "BIND_COVERAGE_TEST_KEY_NOT_IN_ENV"
-        monkeypatch.delenv(test_key, raising=False)
-
-        with (
-            patch("src.bind.ConfigManager") as mock_cm,
-            patch("src.bind.MagnetStore", return_value=mock_store),
-            patch("src.bind.BindScraper", return_value=mock_scraper),
-            patch("src.bind.TrackerManager"),
-            patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_executor),
-            patch("src.bind.schedule"),
-            patch("time.sleep", side_effect=SystemExit(0)),
-        ):
-            mock_cm.return_value.read_config.return_value = {test_key: "test_value"}
-            with caplog.at_level(logging.INFO, logger="BIND"):
-                CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
-
-        assert any("Loaded" in r.message for r in caplog.records)
+    # NOTE (Wave 5-B): the three tests that exercised seeding config.env into
+    # os.environ ("Config mismatch", "Loaded N configuration values", and the
+    # load-exception warning) were deleted — the daemon no longer seeds the
+    # environment; it reads config.env live through LiveConfig (ARCH-2/SEC-2).
 
     def test_scraping_disabled_logs_waiting_message(self, tmp_path, monkeypatch, caplog):
+        # An operator-exported SCRAPING_ENABLED=false is snapshotted by
+        # LiveConfig at daemon start and wins over config.env.
         mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks()
         monkeypatch.setenv("SCRAPING_ENABLED", "false")
 
         with (
-            patch("src.bind.ConfigManager") as mock_cm,
             patch("src.bind.MagnetStore", return_value=mock_store),
             patch("src.bind.BindScraper", return_value=mock_scraper),
             patch("src.bind.TrackerManager"),
@@ -262,7 +211,6 @@ class TestDaemonConfigLoading:
             patch("src.bind.schedule"),
             patch("time.sleep", side_effect=SystemExit(0)),
         ):
-            mock_cm.return_value.read_config.return_value = {}
             with caplog.at_level(logging.INFO, logger="BIND"):
                 CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
 
@@ -272,12 +220,10 @@ class TestDaemonConfigLoading:
 class TestDaemonStartupFailures:
     def test_magnet_store_runtime_error_exits_1(self, tmp_path):
         with (
-            patch("src.bind.ConfigManager") as mock_cm,
             patch("src.bind.MagnetStore", side_effect=RuntimeError("db locked")),
             patch("src.bind.BindScraper"),
             patch("src.bind.TrackerManager"),
         ):
-            mock_cm.return_value.read_config.return_value = {}
             result = CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
 
         assert result.exit_code == 1
@@ -292,7 +238,6 @@ class TestDaemonSignalRegistration:
             registered[signum] = handler
 
         with (
-            patch("src.bind.ConfigManager") as mock_cm,
             patch("src.bind.MagnetStore", return_value=mock_store),
             patch("src.bind.BindScraper", return_value=mock_scraper),
             patch("src.bind.TrackerManager"),
@@ -301,7 +246,6 @@ class TestDaemonSignalRegistration:
             patch("signal.signal", side_effect=capture_signal),
             patch("time.sleep", side_effect=SystemExit(0)),
         ):
-            mock_cm.return_value.read_config.return_value = {}
             CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
 
         assert signal.SIGTERM in registered
@@ -313,7 +257,6 @@ class TestDaemonProbeWarning:
         mock_executor, _, mock_scraper, mock_store = _make_daemon_mocks(probe_return=probe_return)
 
         with (
-            patch("src.bind.ConfigManager") as mock_cm,
             patch("src.bind.MagnetStore", return_value=mock_store),
             patch("src.bind.BindScraper", return_value=mock_scraper),
             patch("src.bind.TrackerManager"),
@@ -321,7 +264,6 @@ class TestDaemonProbeWarning:
             patch("src.bind.schedule"),
             patch("time.sleep", side_effect=SystemExit(0)),
         ):
-            mock_cm.return_value.read_config.return_value = {}
             with caplog.at_level(logging.WARNING, logger="BIND"):
                 CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
 
@@ -344,7 +286,6 @@ class TestRunJobWithTimeout:
         )
 
         with (
-            patch("src.bind.ConfigManager") as mock_cm,
             patch("src.bind.MagnetStore", return_value=mock_store),
             patch("src.bind.BindScraper", return_value=mock_scraper),
             patch("src.bind.TrackerManager"),
@@ -352,7 +293,6 @@ class TestRunJobWithTimeout:
             patch("src.bind.schedule", mock_sched),
             patch("time.sleep", side_effect=SystemExit(0)),
         ):
-            mock_cm.return_value.read_config.return_value = {}
             CliRunner().invoke(cli, ["daemon", "--db-path", str(tmp_path / "bind.db")])
 
         return captured.get("fn")

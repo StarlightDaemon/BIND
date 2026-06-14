@@ -464,13 +464,14 @@ class TestGetClientIpEdgeCases:
 
 
 class TestIpAllowlistMiddleware:
-    def _make_app(self):
+    def _make_app(self, config=None):
+        """config: optional LiveConfig injected into the middleware (Wave 5-B)."""
         import src.security as _sec
         from flask import Flask
 
         app = Flask(__name__)
         app.config["TESTING"] = True
-        _sec.ip_allowlist_middleware(app)
+        _sec.ip_allowlist_middleware(app, config)
 
         @app.route("/probe")
         def probe():
@@ -478,15 +479,38 @@ class TestIpAllowlistMiddleware:
 
         return app
 
-    def test_filter_disabled_allows_any_ip(self, monkeypatch):
-        monkeypatch.setenv("BIND_IP_FILTER", "false")
-        resp = self._make_app().test_client().get("/probe", environ_base={"REMOTE_ADDR": "8.8.8.8"})
+    def test_filter_disabled_allows_any_ip(self, tmp_path):
+        # BIND_IP_FILTER is read through LiveConfig now; env vars set after
+        # import are ignored, so inject a config with the flag pinned off.
+        from src.config_manager import LiveConfig
+
+        cfg = LiveConfig(str(tmp_path / "config.env"), env={"BIND_IP_FILTER": "false"})
+        resp = (
+            self._make_app(cfg).test_client().get("/probe", environ_base={"REMOTE_ADDR": "8.8.8.8"})
+        )
         assert resp.status_code == 200
 
-    def test_blocked_ip_returns_403(self, monkeypatch):
-        monkeypatch.setenv("BIND_IP_FILTER", "true")
+    def test_filter_disabled_via_config_file_edit_applies_live(self, tmp_path):
+        """SEC-2: flipping BIND_IP_FILTER in config.env applies to the NEXT
+        request through the same middleware — no restart, no new instance."""
+        from src.config_manager import LiveConfig
+
+        config_file = tmp_path / "config.env"
+        config_file.write_text("BIND_IP_FILTER=true\n")
+        cfg = LiveConfig(str(config_file), env={})
+        client = self._make_app(cfg).test_client()
+        assert client.get("/probe", environ_base={"REMOTE_ADDR": "8.8.8.8"}).status_code == 403
+        config_file.write_text("BIND_IP_FILTER=false\n")
+        assert client.get("/probe", environ_base={"REMOTE_ADDR": "8.8.8.8"}).status_code == 200
+
+    def test_blocked_ip_returns_403(self, monkeypatch, tmp_path):
+        from src.config_manager import LiveConfig
+
+        cfg = LiveConfig(str(tmp_path / "config.env"), env={"BIND_IP_FILTER": "true"})
         monkeypatch.setenv("BIND_ALLOWED_IPS", "192.168.1.0/24")
-        resp = self._make_app().test_client().get("/probe", environ_base={"REMOTE_ADDR": "8.8.8.8"})
+        resp = (
+            self._make_app(cfg).test_client().get("/probe", environ_base={"REMOTE_ADDR": "8.8.8.8"})
+        )
         assert resp.status_code == 403
 
 
@@ -546,7 +570,9 @@ class TestRequiresAuth:
         from flask import Flask
         from werkzeug.security import generate_password_hash as _gph
 
-        monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+        # Flip the live flag on the module's LiveConfig snapshot — setenv after
+        # import no longer affects it (Wave 5-B precedence).
+        monkeypatch.setitem(_sec.live_config.env_snapshot, "BIND_AUTH_ENABLED", "true")
         creds_file = tmp_path / "creds.json"
         creds = {
             "version": 2,
@@ -594,7 +620,7 @@ class TestRequiresAuth:
         import src.security as _sec
         from flask import Flask
 
-        monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+        monkeypatch.setitem(_sec.live_config.env_snapshot, "BIND_AUTH_ENABLED", "true")
         creds_file = tmp_path / "locked.json"
         future = (
             (datetime.now(timezone.utc) + timedelta(minutes=10))
@@ -691,7 +717,7 @@ class TestRemainingBranches:
         import src.security as _sec
         from flask import Flask
 
-        monkeypatch.setenv("BIND_IP_FILTER", "true")
+        monkeypatch.setitem(_sec.live_config.env_snapshot, "BIND_IP_FILTER", "true")
         monkeypatch.setenv("BIND_ALLOWED_IPS", "127.0.0.1/32")
         app = Flask(__name__)
         app.config["TESTING"] = True
@@ -719,7 +745,7 @@ class TestRemainingBranches:
         import src.security as _sec
         from flask import Flask
 
-        monkeypatch.setenv("BIND_AUTH_ENABLED", "false")
+        monkeypatch.setitem(_sec.live_config.env_snapshot, "BIND_AUTH_ENABLED", "false")
         app = Flask(__name__)
         app.config["TESTING"] = True
 
@@ -810,7 +836,7 @@ class TestGetClientIpTopologies:
         import src.security as _sec
         from flask import Flask
 
-        monkeypatch.setenv("BIND_IP_FILTER", "true")
+        monkeypatch.setitem(_sec.live_config.env_snapshot, "BIND_IP_FILTER", "true")
         monkeypatch.setenv("BIND_ALLOWED_IPS", "192.168.1.0/24")
         monkeypatch.delenv("BIND_TRUSTED_PROXIES", raising=False)
 
@@ -900,9 +926,11 @@ class TestCredentialMigrationV3:
         import src.security as _sec
 
         creds_file = tmp_path / "creds.json"
-        future = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(
-            timespec="microseconds"
-        ).replace("+00:00", "Z")
+        future = (
+            (datetime.now(timezone.utc) + timedelta(minutes=10))
+            .isoformat(timespec="microseconds")
+            .replace("+00:00", "Z")
+        )
         v2 = {
             "version": 2,
             "username": "admin",

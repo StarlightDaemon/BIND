@@ -6,13 +6,15 @@ import shutil
 import signal
 import sys
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
 import click
 import schedule
 
-from src.config_manager import ConfigManager
+from src.config_manager import LiveConfig
 from src.core.magnet import generate_magnet
 from src.core.scraper import BindScraper
 from src.core.storage import MagnetStore
@@ -114,6 +116,88 @@ def run_job(
     return successful_saves
 
 
+@dataclass
+class DaemonContext:
+    """Mutable state shared between the daemon shell and loop_tick() (TEST-3)."""
+
+    data_dir: str
+    interval: int
+    live_config: LiveConfig
+    run_job: Callable[[], None]
+    maybe_beat: Callable[..., None]
+    # True iff the scrape job is currently on the scheduler. Reconciled against
+    # the live SCRAPING_ENABLED value every tick by sync_scraping_schedule().
+    scraping_enabled: bool = False
+
+    @property
+    def trigger_file(self) -> str:
+        return os.path.join(self.data_dir, ".trigger")
+
+
+def cleanup_stale_signal_files(data_dir: str) -> None:
+    """Delete control files left over from a previous daemon run (startup only).
+
+    - ``.enable-scraping`` (deprecated sentinel): a stale one — written while
+      the daemon was already enabled, hence never consumed — used to re-enable
+      scraping on a later restart *against* ``SCRAPING_ENABLED=false`` (ARCH-2).
+      The daemon now reads config live and ignores the sentinel at runtime; the
+      RSS server still writes it for one release for old daemons (COMPAT).
+    - ``.trigger``: one left by a dead daemon caused a startup-run + trigger-run
+      double scrape and 409-blocked manual scrapes forever (ARCH-3).
+    """
+    for name in (".enable-scraping", ".trigger"):
+        path = os.path.join(data_dir, name)
+        try:
+            os.remove(path)
+            logger.info("Removed stale %s left by a previous run.", name)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            logger.warning("Could not remove stale %s: %s", name, e)
+
+
+def sync_scraping_schedule(ctx: DaemonContext) -> bool:
+    """Reconcile the scheduler with the live SCRAPING_ENABLED value (ARCH-2).
+
+    Returns True when scraping was just enabled — the caller should run a job
+    immediately. On a true→false transition the pending schedule is cleared:
+    a running job finishes, no new ones start.
+    """
+    desired = ctx.live_config.get_bool("SCRAPING_ENABLED")
+    if desired and not ctx.scraping_enabled:
+        ctx.scraping_enabled = True
+        schedule.every(ctx.interval).minutes.do(ctx.run_job)
+        logger.info("SCRAPING_ENABLED=true — scrape job scheduled every %dm.", ctx.interval)
+        return True
+    if not desired and ctx.scraping_enabled:
+        ctx.scraping_enabled = False
+        schedule.clear()
+        logger.info(
+            "SCRAPING_ENABLED=false — schedule cleared; a running job will "
+            "finish, no new ones start."
+        )
+    return False
+
+
+def loop_tick(ctx: DaemonContext) -> None:
+    """One iteration of the daemon main loop, extracted for testability (TEST-3)."""
+    schedule.run_pending()
+    run_now = sync_scraping_schedule(ctx)
+    # Heartbeat every tick (Wave 5-A); a transition above changes the state
+    # reported by _current_state(), which forces an immediate beat — so the UI
+    # reflects an enable/disable before any (blocking) job below runs.
+    ctx.maybe_beat()
+    if run_now:
+        ctx.run_job()
+    if os.path.exists(ctx.trigger_file):
+        try:
+            os.remove(ctx.trigger_file)
+        except OSError:
+            pass
+        logger.info("Manual trigger detected — running job immediately")
+        ctx.run_job()
+
+
 @click.group()
 def cli() -> None:
     """Book Indexing Network Daemon (BIND)"""
@@ -121,31 +205,34 @@ def cli() -> None:
 
 
 @cli.command()
-@click.option("--interval", envvar="SCRAPE_INTERVAL", default=60, help="Check interval in minutes")
+@click.option(
+    "--interval",
+    envvar="SCRAPE_INTERVAL",
+    default=None,
+    type=int,
+    help="Check interval in minutes (default: SCRAPE_INTERVAL from env/config.env, else 60)",
+)
 @click.option(
     "--db-path",
     envvar="BIND_DB_PATH",
     default="data/bind.db",
     help="Path to SQLite database",
 )
-def daemon(interval: int, db_path: str) -> None:
+def daemon(interval: int | None, db_path: str) -> None:
     """Run in daemon mode to auto-grab new torrents"""
+    # Single source of truth for managed config keys (ARCH-2/SEC-2): read live
+    # from config.env per loop tick. config.env is NO LONGER seeded into
+    # os.environ — only operator-exported variables live there now, and those
+    # win permanently (LiveConfig snapshot).
+    live_config = LiveConfig()
+
+    if interval is None:
+        # SCRAPE_INTERVAL is intentionally start-time-only: re-scheduling a
+        # live interval change is out of scope (Wave 5-B). Restart to apply.
+        interval = live_config.get_int("SCRAPE_INTERVAL")
+
     logger.info(f"Starting BIND Daemon (Interval: {interval}m)")
     logger.info(f"Database: {db_path}")
-
-    try:
-        config_mgr = ConfigManager()
-        config = config_mgr.read_config()
-        loaded_count = 0
-        for key, value in config.items():
-            if key not in os.environ:
-                os.environ[key] = str(value)
-                loaded_count += 1
-            elif os.environ[key] != str(value):
-                logger.debug(f"Config mismatch for {key}: env and file values differ")
-        logger.info(f"Loaded {loaded_count} configuration values from config.env")
-    except Exception as e:
-        logger.warning(f"Failed to load config.env: {e}")
 
     data_dir = os.path.dirname(os.path.abspath(db_path))
     try:
@@ -177,7 +264,6 @@ def daemon(interval: int, db_path: str) -> None:
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
-    JOB_TIMEOUT = int(os.getenv("BIND_JOB_TIMEOUT", "3600"))
     _job_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     _last_future: dict[str, Any] = {"future": None}
 
@@ -189,6 +275,8 @@ def daemon(interval: int, db_path: str) -> None:
                 "Skipping this scheduled run to prevent queue buildup."
             )
             return
+        # Read per job run so a Settings-page change applies without restart.
+        job_timeout = live_config.get_int("BIND_JOB_TIMEOUT")
         t0 = time.monotonic()
         run_result = "failure"
         items_new = 0
@@ -198,14 +286,14 @@ def daemon(interval: int, db_path: str) -> None:
         )
         _last_future["future"] = future
         try:
-            new_count = future.result(timeout=JOB_TIMEOUT)
+            new_count = future.result(timeout=job_timeout)
             items_new = new_count or 0
             run_result = "success" if items_new > 0 else "empty"
         except concurrent.futures.TimeoutError:
             items_new = _saved_counter[0]
             run_result = "timeout"
             logger.warning(
-                f"⏰ Job exceeded {JOB_TIMEOUT}s timeout — "
+                f"⏰ Job exceeded {job_timeout}s timeout — "
                 f"{items_new} item(s) saved before cutoff. "
                 "The next scheduled run will be skipped if this job has not completed."
             )
@@ -222,16 +310,11 @@ def daemon(interval: int, db_path: str) -> None:
             scraper.base_url,
         )
 
-    TRIGGER_FILE = os.path.join(data_dir, ".trigger")
-    ENABLE_FILE = os.path.join(data_dir, ".enable-scraping")
-
-    scraping_enabled = os.getenv("SCRAPING_ENABLED", "true").lower() != "false"
-
     HEARTBEAT_INTERVAL_S = 30
     _last_beat: dict[str, Any] = {"at": 0.0, "state": None}
 
     def _current_state() -> str:
-        if not scraping_enabled:
+        if not ctx.scraping_enabled:
             return "disabled"
         fut = _last_future["future"]
         if fut is not None and not fut.done():
@@ -250,34 +333,31 @@ def daemon(interval: int, db_path: str) -> None:
             _last_beat["at"] = now
             _last_beat["state"] = state
 
-    _maybe_beat(force=True)  # flip UI status promptly, before the first (blocking) job
+    ctx = DaemonContext(
+        data_dir=data_dir,
+        interval=interval,
+        live_config=live_config,
+        run_job=run_job_with_timeout,
+        maybe_beat=_maybe_beat,
+    )
 
-    if scraping_enabled:
-        schedule.every(interval).minutes.do(run_job_with_timeout)
+    # Kill any stale .enable-scraping / .trigger before the first scheduled run
+    # (ARCH-2 stale-sentinel re-enable; ARCH-3 restart double-scrape).
+    cleanup_stale_signal_files(data_dir)
+
+    run_now = sync_scraping_schedule(ctx)
+    _maybe_beat(force=True)  # flip UI status promptly, before the first (blocking) job
+    if run_now:
         run_job_with_timeout()
     else:
-        logger.info("Scraping is disabled (SCRAPING_ENABLED=false). Waiting for manual enable.")
+        logger.info(
+            "Scraping is disabled (SCRAPING_ENABLED=false). "
+            "Enable it in Settings — applied within seconds, no restart needed."
+        )
 
     logger.info("Daemon running. Press Ctrl+C to stop.")
-    while not shutdown_requested["flag"]:  # pragma: no cover
-        schedule.run_pending()  # pragma: no cover
-        _maybe_beat()  # pragma: no cover
-        if not scraping_enabled and os.path.exists(ENABLE_FILE):  # pragma: no cover
-            try:  # pragma: no cover
-                os.remove(ENABLE_FILE)  # pragma: no cover
-            except OSError:  # pragma: no cover
-                pass  # pragma: no cover
-            logger.info("Enable signal received — starting scraping schedule.")  # pragma: no cover
-            scraping_enabled = True  # pragma: no cover
-            schedule.every(interval).minutes.do(run_job_with_timeout)  # pragma: no cover
-            run_job_with_timeout()  # pragma: no cover
-        if os.path.exists(TRIGGER_FILE):  # pragma: no cover
-            try:  # pragma: no cover
-                os.remove(TRIGGER_FILE)  # pragma: no cover
-            except OSError:  # pragma: no cover
-                pass  # pragma: no cover
-            logger.info("Manual trigger detected — running job immediately")  # pragma: no cover
-            run_job_with_timeout()  # pragma: no cover
+    while not shutdown_requested["flag"]:  # pragma: no cover — shell only; body is loop_tick()
+        loop_tick(ctx)  # pragma: no cover
         time.sleep(1)  # pragma: no cover
 
     logger.info("Shutdown complete. Daemon stopped cleanly.")
