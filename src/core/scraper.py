@@ -1,7 +1,6 @@
 import base64
 import binascii
 import logging
-import os
 import random
 import re
 import time
@@ -9,6 +8,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
+from src.config_manager import LiveConfig
 from src.core.egress_manager import EgressManager, FetchExhausted
 from src.core.schema_monitor import SchemaHealthMonitor
 
@@ -28,16 +28,19 @@ class CircuitBreaker:
         self, failure_threshold: int | None = None, cooldown_seconds: int | None = None
     ) -> None:
         self.failures = 0
-        # Precedence: Explicit Arg > Env Var > Default
-        if failure_threshold is not None:
-            self.threshold = failure_threshold
-        else:
-            self.threshold = int(os.getenv("CIRCUIT_BREAKER_THRESHOLD", 3))
-
-        if cooldown_seconds is not None:
-            self.cooldown = cooldown_seconds
-        else:
-            self.cooldown = int(os.getenv("CIRCUIT_BREAKER_COOLDOWN", 300))
+        # Precedence: Explicit Arg > LiveConfig (process-start env > config.env
+        # > default). Read at instance creation — config.env is no longer
+        # seeded into os.environ (ARCH-2/SEC-2).
+        self.threshold = (
+            failure_threshold
+            if failure_threshold is not None
+            else LiveConfig().get_int("CIRCUIT_BREAKER_THRESHOLD")
+        )
+        self.cooldown = (
+            cooldown_seconds
+            if cooldown_seconds is not None
+            else LiveConfig().get_int("CIRCUIT_BREAKER_COOLDOWN")
+        )
 
         self.last_failure: float | None = None
         self.is_open = False
@@ -76,7 +79,9 @@ class BindScraper:
         self.circuit_breaker = CircuitBreaker()
         self.egress = egress_manager or EgressManager.from_env()
         self.schema_monitor = SchemaHealthMonitor()
-        self.base_url = os.getenv("ABB_URL", "http://audiobookbay.lu")
+        # Read at instance creation via LiveConfig (env > config.env > default);
+        # a changed ABB_URL applies to scrapers created after the change.
+        self.base_url = LiveConfig().get("ABB_URL")
 
     def _get_page(self, url: str) -> str | None:
         """

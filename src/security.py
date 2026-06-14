@@ -19,7 +19,14 @@ from typing import Any, TypeVar, cast
 from flask import Flask, Response, request
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from src.config_manager import LiveConfig
+
 F = TypeVar("F", bound=Callable[..., Any])
+
+# Live view of config.env (SEC-2). security.py must not import rss_server, so
+# it owns its own instance; both read the same file. BIND_IP_FILTER and
+# BIND_AUTH_ENABLED are read through it per request.
+live_config = LiveConfig()
 
 # =============================================================================
 # Constants
@@ -453,6 +460,7 @@ def is_account_locked(ip: str | None = None) -> tuple[bool, int | None]:
     if global_locked_until:
         if _is_locked_until(global_locked_until):
             return True, _minutes_remaining(global_locked_until)
+
         # Global lockout expired — clear it (and reset the global counter) under
         # the lock, preserving the ACCOUNT_UNLOCKED audit event.
         def _clear_global(c: dict[str, Any]) -> dict[str, Any]:
@@ -765,16 +773,23 @@ def get_client_ip(req: Any) -> str:
     return peer
 
 
-def ip_allowlist_middleware(app: Flask) -> None:
+def ip_allowlist_middleware(app: Flask, config: LiveConfig | None = None) -> None:
     """
     Register IP allowlist check as Flask before_request handler.
 
-    If BIND_IP_FILTER is set to 'false', filtering is disabled.
+    BIND_IP_FILTER is read live per request (SEC-2): setting it to 'false'
+    via the Settings UI disables filtering within seconds, no restart.
+
+    Args:
+        app: Flask app to register the handler on.
+        config: LiveConfig to read flags through; the caller may inject its
+            own instance (rss_server does). Defaults to this module's.
     """
+    cfg = config if config is not None else live_config
 
     @app.before_request
     def check_ip_allowlist() -> Response | None:
-        if os.getenv("BIND_IP_FILTER", "true").lower() == "false":
+        if not cfg.get_bool("BIND_IP_FILTER"):
             return None
 
         client_ip = get_client_ip(request)
@@ -830,7 +845,8 @@ def requires_auth(f: F) -> F:
 
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Any:
-        if os.getenv("BIND_AUTH_ENABLED", "true").lower() == "false":
+        # Read live per request (SEC-2): applies within seconds of a change.
+        if not live_config.get_bool("BIND_AUTH_ENABLED"):
             return f(*args, **kwargs)
 
         # Check if locked (per-IP for this client + global ceiling)

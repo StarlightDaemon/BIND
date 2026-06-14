@@ -24,7 +24,7 @@ from xml.sax.saxutils import escape
 
 from flask import Flask, Response, abort, jsonify, redirect, request, send_from_directory, session
 
-from src.config_manager import ConfigManager
+from src.config_manager import ConfigManager, LiveConfig
 from src.core.magnet import generate_magnet
 from src.core.scraper import BindScraper
 from src.core.storage import MagnetStore
@@ -121,26 +121,26 @@ def _resolve_secret_key(data_dir: str) -> str:
         return key
 
 
-# Load config.env into the environment BEFORE resolving the secret key: the key
-# file location is derived from BIND_DB_PATH, which an operator may set only in
-# config.env (not the process environment). Resolving the key first would put
-# the key file in the wrong data dir (SEC-6 ordering fix).
-try:
-    _config_mgr = ConfigManager()
-    _config = _config_mgr.read_config()
-    for _key, _value in _config.items():
-        if _key not in os.environ:
-            os.environ[_key] = str(_value)
-except Exception as e:
-    logger.warning(f"Failed to load config.env: {e}")
+# Live view of config.env for this process (SEC-2): managed keys are read
+# through it at request time, so Settings-page changes to e.g. BIND_AUTH_ENABLED
+# apply within seconds without a restart. Keys present in the real process
+# environment at import time stay pinned for the process lifetime (operator
+# contract). config.env is NO LONGER seeded into os.environ (ARCH-2/SEC-2):
+# values that merely originated from the file must not shadow later file edits.
+live_config = LiveConfig()
 
+# Resolve the secret key through live_config: the key-file location is derived
+# from BIND_DB_PATH, which an operator may set only in config.env, not the
+# process environment (SEC-6 ordering fix).
 app.secret_key = _resolve_secret_key(
-    os.path.dirname(os.path.abspath(os.getenv("BIND_DB_PATH", "data/bind.db")))
+    os.path.dirname(os.path.abspath(live_config.get("BIND_DB_PATH")))
 )
 
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"] = os.getenv("BIND_COOKIE_SECURE", "false").lower() == "true"
+# Startup-only read: Flask copies cookie config at request time, but flipping
+# cookie security live would invalidate sessions mid-flight — restart to apply.
+app.config["SESSION_COOKIE_SECURE"] = live_config.get("BIND_COOKIE_SECURE").lower() == "true"
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
 
 
@@ -152,7 +152,8 @@ def _add_security_headers(response: Response) -> Response:
     return response
 
 
-BIND_DB_PATH = os.getenv("BIND_DB_PATH", "data/bind.db")
+# Startup-only read: the store/data dir cannot move while the process runs.
+BIND_DB_PATH = live_config.get("BIND_DB_PATH")
 FEED_TITLE = "BIND - Book Indexing Network"
 FEED_DESCRIPTION = "Automatically collected audiobook magnet links"
 MAX_ITEMS = 100
@@ -161,7 +162,7 @@ _data_dir = os.path.dirname(os.path.abspath(BIND_DB_PATH))
 tracker_manager = TrackerManager(_data_dir)
 store = MagnetStore(BIND_DB_PATH)
 
-ip_allowlist_middleware(app)
+ip_allowlist_middleware(app, live_config)
 
 
 # =============================================================================
@@ -231,7 +232,9 @@ F = TypeVar("F", bound=Callable[..., Any])
 def requires_session_auth(f: F) -> F:
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Any:
-        if os.getenv("BIND_AUTH_ENABLED", "true").lower() == "false":
+        # Read live per request (SEC-2): a Settings-page change to
+        # BIND_AUTH_ENABLED applies within seconds, no restart.
+        if not live_config.get_bool("BIND_AUTH_ENABLED"):
             return f(*args, **kwargs)
         if not session.get("authenticated"):
             return jsonify({"error": "Authentication required"}), 401
@@ -318,7 +321,7 @@ def feed() -> Response:
     current_trackers = tracker_manager.get_trackers()
     rows = store.recent(limit=MAX_ITEMS)
     magnets = _enrich(rows, current_trackers)
-    base_url = os.getenv("BASE_URL") or f"http://{request.host}"
+    base_url = live_config.get("BASE_URL") or f"http://{request.host}"
 
     rss_items = []
     for magnet in magnets:
@@ -408,7 +411,7 @@ def api_logout() -> Any:
 
 @app.route("/api/me")
 def api_me() -> Any:
-    auth_enabled = os.getenv("BIND_AUTH_ENABLED", "true").lower() != "false"
+    auth_enabled = live_config.get_bool("BIND_AUTH_ENABLED")
     return jsonify(
         {
             "authenticated": not auth_enabled or bool(session.get("authenticated")),
@@ -489,9 +492,9 @@ def api_stats() -> Any:
     current_trackers = tracker_manager.get_trackers()
     recent_rows = store.recent(limit=20)
     recent_magnets = _enrich(recent_rows, current_trackers)
-    scraping_enabled = (
-        config_manager.read_config().get("SCRAPING_ENABLED", "true").lower() != "false"
-    )
+    # Same effective view the daemon uses (env-pinned > config.env > default),
+    # so the dashboard can never disagree with the daemon about this flag.
+    scraping_enabled = live_config.get_bool("SCRAPING_ENABLED")
     # ABB reachability probe (cached 5 min) — relocated here from /health (DEP-2).
     if time.monotonic() > _probe_cache["expires"]:
         _probe_cache["result"] = BindScraper().probe_target()
@@ -582,12 +585,22 @@ def api_settings_post() -> Any:
     write_success, write_message = config_manager.write_config(new_config)
     if not write_success:
         return jsonify({"ok": False, "message": write_message}), 400
+    # Scraping/auth/IP-filter flags are read live; keys like ABB_URL and
+    # SCRAPE_INTERVAL are read at daemon startup and still need this restart
+    # (which only works under systemd — hence the honest fallback message).
+    live_note = (
+        "Scraping, auth, and IP-filter changes apply within seconds; "
+        "other settings apply on daemon restart."
+    )
     restart_success, restart_message = config_manager.restart_daemon()
     if restart_success:
         return jsonify(
-            {"ok": True, "message": "Configuration saved. Daemon restarted successfully."}
+            {
+                "ok": True,
+                "message": f"Configuration saved. {live_note} Daemon restarted successfully.",
+            }
         )
-    return jsonify({"ok": True, "message": f"Configuration saved. Note: {restart_message}"})
+    return jsonify({"ok": True, "message": f"Configuration saved. {live_note} Note: {restart_message}"})
 
 
 @app.route("/api/scraping/enable", methods=["POST"])
@@ -600,17 +613,20 @@ def api_scraping_enable() -> Any:
     write_success, write_message = config_manager.write_config(current)
     if not write_success:
         return jsonify({"ok": False, "message": write_message}), 400
-    # Signal the running daemon directly via sentinel file (works in Docker/non-systemd).
+    # The config write above is sufficient: the daemon reads SCRAPING_ENABLED
+    # live and picks the change up within one loop tick (ARCH-2). No restart.
+    # COMPAT(remove after vNEXT): a pre-live-config daemon only notices an
+    # enable via this sentinel. The current daemon deletes it at startup and
+    # ignores it at runtime, so the write is harmless to new daemons and
+    # functional for old ones during the one-release upgrade window.
     enable_file = os.path.join(get_data_dir(), ".enable-scraping")
     try:
         pathlib.Path(enable_file).touch()
     except OSError as e:
         logger.warning("Could not write enable sentinel: %s", e)
-    # Also attempt a systemd restart for managed environments.
-    restart_success, _ = config_manager.restart_daemon()
-    if restart_success:
-        return jsonify({"ok": True, "message": "Scraping enabled. Daemon restarted."})
-    return jsonify({"ok": True, "message": "Scraping enabled. The daemon is starting up."})
+    return jsonify(
+        {"ok": True, "message": "Scraping enabled. The daemon will start within a few seconds."}
+    )
 
 
 @app.route("/api/settings/trackers", methods=["POST"])
@@ -700,9 +716,23 @@ def api_logs() -> Any:
 @requires_session_auth
 def api_trigger_scrape() -> Any:
     trigger_file = os.path.join(_data_dir, ".trigger")
-    if os.path.exists(trigger_file):
-        return jsonify({"ok": False, "message": "A trigger is already pending."}), 409
     try:
+        if os.path.exists(trigger_file):
+            # A trigger older than 2× the scrape interval was left by a daemon
+            # that never consumed it (dead or restarted) — replace it instead
+            # of 409-blocking manual scrapes forever (ARCH-3).
+            stale_after_s = 2 * live_config.get_int("SCRAPE_INTERVAL") * 60
+            age_s = time.time() - os.path.getmtime(trigger_file)
+            if age_s <= stale_after_s:
+                return jsonify({"ok": False, "message": "A trigger is already pending."}), 409
+            pathlib.Path(trigger_file).touch()
+            return jsonify(
+                {
+                    "ok": True,
+                    "message": "Stale trigger from a previous daemon replaced — "
+                    "scrape job triggered.",
+                }
+            )
         pathlib.Path(trigger_file).touch()
         return jsonify({"ok": True, "message": "Scrape job triggered — results in ~60s."})
     except OSError as e:

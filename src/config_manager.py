@@ -10,6 +10,8 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
+from typing import Any
 
 logger = logging.getLogger("ConfigManager")
 
@@ -293,3 +295,89 @@ class ConfigManager:
             return False, f"Failed to restart daemon: {stderr}"
         except FileNotFoundError:
             return False, "systemctl not found. Running in development mode?"
+
+
+# Sentinel distinguishing "never parsed" from "file missing" in LiveConfig.
+_UNREAD = object()
+
+
+class LiveConfig:
+    """Live, cached view of ``config.env`` with process-environment precedence.
+
+    Single source of truth for the managed keys (those in
+    ``ConfigManager.DEFAULTS``). Effective precedence, highest first:
+
+    1. **Process-start environment** — managed keys present in ``os.environ``
+       when this instance is constructed are snapshotted (key *and* value) and
+       win permanently. This preserves the operator contract: a variable
+       exported via Docker ``environment:`` or a systemd ``Environment=`` line
+       is pinned for the life of the process and cannot be overridden from the
+       Settings UI.
+    2. **config.env** — re-parsed only when the file's ``(mtime_ns, size)``
+       signature changes; the file is stat'd on every call (one syscall).
+    3. **``ConfigManager.DEFAULTS``**.
+
+    There is deliberately *no* fallback to ``os.environ`` at call time:
+    ``src/bind.py`` and ``src/rss_server.py`` no longer seed config.env into
+    ``os.environ``, and values that merely originated from the config file
+    must not shadow later file edits (SEC-2 / ARCH-2).
+    """
+
+    def __init__(self, config_path: str | None = None, env: dict[str, str] | None = None):
+        """
+        Args:
+            config_path: Path to config.env (defaults to ConfigManager's
+                resolution). Tests inject a ``tmp_path`` location here.
+            env: Environment mapping to snapshot instead of ``os.environ``
+                (tests inject ``{}`` to simulate "no operator-pinned vars").
+        """
+        self._manager = ConfigManager(config_path)
+        source: dict[str, str] = dict(os.environ) if env is None else env
+        # Public on purpose: tests may monkeypatch.setitem()/delitem() entries
+        # to simulate operator-pinned environment variables.
+        self.env_snapshot: dict[str, str] = {
+            key: source[key] for key in ConfigManager.DEFAULTS if key in source
+        }
+        self._lock = threading.Lock()
+        self._cache_sig: Any = _UNREAD
+        self._cache: dict[str, str] = dict(ConfigManager.DEFAULTS)
+
+    @property
+    def config_path(self) -> str:
+        return self._manager.config_path
+
+    def get(self, key: str) -> str:
+        """Return the effective value for a managed key (see class docstring)."""
+        if key in self.env_snapshot:
+            return self.env_snapshot[key]
+        return self._file_config().get(key, ConfigManager.DEFAULTS.get(key, ""))
+
+    def get_bool(self, key: str) -> bool:
+        """True unless the effective value is the string ``"false"``.
+
+        Matches the historical ``os.getenv(key, "true").lower() != "false"``
+        semantics of SCRAPING_ENABLED / BIND_AUTH_ENABLED / BIND_IP_FILTER.
+        """
+        return self.get(key).strip().lower() != "false"
+
+    def get_int(self, key: str) -> int:
+        """Effective value as int, falling back to the default on garbage."""
+        try:
+            return int(self.get(key))
+        except (TypeError, ValueError):
+            default = ConfigManager.DEFAULTS[key]
+            logger.warning("Invalid integer for %s — using default %s", key, default)
+            return int(default)
+
+    def _file_config(self) -> dict[str, str]:
+        """Parsed config.env merged over DEFAULTS, re-read on file change."""
+        try:
+            st = os.stat(self._manager.config_path)
+            sig: Any = (st.st_mtime_ns, st.st_size)
+        except OSError:
+            sig = None
+        with self._lock:
+            if sig != self._cache_sig:
+                self._cache = self._manager.read_config()
+                self._cache_sig = sig
+            return self._cache

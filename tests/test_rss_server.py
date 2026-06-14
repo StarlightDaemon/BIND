@@ -566,9 +566,9 @@ class TestTriggerScrapeRoute:
         assert "disk full" in resp.get_json()["message"]
 
     def test_trigger_401_when_auth_required_and_unauthenticated(
-        self, client, tmp_path, monkeypatch
+        self, client, tmp_path, monkeypatch, set_live_flag
     ):
-        monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+        set_live_flag("BIND_AUTH_ENABLED", "true")
         monkeypatch.setattr("src.rss_server._data_dir", str(tmp_path))
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
@@ -610,15 +610,15 @@ class TestLogoutRoute:
 
 
 class TestMeRoute:
-    def test_me_auth_enabled_unauthenticated(self, client, monkeypatch):
-        monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+    def test_me_auth_enabled_unauthenticated(self, client, set_live_flag):
+        set_live_flag("BIND_AUTH_ENABLED", "true")
         resp = client.get("/api/me")
         data = resp.get_json()
         assert data["auth_enabled"] is True
         assert data["authenticated"] is False
 
-    def test_me_auth_enabled_with_valid_session(self, client, monkeypatch):
-        monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+    def test_me_auth_enabled_with_valid_session(self, client, set_live_flag):
+        set_live_flag("BIND_AUTH_ENABLED", "true")
         with client.session_transaction() as sess:
             sess["authenticated"] = True
         resp = client.get("/api/me")
@@ -631,9 +631,9 @@ class TestSessionAuthProceedsWhenAuthenticated:
     """Covers requires_session_auth line 224: auth enabled + authenticated session → proceed."""
 
     def test_authenticated_session_returns_200_when_auth_enabled(
-        self, client, tmp_path, monkeypatch
+        self, client, tmp_path, monkeypatch, set_live_flag
     ):
-        monkeypatch.setenv("BIND_AUTH_ENABLED", "true")
+        set_live_flag("BIND_AUTH_ENABLED", "true")
         monkeypatch.setattr("src.rss_server._data_dir", str(tmp_path))
         with client.session_transaction() as sess:
             sess["csrf_token"] = "test-token"
@@ -727,9 +727,6 @@ class TestScrapingEnableRoute:
             lambda cfg: (True, "ok"),
         )
         monkeypatch.setattr("src.rss_server.get_data_dir", lambda: str(tmp_path))
-        monkeypatch.setattr(
-            "src.rss_server.config_manager.restart_daemon", lambda: (False, "no systemd")
-        )
 
         def raise_oserror(self, *args, **kwargs):
             raise OSError("read-only filesystem")
@@ -739,22 +736,33 @@ class TestScrapingEnableRoute:
         assert resp.status_code == 200
         assert resp.get_json()["ok"] is True
 
-    def test_daemon_restart_success_message(self, client, monkeypatch, tmp_path):
+    def test_enable_writes_config_and_compat_sentinel_without_restart(
+        self, client, monkeypatch, tmp_path
+    ):
+        """ARCH-2: enabling writes SCRAPING_ENABLED=true and the one-release
+        COMPAT sentinel, but must NOT restart the daemon — the daemon reads
+        config live and picks the change up within one loop tick."""
+        written = {}
         monkeypatch.setattr(
             "src.rss_server.config_manager.read_config",
             lambda: {"SCRAPING_ENABLED": "false"},
         )
         monkeypatch.setattr(
             "src.rss_server.config_manager.write_config",
-            lambda cfg: (True, "ok"),
+            lambda cfg: (written.update(cfg), (True, "ok"))[1],
         )
         monkeypatch.setattr("src.rss_server.get_data_dir", lambda: str(tmp_path))
-        monkeypatch.setattr(
-            "src.rss_server.config_manager.restart_daemon", lambda: (True, "restarted")
-        )
+
+        def no_restart():
+            raise AssertionError("restart_daemon must not be called by api_scraping_enable")
+
+        monkeypatch.setattr("src.rss_server.config_manager.restart_daemon", no_restart)
         resp = self._post(client)
         assert resp.status_code == 200
-        assert "Daemon restarted" in resp.get_json()["message"]
+        assert "within a few seconds" in resp.get_json()["message"]
+        assert written["SCRAPING_ENABLED"] == "true"
+        # COMPAT(remove after vNEXT): old daemons still consume the sentinel.
+        assert (tmp_path / ".enable-scraping").exists()
 
 
 class TestLogsReadError:
@@ -946,7 +954,8 @@ class TestCookieSecureConfig:
             captured.update(cfg)
             return True, "ok"
 
-        monkeypatch.setenv("BIND_AUTH_ENABLED", "false")
+        # BIND_AUTH_ENABLED=false is already pinned by conftest's process-start
+        # env (snapshotted by LiveConfig) — no per-test flip needed.
         monkeypatch.setattr("src.rss_server.config_manager.read_config", fake_read_config)
         monkeypatch.setattr("src.rss_server.config_manager.write_config", fake_write_config)
         monkeypatch.setattr(
