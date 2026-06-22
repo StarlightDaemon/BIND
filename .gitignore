@@ -45,6 +45,9 @@ env/
 *.swp
 *.swo
 *~
+.claude/
+.serena/
+skills-lock.json
 
 # OS
 .DS_Store
@@ -74,6 +77,7 @@ docs/NEW_SESSION_HANDOFF.md
 audit-reports/
 .raiden/state/AUDIT_LOG.md
 .raiden/state/last-audit.md
+.audits/
 
 # Hygiene Audit 2026-01-26
 *.out
