@@ -90,9 +90,7 @@ def test_returns_401_when_unauthenticated(method, path, needs_json_body, client,
 
 
 @pytest.mark.parametrize("method,path,needs_json_body", PROTECTED_ROUTES)
-def test_auth_guard_passes_when_authenticated(
-    method, path, needs_json_body, client, set_live_flag
-):
+def test_auth_guard_passes_when_authenticated(method, path, needs_json_body, client, set_live_flag):
     """Each protected route must not return 401 when auth is enabled + session authenticated."""
     set_live_flag("BIND_AUTH_ENABLED", "true")
     with client.session_transaction() as sess:

@@ -600,7 +600,9 @@ def api_settings_post() -> Any:
                 "message": f"Configuration saved. {live_note} Daemon restarted successfully.",
             }
         )
-    return jsonify({"ok": True, "message": f"Configuration saved. {live_note} Note: {restart_message}"})
+    return jsonify(
+        {"ok": True, "message": f"Configuration saved. {live_note} Note: {restart_message}"}
+    )
 
 
 @app.route("/api/scraping/enable", methods=["POST"])
