@@ -1,6 +1,6 @@
 # BIND — Current State
 
-Last Updated: 2026-06-21
+Last Updated: 2026-06-22
 
 ## Status
 
@@ -34,8 +34,8 @@ main — clean. HEAD: see git log.
 
 ## Open Loops
 
-F1 and F7 resolved. See OPEN_LOOPS.md.
+F8–F19, F9, F10, F11–F14, F15, F17 resolved. See OPEN_LOOPS.md.
 
 ## Deferred
 
-None at this time.
+F6: frontend zero tests (29 TS/TSX files, zero test infrastructure) — awaiting scoping conversation on test runner setup.
