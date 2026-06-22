@@ -1,14 +1,14 @@
 # BIND — Open Loops
 
-## F1 — ruff format CI failure [resolved-pending-CI-verification]
+## F1 — ruff format CI failure [resolved]
 
 - **Opened:** 2026-06-08 (CI red since this date)
 - **Cause:** `ruff format` drift in `src/rss_server.py` and `tests/test_auth_matrix.py`
 - **Fix applied:** 2026-06-21 — ran `uv run ruff format src/ tests/`; both files
   reformatted, `ruff check src/ tests/` passes with no issues
-- **Status:** resolved-pending-CI-verification — changes not yet pushed
+- **Status:** resolved — commit 8ce7661, 2026-06-21
 
-## F7 — node20 GitHub Actions deprecation [resolved-pending-CI-verification]
+## F7 — node20 GitHub Actions deprecation [resolved]
 
 - **Opened:** June 2026 (forcing deadline: ~2026-06-16)
 - **Cause:** all actions in ci.yml and docker-publish.yml pinned to node20-era
@@ -21,4 +21,4 @@
   - `docker/build-push-action` v6 → v7
   - `docker/metadata-action` v5 → v6
   - `docker/setup-buildx-action` v3 → v4
-- **Status:** resolved-pending-CI-verification — changes not yet pushed
+- **Status:** resolved — commit 8ce7661, 2026-06-21
