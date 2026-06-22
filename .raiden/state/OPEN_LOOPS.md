@@ -50,7 +50,7 @@
 - **Fix applied:** 2026-06-22 — added all four keys to config.env.example with
   comments, types, defaults, and explanatory text matching existing style:
   - SCRAPING_ENABLED: boolean, default true (controls scraper enable/disable)
-  - BIND_PROXY_COOLDOWN: integer seconds, default 300 (proxy reuse cooldown)
+  - BIND_PROXY_COOLDOWN: integer seconds, default 1800 (proxy reuse cooldown)
   - BIND_TRUSTED_PROXIES: CIDR list, default 127.0.0.1/32,::1/128 (X-Forwarded-For trust)
   - BIND_COOKIE_SECURE: boolean, default false (HTTPS-only cookie flag)
 - **Status:** resolved — this session, 2026-06-22
@@ -132,13 +132,14 @@
 ## F19 — two Dockerfiles diverging without documentation [resolved]
 
 - **Opened:** as part of T3 audit
-- **Cause:** Dockerfile (production) and Dockerfile.dev (development) diverged
+- **Cause:** `Dockerfile` (root, dual-container compose setup) and
+  `docker/Dockerfile.single` (single-container production image) diverged
   in structure and tooling without topology comments or decision record
   explaining the split
 - **Fix applied:** 2026-06-22 — added topology comment blocks to both files
-  explaining intent (prod: multi-stage, minimal image; dev: full tooling,
-  incremental); added D-004 entry to DECISIONS.md deferring consolidation to
-  future refactor pending scoping
+  explaining intent (compose: two-service runtime; single: self-contained
+  production image); added D-004 entry to DECISIONS.md deferring
+  consolidation to future refactor pending scoping
 - **Status:** resolved — commit 3d183c6, 2026-06-22
 
 ## F-Info — .audits/ not gitignored [resolved]

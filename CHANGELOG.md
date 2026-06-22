@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Added topology comments to root `Dockerfile` and `docker/Dockerfile.single`; recorded split rationale in DECISIONS.md (D-004).
+- Updated `.gitignore`: track `uv.lock`; ignore `.claude/`, `.serena/`, `skills-lock.json`, `.audits/`.
+
+### Fixed
+- Resolved ruff format CI failure in `rss_server.py` and `test_auth_matrix.py` (F1).
+- Bumped all GitHub Actions to node24-targeting major versions to resolve node20 deprecation (F7).
+- Added missing config keys to `config.env.example`: `SCRAPING_ENABLED`, `BIND_PROXY_COOLDOWN`, `BIND_TRUSTED_PROXIES`, `BIND_COOKIE_SECURE` (F10).
+- Added `BIND_DB_PATH` to `config.env.example` with default and description (F-A2).
+- Removed obsolete `version: 3.8` field from `docker-compose.yml` (F18).
+
+### Removed
+- Deleted `BIND_FULL_AUDIT_REPORT.md` from repo root (F14).
+
+### Security
+- SHA-pinned all GitHub Actions to immutable commit SHAs to prevent mutable-tag supply-chain drift (F8).
+- Forced `esbuild >=0.28.1` via npm `overrides` to resolve GHSA-g7r4-m6w7-qqqr (F9).
+
 ## [2.2.0] - 2026-06-04
 
 ### Added

@@ -47,6 +47,8 @@ Runs on any Linux system with Python 3. Tested on Proxmox LXC containers and wor
 bash <(curl -sL https://raw.githubusercontent.com/StarlightDaemon/BIND/main/scripts/install-proxmox-lxc.sh)
 ```
 
+> **Prerequisites:** Must be run directly on a Proxmox host. Requires `pct` (Proxmox Container Toolkit) and `curl` to be present on the host before running.
+
 <details>
 <summary><b>What this does + post-install URLs</b></summary>
 
