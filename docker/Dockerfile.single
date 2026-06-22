@@ -1,3 +1,8 @@
+# Single-container production variant -- used by .github/workflows/docker-publish.yml.
+# tini as PID 1; docker/entrypoint.sh supervises both daemon and gunicorn.
+# HEALTHCHECK wired. Published to Docker Hub on push and tag.
+# For the dual-container compose variant see Dockerfile at repo root.
+
 # Stage 1: build the React frontend
 FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend

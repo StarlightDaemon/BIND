@@ -1,3 +1,8 @@
+# Dual-container variant -- used by docker-compose.yml.
+# bind-daemon and bind-rss run as separate services; CMD is overridden per
+# service in docker-compose.yml. No supervised entrypoint or tini.
+# For the single-container production variant see docker/Dockerfile.single.
+
 # Stage 1: build the React frontend
 FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend

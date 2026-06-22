@@ -21,3 +21,11 @@
 - Status: Active
 - Decision: settings are configurable via a browser UI at `/settings`; no file editing required for common operational parameters.
 - Rationale: reduces operator friction for production deployments; centralizes configuration away from env-var-only or file-edit patterns.
+
+## D-004
+
+- Date: 2026-06-22
+- Status: Deferred
+- Decision: defer consolidation of the two Dockerfiles into a single canonical file.
+- Context: BIND maintains two Dockerfiles for two distinct deployment topologies. The root Dockerfile supports the dual-container docker-compose model, where bind-daemon and bind-rss run as separate services with CMD overridden per service. The docker/Dockerfile.single supports the single-container production model, where tini acts as PID 1 and docker/entrypoint.sh supervises both processes under a single container with HEALTHCHECK wired. The production image published to Docker Hub is always built from docker/Dockerfile.single via .github/workflows/docker-publish.yml. The root Dockerfile is used for local compose development only.
+- Rationale: consolidation would require docker/entrypoint.sh to become mode-aware, conditionally launching one or both processes based on an environment variable, and docker-compose.yml to be refactored accordingly. The production artifact is already hardened via docker/Dockerfile.single and the operational risk of consolidation does not justify the work at this time. Deferred pending an operator decision on whether parity between the local compose image and the published production image is a priority.

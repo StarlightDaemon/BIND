@@ -1,5 +1,7 @@
 version: '3.8'
 
+# Uses the dual-container Dockerfile at repo root.
+# bind-daemon and bind-rss run as separate supervised services.
 services:
   # Daemon: Scrapes AudioBookBay every 60 minutes
   bind-daemon:
