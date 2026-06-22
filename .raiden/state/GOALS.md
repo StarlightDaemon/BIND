@@ -2,7 +2,7 @@
 
 ## Current Phase: Production Maintenance
 
-BIND is production-ready at v1.7.1. Active goals:
+BIND is production-ready at v2.2.0. Active goals:
 
 - Maintain SQLite backend stability; monitor for schema drift or FTS5 edge cases.
 - Keep Cloudflare-resistance layers current as upstream anti-bot measures evolve.

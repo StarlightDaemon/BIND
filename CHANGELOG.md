@@ -7,30 +7,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-06-04
+
+### Added
+- Migrated web UI to React + Mantine v7 + Fujin component library.
+- Integrated Codecov coverage reporting; added badge to README.
+
 ### Changed
-- Removed: `/api/dashboard` route deleted (dead code — frontend already uses `/api/stats`). (SEC-1)
-- Changed: `/api/magnets` now requires session authentication. (SEC-1)
-- Fixed: retry engine now classifies transient network errors by real library exception types (RES-2).
-- Fixed: `write_config` now writes to a temp file then calls `os.replace` (atomic); a concurrent reader can never see an empty file (ARCH-4).
-- Fixed: `api_settings_post` now starts from `read_config()` and overlays UI keys, so any key not exposed in the UI (e.g. `BIND_DB_PATH`, `BIND_COOKIE_SECURE`, future additions) is preserved across every settings save (ARCH-4).
-- Fixed: `ProxyPool` eviction is now time-bounded; proxies are re-admitted after `PROXY_COOLDOWN_S` (default 1800 s, env `BIND_PROXY_COOLDOWN`). Only `curl_cffi_proxy`-layer failure marks a proxy failed — cloudscraper-layer failure no longer double-evicts (RES-1).
-- Changed: daemon log (`bind.log`) is now managed by `RotatingFileHandler` (10 MB × 3 backups) instead of `FileHandler` (RES-5).
-- Fixed: `/api/logs` tail-reads at most 512 KB from the end of the log file and returns the last 1000 lines, preventing unbounded memory use on large log files (RES-5).
-- Added: daemon liveness heartbeat — the daemon writes a `daemon_heartbeat` row (state + timestamp) to the shared SQLite DB each loop tick; `check_daemon_status()` reads it (online if < 90 s old, with a distinct "disabled" state) instead of the `logs/bind.log` mtime, which was permanently "unknown" in the dual-container deployment where `bind-rss` has no logs mount. Falls back to the legacy mtime heuristic when no heartbeat row exists, so a new RSS server tolerates an old daemon for one release (ARCH-1).
-- Changed: `/health` is now DB-only (no outbound ABB probe) and reports a `daemon` liveness field — suitable as a container HEALTHCHECK. The ABB reachability probe moved to the authenticated `/api/stats` (`target_probe`). Consumers reading `target_probe` from `/health` must switch to `/api/stats` (DEP-2).
-- Added: `src/healthcheck.py` (`python -m src.healthcheck`) and Docker HEALTHCHECKs — the daemon container checks heartbeat freshness, the RSS container checks `/health` (DEP-2).
-- Changed: the single-container entrypoint now supervises the daemon and gunicorn together — if either exits, the other is stopped and the container exits non-zero so Docker restarts the pair; SIGTERM is forwarded to both for a graceful drain (DEP-6).
-- Changed: the scrape interval is no longer hardcoded — removed `--interval 60` from the compose daemon command and the `BIND_SCRAPE_INTERVAL` flag from the entrypoint; `SCRAPE_INTERVAL` (env/config) is now authoritative (ARCH-6).
-- Changed: `check_daemon_status` error path now logs the detail and returns a generic message instead of echoing the exception string (FE-4).
+- Restructured README — feature subsections, collapsed install/legal details.
+- Applied ruff formatting across `bind.py`, `rss_server.py`, and test files.
+- Wave 1 test coverage push: 76.54% → 97.50% (397 tests).
+
+### Fixed
+- Persisted rail collapsed state in `localStorage` to survive page navigation.
+- Constrained setup SVG size; bumped CSS cache buster to `v=2`.
+- Removed hardcoded `/mnt/e/BIND` path from `test_main.py`.
 
 ### Security
-- Fixed: `get_client_ip()` now uses rightmost-untrusted X-Forwarded-For parsing against a configurable trusted-proxy set (`BIND_TRUSTED_PROXIES`, default `127.0.0.1/32,::1/128`), closing the XFF spoofing and containerized-proxy fail-open holes in the IP allowlist. Default behavior is unchanged when the key is unset. (SEC-3)
-- Fixed: secret-key resolution now runs **after** `config.env` is loaded, so a `BIND_DB_PATH` set only in config.env points the key file at the correct data dir. Ephemeral-key fallback (unwritable data dir) now logs `CRITICAL` and warns that each gunicorn worker generates its own key, breaking sessions across workers. (SEC-6)
-- Added: `BIND_COOKIE_SECURE` config key (boolean, default `false`) sets `SESSION_COOKIE_SECURE`. Recommended `true` for TLS/Cloudflare-Tunnel deployments. Admin-managed (not in the Settings UI); a UI save preserves the on-disk value. (SEC-6)
-- Fixed: account lockout is now **per source IP** (5 failures → 15 min for that IP) with the global counter retained as a ceiling (25 total failures across all IPs → global lock). This removes the unauthenticated remote-DoS where any IP could lock the only account. Credentials schema bumped to **v3** (`failed_by_ip`); migration preserves any active lockout. (SEC-7)
-- Fixed: `record_failed_login` / `record_successful_login` / lockout-expiry now hold a single `fcntl.LOCK_EX` across the full read-modify-write, closing the lost-update race between concurrent gunicorn workers. (SEC-7)
-- Fixed: CSRF token comparison now uses `hmac.compare_digest` (constant-time, `None`-guarded), and the token is rotated on successful login so a pre-login token cannot survive privilege elevation. (SEC-8)
-- Fixed: `api_login` now calls `session.clear()` before marking the session authenticated, hardening against session fixation. (SEC-9)
+- Applied 10-fix deep audit: security headers, session cookie config, `db_path` exposure in API responses, and efficiency corrections.
+- Upgraded Vite 5→7 and `@vitejs/plugin-react` 4→5 to resolve esbuild CVE.
+
+## [2.1.0] - 2026-06-04
+
+### Changed
+- Raised coverage gate to 75%; added storage and resilience test suites.
+
+## [2.0.0] - 2026-06-04
+
+### Added
+- Metrics dashboard at `/metrics` — color-coded scrape history, 7/30-day counts, and success rate.
+- Domain resilience probe classifying target health as reachable / blocked / wrong content / unreachable.
+
+### Fixed
+- Bumped pytest to 9.0.3 (CVE-2025-71176).
+- Mypy generic type annotations in `dict` and `tuple` signatures.
+
+## [1.7.1] - 2026-05-12
+
+### Added
+- Docker Hub CI publishing via `docker-publish.yml` workflow.
+- Auto-generated secret key on first run.
+- cloudscraper layer now honours `BIND_PROXY`.
+- Browser-based Settings UI at `/settings`.
+
+### Changed
+- Deployment files updated for v1.7.0 SQLite migration.
+
+## [1.7.0] - 2026-05-12
+
+### Added
+- SQLite-backed MagnetStore with FTS5 full-text search, replacing flat-file storage.
+
+## [1.6.1] - 2026-05-12
+
+### Changed
+- Pinned gunicorn version; rewrote ARCHITECTURE.md.
+- Documented `BIND_JOB_TIMEOUT` environment variable.
+
+### Fixed
+- Replaced `print()` calls in `rss_server.py` with structured logger.
+
+## [1.6.0] - 2026-05-12
+
+### Changed
+- Removed `ScraperMetrics` dead code.
+- Bumped vulnerable dependencies (lxml, flask, curl-cffi).
+
+### Fixed
+- RetryEngine no longer sleeps after the final retry attempt.
+- Resolved CI mypy and lint failures; applied ruff formatting.
+
+## [1.5.0] - 2026-05-11
+
+### Added
+- Schema health monitor (`SchemaMonitor`), multi-strategy HTML parser, and egress manager.
+
+### Changed
+- `EgressManager` reuses a persistent `curl_cffi` Session (connection pool).
+
+### Fixed
+- Added job timeout wrapper; removed stale `scraper.metrics` call.
+- Resolved CI failures introduced by v1.3.0 hardening.
+
+## [1.3.0] - 2026-05-11
+
+### Added
+- RetryEngine with exponential back-off and security hardening.
+
+### Fixed
+- Test mocks for `BindScraper` and `cloudscraper` layers to stabilise CI.
+- Eliminated `datetime` deprecation warnings.
+
+## [1.2.3] - 2026-01-28
+
+### Added
+- Tracker manager and browser-based tracker configuration UI.
+
+### Fixed
+- `CircuitBreaker` argument-precedence bug (CLI arg > env > default).
+- CI failures in linting, tests, and environment isolation.
 
 ## [1.2.1] - 2026-01-15 (Verified 2026-01-26)
 
@@ -140,6 +215,18 @@ This release represents a complete stability transformation, addressing all 10 c
 
 ---
 
+[Unreleased]: https://github.com/StarlightDaemon/BIND/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/StarlightDaemon/BIND/compare/v2.1.0...v2.2.0
+[2.1.0]: https://github.com/StarlightDaemon/BIND/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/StarlightDaemon/BIND/compare/v1.7.1...v2.0.0
+[1.7.1]: https://github.com/StarlightDaemon/BIND/compare/v1.7.0...v1.7.1
+[1.7.0]: https://github.com/StarlightDaemon/BIND/compare/v1.6.1...v1.7.0
+[1.6.1]: https://github.com/StarlightDaemon/BIND/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/StarlightDaemon/BIND/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/StarlightDaemon/BIND/compare/v1.3.0...v1.5.0
+[1.3.0]: https://github.com/StarlightDaemon/BIND/compare/v1.2.3...v1.3.0
+[1.2.3]: https://github.com/StarlightDaemon/BIND/compare/v1.2.1...v1.2.3
+[1.2.1]: https://github.com/StarlightDaemon/BIND/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/StarlightDaemon/BIND/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/StarlightDaemon/BIND/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/StarlightDaemon/BIND/releases/tag/v1.0.0
