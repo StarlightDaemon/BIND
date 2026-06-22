@@ -162,3 +162,89 @@
   test infrastructure before any handoff prompt for coverage expansion can be
   authored.
 - **Status:** open, deferred 2026-06-22 — scoping conversation required
+
+## F-A2 — BIND_DB_PATH absent from config.env.example [resolved]
+
+- **Opened:** 2026-06-22 (audit v4.2)
+- **Cause:** BIND_DB_PATH read by config_manager.py and healthcheck.py but absent
+  from config.env.example; documented only in docker-compose.yml
+- **Fix applied:** 2026-06-22 — added BIND_DB_PATH entry with comment to
+  config.env.example, default data/bind.db, matching surrounding style
+- **Status:** resolved — commit 48376df, 2026-06-22
+
+## F-A3 — CHANGELOG [Unreleased] section empty [resolved]
+
+- **Opened:** 2026-06-22 (audit v4.2)
+- **Cause:** [Unreleased] section empty despite post-2.2.0 maintenance commits
+  (F8-F19 fixes, T1-T4 batches) having landed after the release
+- **Fix applied:** 2026-06-22 — populated [Unreleased] with 18 lines of entries
+  covering T1-T4 batches, grouped as Changed/Fixed/Removed/Security per
+  Keep-a-Changelog conventions; v2.x tag dates confirmed correct, no date changes
+- **Status:** resolved — commit 48376df, 2026-06-22
+
+## F-A4 — Declared-state drift in CHANGELOG and OPEN_LOOPS [resolved]
+
+- **Opened:** 2026-06-22 (audit v4.2)
+- **Cause:** Three version entries shared date 2026-06-04; OPEN_LOOPS F10 entry
+  cited BIND_PROXY_COOLDOWN default of 300 (actual: 1800, set in
+  egress_manager.py:37); CHANGELOG test-count figures differed from
+  CURRENT_STATE
+- **Fix applied:** 2026-06-22 — F10 BIND_PROXY_COOLDOWN default corrected 300
+  to 1800; version dates confirmed correct from git tags (no date changes
+  needed); test-count delta acknowledged as snapshot-in-time drift, no fix
+- **Status:** resolved — commit 48376df, 2026-06-22
+
+## F-A5 — Incorrect Dockerfile references in OPEN_LOOPS F19 entry [resolved]
+
+- **Opened:** 2026-06-22 (audit v4.2)
+- **Cause:** F19 entry referenced Dockerfile (production) and Dockerfile.dev
+  (development); no Dockerfile.dev exists; actual files are root Dockerfile
+  (dual-container compose) and docker/Dockerfile.single (single-container
+  production image)
+- **Fix applied:** 2026-06-22 — corrected F19 entry to reference actual
+  filenames and their roles
+- **Status:** resolved — commit 48376df, 2026-06-22
+
+## F-A6 — Python test suite not verifiable locally [no action] [info]
+
+- **Opened:** 2026-06-22 (audit v4.2)
+- **Cause:** local env lacks timeout/gtimeout; system Python 3.9.6 below
+  required 3.10; ruff/mypy/pytest off PATH
+- **Disposition:** mitigated by green CI matrix (3.10/3.11/3.12); no local fix
+  needed; parallel to prior F17
+- **Status:** no action — info finding confirmed 2026-06-22
+
+## F-A7 — Proxmox LXC installer host prerequisites undocumented [resolved]
+
+- **Opened:** 2026-06-22 (audit v4.2)
+- **Cause:** scripts/install-proxmox-lxc.sh invokes pct and curl without
+  documenting them as host prerequisites in README
+- **Fix applied:** 2026-06-22 — added blockquote prerequisites note to README
+  Proxmox LXC section immediately after the one-liner install command
+- **Status:** resolved — commit 48376df, 2026-06-22
+
+## F-A8 — .venv.broken-wsl/ broken virtualenv on disk [resolved]
+
+- **Opened:** 2026-06-22 (audit v4.2)
+- **Cause:** broken WSL2-era virtualenv (Linux .so binaries, 192 MB) retained
+  on disk after macOS migration; correctly gitignored but dead weight
+- **Fix applied:** 2026-06-22 — verified gitignored, no open handles; deleted
+  via rm -rf .venv.broken-wsl/; 192 MB reclaimed
+- **Status:** resolved — local deletion only, no commit needed (gitignored),
+  2026-06-22
+
+## F-A9 — Secrets on disk (credentials.json, .secret_key) [no action] [info]
+
+- **Opened:** 2026-06-22 (audit v4.2)
+- **Cause:** data/credentials.json and data/.secret_key present on disk
+- **Disposition:** both correctly gitignored; proper handling confirmed; no
+  rotation or remediation required
+- **Status:** no action — info finding confirmed 2026-06-22
+
+## F-A10 — Git history secret scan [no action] [info]
+
+- **Opened:** 2026-06-22 (audit v4.2)
+- **Cause:** routine audit history scan
+- **Disposition:** no secrets in working tree or history; credentials.json
+  never tracked; clean
+- **Status:** no action — info finding confirmed 2026-06-22
