@@ -1,6 +1,6 @@
 # BIND — Current State
 
-Last Updated: 2026-06-22
+Last Updated: 2026-07-08
 
 ## Status
 
@@ -36,6 +36,8 @@ main — clean. HEAD: see git log.
   no action. F-A2/F-A3/F-A4/F-A5/F-A7 resolved in documentation cleanup
   commit 48376df. F-A8 resolved by local deletion of .venv.broken-wsl/
   (192 MB, gitignored — no commit needed).
+- Serena project config and memory layer added: .serena/project.yml and
+  .serena/memories/ surfaced for version control (commit 28d0984, 2026-07-01).
 
 ## Open Loops
 
