@@ -162,6 +162,7 @@
   test infrastructure before any handoff prompt for coverage expansion can be
   authored.
 - **Status:** open, deferred 2026-06-22 — scoping conversation required
+- Gate: none
 
 ## F-A2 — BIND_DB_PATH absent from config.env.example [resolved]
 
