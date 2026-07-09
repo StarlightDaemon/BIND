@@ -46,8 +46,7 @@ env/
 *.swo
 *~
 .claude/
-.serena/cache/
-.serena/project.local.yml
+.serena/
 skills-lock.json
 
 # OS
