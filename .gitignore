@@ -97,3 +97,4 @@ docs/reference/kits/
 frontend/node_modules/
 src/static/dist/
 .venv.broken-wsl/
+._*
