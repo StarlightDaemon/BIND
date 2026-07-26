@@ -249,3 +249,46 @@
 - **Disposition:** no secrets in working tree or history; credentials.json
   never tracked; clean
 - **Status:** no action — info finding confirmed 2026-06-22
+
+## F-J2 — governance validator copies diverged; one carries a critical advisory [open]
+
+- **Opened:** 2026-07-26. This is **F2 from `.audits/BIND_AUDIT_2026-07-15.md`**
+  (rated High there, and echoed in `FLEET_AUDIT_2026-07-15.md` §2). It is given
+  the `F-J2` ID to keep it distinct from the older F1–F19 series, in which the
+  `F2` slot is unused. Filed per framework decision `Raiden:D-0058` — audit
+  findings rated Medium or higher become loops or are explicitly dispositioned.
+  It had been recorded only in the audit report for eleven days.
+- **Gate:** none — ordinary work
+- **Finding as originally recorded:** a prior session's record states
+  `@types/node` was bumped `^18` → `^24` in **both** on-disk copies of the
+  governance validator; the audit found the two copies had diverged, one
+  showing an npm advisory of 1 critical.
+- **Re-verified on disk 2026-07-26 — the finding holds, with a correction to
+  where the divergence actually lives:**
+  - The two `package.json` files are **identical** (both `"@types/node":
+    "^24.0.0"`, byte-for-byte the same file). The documented bump did land in
+    both.
+  - The divergence is in the **lockfiles**, not the manifests:
+    `.governance/validator/package-lock.json` is 68,970 bytes;
+    `docs/reference/kits/starlight-governance-kit-v1.0.0/validator/package-lock.json`
+    is 62,953. Different resolved trees from the same declared dependencies.
+  - `npm audit --package-lock-only`, run today against each:
+    - `.governance/validator` — **1 critical + 4 high** (critical: `vitest`;
+      high: `vite`, `rollup`, `postcss`, `picomatch`).
+    - `docs/reference/kits/.../validator` — **0 vulnerabilities.**
+- **Mitigating context (real, and the reason this is not urgent):** both copies
+  are untracked. `.governance/` is gitignored at `.gitignore:91`, and the kit
+  copy was untracked by commit `9d5e17c`. Neither ships in the product, neither
+  runs in CI, and the advisories are dev-dependency tooling. The exposure is to
+  a developer running the validator locally on this machine, not to BIND's
+  users.
+- **Why it still matters:** two copies of the same tool, same manifest,
+  materially different installed risk, and the *unaudited-clean* one is the
+  archived reference kit while the *vulnerable* one is the live `.governance/`
+  copy actually used. Nothing on disk explains why they differ, and because both
+  are untracked, nothing propagates a fix.
+- **Success condition:** either the two copies are reconciled to one resolved
+  tree (regenerate `.governance/validator`'s lockfile and re-audit to 0
+  critical), or the duplication is deliberately retired — one copy deleted and
+  the remaining one named as canonical, recorded in `DECISIONS.md`. Either way
+  `npm audit` on the surviving copy reports no critical advisory.
