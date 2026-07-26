@@ -39,7 +39,7 @@
   advisory recommended >=0.28.1
 - **Fix applied:** 2026-06-22 — added npm overrides block to package.json
   forcing esbuild >=0.28.1 regardless of transitive dependency versions
-- **Status:** resolved — commit 4209044, 2026-06-22
+- **Status:** resolved — commit 93f033f, 2026-06-22
 
 ## F10 — config keys missing from config.env.example [resolved]
 
