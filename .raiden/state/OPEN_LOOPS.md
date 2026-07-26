@@ -6,7 +6,7 @@
 - **Cause:** `ruff format` drift in `src/rss_server.py` and `tests/test_auth_matrix.py`
 - **Fix applied:** 2026-06-21 — ran `uv run ruff format src/ tests/`; both files
   reformatted, `ruff check src/ tests/` passes with no issues
-- **Status:** resolved — commit 8ce7661, 2026-06-21
+- **Status:** resolved — commit c752f8a, 2026-06-21
 
 ## F7 — node20 GitHub Actions deprecation [resolved]
 
@@ -21,7 +21,7 @@
   - `docker/build-push-action` v6 → v7
   - `docker/metadata-action` v5 → v6
   - `docker/setup-buildx-action` v3 → v4
-- **Status:** resolved — commit 8ce7661, 2026-06-21
+- **Status:** resolved — commit c752f8a, 2026-06-21
 
 ## F8 — GitHub Actions pinned to mutable major tags [resolved]
 
@@ -30,7 +30,7 @@
   can update at minor/patch level without change to workflow YAML
 - **Fix applied:** 2026-06-22 — SHA-pinned all 7 actions to immutable commit
   SHAs (e.g., `actions/checkout@<full-SHA>` instead of `v4`)
-- **Status:** resolved — commit 3d183c6, 2026-06-22
+- **Status:** resolved — commit f5f6685, 2026-06-22
 
 ## F9 — esbuild advisory GHSA-g7r4-m6w7-qqqr [resolved]
 
@@ -62,7 +62,7 @@
   tracking; clutters branch list
 - **Fix applied:** 2026-06-22 — deleted feat/v2-completion locally via git
   branch -d
-- **Status:** resolved — commit 4bb7316, 2026-06-22
+- **Status:** resolved — commit 9942e0e, 2026-06-22
 
 ## F12 — uv.lock and other tool files untracked [resolved]
 
@@ -72,7 +72,7 @@
   project's reproducible build/tooling state
 - **Fix applied:** 2026-06-22 — added uv.lock to tracked files; added .claude/,
   .serena/, skills-lock.json, .audits/ to .gitignore in a single pass
-- **Status:** resolved — commit 3d183c6, 2026-06-22
+- **Status:** resolved — commit f5f6685, 2026-06-22
 
 ## F13 — stale Dependabot PR #2 [resolved]
 
@@ -80,7 +80,7 @@
 - **Cause:** Dependabot auto-PR to bump pytest to 9.0.3 has been open for
   weeks; pytest already at 9.0.3 in pyproject.toml
 - **Fix applied:** 2026-06-22 — closed PR #2 as stale; no code change needed
-- **Status:** resolved — commit 4bb7316, 2026-06-22
+- **Status:** resolved — commit 9942e0e, 2026-06-22
 
 ## F14 — BIND_FULL_AUDIT_REPORT.md at repo root [resolved]
 
@@ -89,7 +89,7 @@
   version control (audit artifacts belong in reports/coverage-prompts/ if
   needed; production code should not reference them)
 - **Fix applied:** 2026-06-22 — removed BIND_FULL_AUDIT_REPORT.md via git rm
-- **Status:** resolved — commit 4bb7316, 2026-06-22
+- **Status:** resolved — commit 9942e0e, 2026-06-22
 
 ## F15 — nested data/magnets/magnets/ directory [resolved]
 
@@ -108,7 +108,7 @@
   skills-lock.json)
 - **Fix applied:** 2026-06-22 — added .claude/ and .serena/ to .gitignore in
   same pass as F12
-- **Status:** resolved — commit 3d183c6, 2026-06-22
+- **Status:** resolved — commit f5f6685, 2026-06-22
 
 ## F17 — Python test suite not executed locally [resolved]
 
@@ -127,7 +127,7 @@
   compose schemas do not enforce versioning this way; field is vestigial
 - **Fix applied:** 2026-06-22 — removed version: 3.8 line from
   docker-compose.yml
-- **Status:** resolved — commit 4bb7316, 2026-06-22
+- **Status:** resolved — commit 9942e0e, 2026-06-22
 
 ## F19 — two Dockerfiles diverging without documentation [resolved]
 
@@ -140,7 +140,7 @@
   explaining intent (compose: two-service runtime; single: self-contained
   production image); added D-004 entry to DECISIONS.md deferring
   consolidation to future refactor pending scoping
-- **Status:** resolved — commit 3d183c6, 2026-06-22
+- **Status:** resolved — commit f5f6685, 2026-06-22
 
 ## F-Info — .audits/ not gitignored [resolved]
 
@@ -149,7 +149,7 @@
   .gitignore; parallel to F12/F16
 - **Fix applied:** 2026-06-22 — added .audits/ to .gitignore in same pass as
   F12/F16
-- **Status:** resolved — commit 3d183c6, 2026-06-22
+- **Status:** resolved — commit f5f6685, 2026-06-22
 
 ## F6 — frontend zero tests [open, deferred]
 
@@ -171,7 +171,7 @@
   from config.env.example; documented only in docker-compose.yml
 - **Fix applied:** 2026-06-22 — added BIND_DB_PATH entry with comment to
   config.env.example, default data/bind.db, matching surrounding style
-- **Status:** resolved — commit 48376df, 2026-06-22
+- **Status:** resolved — commit 86b23ab, 2026-06-22
 
 ## F-A3 — CHANGELOG [Unreleased] section empty [resolved]
 
@@ -181,7 +181,7 @@
 - **Fix applied:** 2026-06-22 — populated [Unreleased] with 18 lines of entries
   covering T1-T4 batches, grouped as Changed/Fixed/Removed/Security per
   Keep-a-Changelog conventions; v2.x tag dates confirmed correct, no date changes
-- **Status:** resolved — commit 48376df, 2026-06-22
+- **Status:** resolved — commit 86b23ab, 2026-06-22
 
 ## F-A4 — Declared-state drift in CHANGELOG and OPEN_LOOPS [resolved]
 
@@ -193,7 +193,7 @@
 - **Fix applied:** 2026-06-22 — F10 BIND_PROXY_COOLDOWN default corrected 300
   to 1800; version dates confirmed correct from git tags (no date changes
   needed); test-count delta acknowledged as snapshot-in-time drift, no fix
-- **Status:** resolved — commit 48376df, 2026-06-22
+- **Status:** resolved — commit 86b23ab, 2026-06-22
 
 ## F-A5 — Incorrect Dockerfile references in OPEN_LOOPS F19 entry [resolved]
 
@@ -204,7 +204,7 @@
   production image)
 - **Fix applied:** 2026-06-22 — corrected F19 entry to reference actual
   filenames and their roles
-- **Status:** resolved — commit 48376df, 2026-06-22
+- **Status:** resolved — commit 86b23ab, 2026-06-22
 
 ## F-A6 — Python test suite not verifiable locally [no action] [info]
 
@@ -222,7 +222,7 @@
   documenting them as host prerequisites in README
 - **Fix applied:** 2026-06-22 — added blockquote prerequisites note to README
   Proxmox LXC section immediately after the one-liner install command
-- **Status:** resolved — commit 48376df, 2026-06-22
+- **Status:** resolved — commit 86b23ab, 2026-06-22
 
 ## F-A8 — .venv.broken-wsl/ broken virtualenv on disk [resolved]
 

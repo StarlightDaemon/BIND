@@ -26,7 +26,7 @@
   authoritative only in `metadata.json` and must never be restated in state
   prose. Relocating rather than deleting that history: CURRENT_STATE.md
   previously recorded that the Edict was upgraded from v0.6.1 to v1.0.0 on
-  2026-06-14 (subsequently to v1.0.1 per commit 64e6117, and now to v2.0.0
+  2026-06-14 (subsequently to v1.0.1 per commit 1cd99b4, and now to v2.0.0
   as of this entry). Also collapsed CURRENT_STATE.md's "Open Loops" and
   "Deferred" sections, which restated per-loop open/closed status, into a
   single bare-ID citation of OPEN_LOOPS.md.
