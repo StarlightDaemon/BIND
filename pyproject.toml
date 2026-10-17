@@ -8,7 +8,7 @@ requires-python = ">=3.10"
 dependencies = [
     "cloudscraper==1.2.71",
     "beautifulsoup4==4.12.3",
-    "click==8.1.7",
+    "click==8.3.3",
     "lxml==6.1.0",
     "schedule==1.2.2",
     "flask==3.1.3",
