@@ -34,4 +34,4 @@ main — clean. HEAD: see git log.
 
 ## Open Loops
 
-See OPEN_LOOPS.md: F1–F19, F-A2–F-A10.
+See the `## Active` section of OPEN_LOOPS.md: F-J2 open (local validator tooling), F6 deferred (frontend tests; owner scoping). F-A6, F-A9 and F-A10 are no-action; everything else is closed.

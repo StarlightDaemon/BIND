@@ -1,40 +1,53 @@
-# BIND — RAIDEN Instance
+# BIND
 
-This repo runs a RAIDEN Instance control plane in `.raiden/`.
-See `.raiden/writ/AGENTS.md` for the full agent guide.
+BIND (Book Indexing Network Daemon) is a self-hosted audiobook metadata archiver: a scraping daemon that stores releases in SQLite (FTS5 search) and serves an RSS 2.0 feed, a web UI, a metrics dashboard and a settings page, with built-in authentication. Version 2.2.0, in production and long-term maintenance. It is a public GitHub repository (StarlightDaemon/BIND); a Docker image is published from it.
 
-## Naming Canon
+## Run and test
 
-Use these five terms exactly. No synonyms.
+Python 3.10+ (CI tests 3.10, 3.11 and 3.12).
 
-| Term | Meaning |
-|---|---|
-| RAIDEN | The central framework repo and governing authority |
-| Edict | The managed instruction/package that RAIDEN issues |
-| RAIDEN Instance | This repo — any downstream repo with a `.raiden/` control plane |
-| Writ | The installed managed core in `.raiden/writ/` |
-| payload | The installable Edict subset before install; becomes the Writ |
+- Install: `pip install -r requirements-dev.txt` (or `uv sync --extra dev`; `uv.lock` is tracked)
+- Test: `python -m pytest` (the coverage gate `--cov-fail-under=75` is set in `pyproject.toml`)
+- Lint and format: `ruff check src/ tests/` and `ruff format --check src/ tests/`
+- Type check: `mypy src/`
+- Dependency audit: `pip-audit -r requirements.txt` and `pip-audit -r requirements-dev.txt`
 
-## D-0016 — Four-Point Update Contract
+The code imports `fcntl`, so the pytest suite runs only on Linux or macOS; on Windows, collection fails with `No module named 'fcntl'` (ruff still works). CI (`.github/workflows/ci.yml`, Ubuntu) runs all of the above on every push and pull request. `docker-publish.yml` builds and publishes the Docker image.
 
-Every Writ update must:
-1. Update managed core (`.raiden/writ/`)
-2. Preserve local overlay (`.raiden/local/`)
-3. Preserve local live state (`.raiden/state/`)
-4. Stop and report if any managed file was locally modified — no silent overwrites
+Test notes: `tests/conftest.py` sets `BIND_AUTH_ENABLED=false`, so `@requires_auth` passes every request in tests. `src/security.py` reads `CREDENTIALS_FILE` at import time, so any test touching credentials must monkeypatch `src.security.CREDENTIALS_FILE` to `tmp_path`.
 
-## Commit Attribution
+## Layout
 
-Do not add Co-Authored-By or any agent attribution trailer lines.
-Commits carry only the operator's git identity.
-The commit-msg hook enforces this at the git level. Do not bypass it.
+- `src/`: the daemon (`bind.py`), RSS and web server (`rss_server.py`), config, security, health check; `src/core/` holds scraping, storage, retry and egress
+- `tests/`: the pytest suite
+- `frontend/`: the TypeScript/Vite frontend (no tests yet; see F6)
+- `docker/`, `Dockerfile`, `docker-compose.yml`, `deployment/`, `unraid/`: container and deployment files. Root `Dockerfile` is the two-service compose image; `docker/Dockerfile.single` is the single-container production image (D-004)
+- `scripts/`: Proxmox LXC and Linux installers
+- `docs/`: user and maintainer documentation
+- `reports/coverage-prompts/`: past prompt files for coverage waves (history; new agent prompts go here as `wave<N>-<letter>-<topic>.md`)
+- `.raiden/state/`: the project records (see below)
 
-## Write Boundaries
+## Key rules
 
-May write: repo source files, `.raiden/local/`, `.raiden/state/`
-Must not write: `.raiden/writ/` or the commit-msg hook
+- Main branch is `main`. Agent work goes on `<agent>/<task>` branches in their own worktrees.
+- No `Co-Authored-By` or other agent attribution lines in commits; the `commit-msg` hook enforces this. Never bypass it.
+- Pushing to `main` runs CI and can publish a Docker image: ask the owner before pushing, tagging or releasing.
+- Never commit secrets or runtime data. `data/credentials.json`, `data/.secret_key`, logs and `.governance/` are gitignored; keep them that way. Only `config.env.example` is tracked; never commit a filled-in config.
+- Don't edit `.raiden/writ/` or `.raiden/instance/`. They're historical RAIDEN v2 text kept for the old tooling. Where they, `.raiden/README.md` or `.raiden/local/` disagree with this file, this file wins. Model names and routing advice in `.raiden/local/rules/` are out of date; ignore them.
 
-## Full Guide
+## Project records
 
-`.raiden/writ/AGENTS.md` — control-plane read order, memory precedence (D-0041),
-tooling surface, write boundaries, and Writ contents.
+This file and `.raiden/state/` are authoritative for this repo. Read in this order and stop when you have what you need:
+1. `.raiden/state/CURRENT_STATE.md`: version, test baseline and recent work.
+2. The `## Active` section at the top of `.raiden/state/OPEN_LOOPS.md`: open, deferred and held items (statuses: `open`, `deferred`, `held: <who>`, `no-action`, `accepted`, `closed`).
+3. Only when needed: `DECISIONS.md` (IDs `D-0xx`), `WORK_LOG.md` and `docs/audits/` (history and evidence). Recent audit output (`.audits/`, `audit-reports/`, `.raiden/state/AUDIT_LOG.md`, `.raiden/state/last-audit.md`) is gitignored, so it exists only in the main checkout, not in fresh clones or worktrees.
+
+Current picture: one open item and one deferred item. **F-J2** (open) is a local developer-tool risk: two untracked copies of the governance validator have different lockfiles, and the live one carries a critical npm advisory. It doesn't ship and doesn't run in CI. **F6** (deferred) is a product gap: the frontend has no tests, waiting on a scoping conversation with the owner. Three audit findings (F-A6, F-A9, F-A10) are `no-action` information only. Everything else is `closed`.
+
+Update `CURRENT_STATE.md` and `OPEN_LOOPS.md` when you finish or pause work. Keep one home per fact and link evidence; don't paste it in. Never renumber or reuse a loop or decision ID. Medium+ audit findings become loops.
+
+## Working in parallel
+
+One agent per worktree. Before starting, read the Claims section of `../../HANDOFF.md` (the workspace folder two levels above the repo or worktree root, outside Git, so every worktree sees the same file) and `git worktree list`, then add your claim line there; mark it done when you finish. Separate tasks may run in parallel only when both claims are listed there and they don't touch the same files. The owner (or the agent they assign) merges branches and updates `.raiden/state/`. Releases, deployments, the hook and Git config are one-at-a-time work.
+
+This repository is public: don't commit personal names, absolute local paths or details of the owner's private tooling.
