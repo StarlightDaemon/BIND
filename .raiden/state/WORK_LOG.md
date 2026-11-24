@@ -1,5 +1,10 @@
 # Work Log
 
+## 2026-11-24 — F-J2 governance validator lockfiles reconciled
+
+- Re-audited both validator copies, ran `npm audit fix` (no breaking changes) on the working copy's lockfile, and copied it to the reference-kit copy; lockfiles now identical, critical advisory gone, one high (zod) left as F-J3. See D-005 and the F-J2 resolution.
+- Verified on Windows: `npm ci`, `npm audit` and `npm run validate` on the working copy. Pytest was not run (no Python change; `fcntl` blocks it on Windows).
+
 ## 2026-07-09 — Edict v2.0.0 + state normalization
 
 - Edict updated 1.0.1 → 2.0.0 via `raiden_updater.cli plan`/`apply`:

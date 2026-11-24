@@ -4,7 +4,7 @@
 
 ## Active
 
-- **F-J2 · open · gate: none (ordinary work)** · Governance validator copies diverged: the live, untracked `.governance/validator` lockfile carries 1 critical + 4 high npm advisories (dev tooling only; not shipped, not in CI). Next step: reconcile the two copies or retire one, recorded in `DECISIONS.md`. Details in the F-J2 entry below.
+- **F-J3 · open · gate: none (ordinary work)** · The governance validator's `zod` (^3) carries one high advisory (memory exhaustion on oversized collections, GHSA-mrhx-c7xc-m3w5). The fix is zod 4, a major bump, and the validator's `src/rules.ts` uses zod 3 APIs. Dev tooling only; not shipped, not in CI. Next step: migrate `rules.ts` to zod 4 and re-run `npm run validate`, or record acceptance. Details in the F-J3 entry below.
 - **F6 · deferred · gate: owner** · The frontend has no tests. Restarts when: the owner holds the scoping conversation (test runner, fixtures, CI). Details in the F6 entry below.
 - No-action information findings: F-A6, F-A9, F-A10. All other entries are closed.
 
@@ -258,7 +258,7 @@
   never tracked; clean
 - **Status:** no-action — info finding confirmed 2026-06-22
 
-## F-J2 — governance validator copies diverged; one carries a critical advisory [open]
+## F-J2 — governance validator copies diverged; one carries a critical advisory [closed]
 
 - **Opened:** 2026-07-26. This is **F2 from `.audits/BIND_AUDIT_2026-07-15.md`**
   (rated High there, and echoed in `FLEET_AUDIT_2026-07-15.md` §2). It is given
@@ -266,7 +266,7 @@
   `F2` slot is unused. Filed per framework decision `Raiden:D-0058` — audit
   findings rated Medium or higher become loops or are explicitly dispositioned.
   It had been recorded only in the audit report for eleven days.
-- **Status:** open
+- **Status:** closed 2026-11-24 (see Resolution below)
 - **Gate:** none — ordinary work
 - **Finding as originally recorded:** a prior session's record states
   `@types/node` was bumped `^18` → `^24` in **both** on-disk copies of the
@@ -301,3 +301,29 @@
   critical), or the duplication is deliberately retired — one copy deleted and
   the remaining one named as canonical, recorded in `DECISIONS.md`. Either way
   `npm audit` on the surviving copy reports no critical advisory.
+- **Resolution (2026-11-24):** recorded in `DECISIONS.md` D-005. Re-audited first:
+  new advisories had landed since July, so *both* copies were vulnerable
+  (working copy: 1 critical, 7 high, 1 moderate; kit copy: 4 high, 3 moderate).
+  Ran `npm audit fix` on the working copy's lockfile (manifest unchanged, no
+  breaking change) and copied the result to the kit copy, so both lockfiles are
+  now byte-identical. `npm audit` now reports 0 critical, 1 high (zod, opened as
+  F-J3). `npm ci` and `npm run validate` pass on the working copy. Old lockfiles
+  are backed up in the BIND workspace `recovery` folder (outside Git). The kit
+  copy's `node_modules` was not reinstalled, so it still holds the old install.
+
+## F-J3 — governance validator: zod 3 high advisory needs a major bump [open]
+
+- **Opened:** 2026-11-24, split from F-J2.
+- **Status:** open
+- **Gate:** none — ordinary work
+- **Finding:** `npm audit` on the reconciled validator lockfile reports one high
+  advisory, GHSA-mrhx-c7xc-m3w5 (zod below 4.6.6 can exhaust memory validating
+  oversized constrained collections). The only fix is zod 4.6.7, a breaking
+  change. Only `validator/src/rules.ts` imports zod. The validator checks the
+  project's own token JSON files, so the exposure is a developer running it on
+  hostile input, which does not happen here.
+- **Mitigating context:** same as F-J2 — both copies are untracked, nothing
+  ships, nothing runs in CI.
+- **Success condition:** `rules.ts` migrated to zod 4 in both copies and
+  `npm run validate` still passes, or the advisory is explicitly accepted and
+  recorded in `DECISIONS.md`.

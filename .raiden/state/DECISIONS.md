@@ -29,3 +29,12 @@
 - Decision: defer consolidation of the two Dockerfiles into a single canonical file.
 - Context: BIND maintains two Dockerfiles for two distinct deployment topologies. The root Dockerfile supports the dual-container docker-compose model, where bind-daemon and bind-rss run as separate services with CMD overridden per service. The docker/Dockerfile.single supports the single-container production model, where tini acts as PID 1 and docker/entrypoint.sh supervises both processes under a single container with HEALTHCHECK wired. The production image published to Docker Hub is always built from docker/Dockerfile.single via .github/workflows/docker-publish.yml. The root Dockerfile is used for local compose development only.
 - Rationale: consolidation would require docker/entrypoint.sh to become mode-aware, conditionally launching one or both processes based on an environment variable, and docker-compose.yml to be refactored accordingly. The production artifact is already hardened via docker/Dockerfile.single and the operational risk of consolidation does not justify the work at this time. Deferred pending an operator decision on whether parity between the local compose image and the published production image is a priority.
+
+## D-005
+
+- Date: 2026-11-24
+- Status: Active
+- Decision: the two governance validator copies are reconciled to one resolved dependency tree, not retired. `.governance/validator` stays the working copy and the reference-kit copy under `docs/reference/kits/` keeps its place; both now carry the identical `package-lock.json`, produced by `npm audit fix` (no breaking changes, `package.json` untouched).
+- Context: finding F-J2. Both copies are gitignored and untracked, share one manifest and identical source, and differed only in their lockfiles (68,970 vs 62,953 bytes). Re-audited 2026-11-24, both carried advisories (the working copy 1 critical, 7 high, 1 moderate; the kit copy 4 high, 3 moderate), because new advisories had been published since 2026-07.
+- Result: `npm audit` on the reconciled lockfile reports 0 critical and 1 high (zod, tracked as F-J3). `npm ci` and `npm run validate` pass on the working copy (all three token files). The previous lockfiles are backed up outside the repo; the kit copy's `node_modules` was not reinstalled.
+- Rationale: reconciling needs no deletion and removes the divergence, which was the actual risk. Retiring one copy would have removed a reference kit nobody asked to remove.
