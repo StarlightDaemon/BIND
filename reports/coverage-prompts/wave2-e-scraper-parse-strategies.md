@@ -2,7 +2,7 @@
 
 **Model: 🔵 Claude Sonnet** (reassigned from Gemini 3 Flash — Gemini models no longer available)
 **Prereq: Wave 1 Group D committed** ✅ (both append to `tests/test_scraper.py`)
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before running anything:** `source .venv/bin/activate`
 
 You are adding pytest tests to the BIND project to improve code coverage.

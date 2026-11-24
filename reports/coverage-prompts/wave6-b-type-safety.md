@@ -2,7 +2,7 @@
 
 **Model: Claude Opus**
 **Dependencies:** Waves 4 and 5 **committed** (this change touches signatures across the modules those waves rewrote — running it earlier creates churn and conflicts).
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Finding remediated:** CQ-1 from `BIND_FULL_AUDIT_REPORT.md` (repo root — read it in full first).
 

@@ -2,7 +2,7 @@
 
 **Model: Claude Fable**
 **Dependencies:** Wave 4-E **committed** (atomic `write_config` — this change reads config every loop tick and must never observe a half-written file). Do not run concurrently with Wave 5-A or 5-C (all touch `src/bind.py`).
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Findings remediated:** ARCH-2, ARCH-3, SEC-2 (+ the loop-extraction half of TEST-3) from `BIND_FULL_AUDIT_REPORT.md` (repo root — read all three in full; ARCH-2 contains the state-machine walk and the stale-sentinel re-enable sequence you are eliminating).
 

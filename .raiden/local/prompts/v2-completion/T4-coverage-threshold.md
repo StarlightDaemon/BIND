@@ -41,7 +41,7 @@ Phase 2 code is added.
 
 ## Prompt
 
-You are working in the repository at `/Users/dante/Citadel/BIND`.
+You are working in the BIND repository root.
 
 BIND is a Python audiobook metadata daemon (v1.7.1) with Phase 1 changes
 (T1/T2/T3) already merged. The test suite currently uses `--cov-fail-under=40`

@@ -2,7 +2,7 @@
 
 **Model: 🔵 Claude Sonnet**
 **Dependencies:** none. Avoid running concurrently with prompts editing `src/rss_server.py` (4-A/4-C/5-B) — sequence after whichever of those are in flight.
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Findings remediated:** FE-2, FE-4 from `BIND_FULL_AUDIT_REPORT.md` (repo root — read both first).
 

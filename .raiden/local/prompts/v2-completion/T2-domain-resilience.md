@@ -36,7 +36,7 @@ T3 touches `/health` only to add a `target_probe` field; verify no conflict.
 
 ## Prompt
 
-You are working in the repository at `/Users/dante/Citadel/BIND`.
+You are working in the BIND repository root.
 
 BIND is a Python audiobook metadata daemon (v1.7.1) that scrapes AudioBookBay
 (ABB) and serves an RSS feed via Flask/Gunicorn.

@@ -2,7 +2,7 @@
 
 **Model: Claude Opus**
 **Dependencies:** Wave 5-B **committed** (both rewrite regions of `src/bind.py`; 5-B restructures the loop this change hooks into). Wave 5-A should also be committed if it has been scheduled (heartbeat code is adjacent).
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Findings remediated:** RES-4, ARCH-5 from `BIND_FULL_AUDIT_REPORT.md` (repo root — read both in full first).
 

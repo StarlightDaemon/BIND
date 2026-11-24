@@ -2,7 +2,7 @@
 
 **Model: 🔵 Claude Sonnet**
 **No dependencies** — runs independently. Run this prompt FIRST among Wave 4 (it deletes a route other prompts must not touch).
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Findings remediated:** SEC-1, SEC-4/DEP-1, SEC-5, CQ-3, TEST-1 from `BIND_FULL_AUDIT_REPORT.md` (repo root — read those five findings in full before starting).
 

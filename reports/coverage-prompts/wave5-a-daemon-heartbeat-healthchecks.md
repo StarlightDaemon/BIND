@@ -2,7 +2,7 @@
 
 **Model: Claude Fable**
 **Dependencies:** none strictly; avoid running concurrently with Wave 5-B (both edit `src/bind.py`'s main loop region). Run 5-A before 5-B or vice versa, never together.
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Findings remediated:** ARCH-1, DEP-2, DEP-6, ARCH-6 from `BIND_FULL_AUDIT_REPORT.md` (repo root — read all four in full first; ARCH-1 contains the candidate-evaluation table justifying the design below).
 

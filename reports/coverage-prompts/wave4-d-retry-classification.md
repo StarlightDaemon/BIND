@@ -2,7 +2,7 @@
 
 **Model: Claude Opus**
 **No dependencies** — runs independently. Sole owner of `src/core/retry.py`.
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Finding remediated:** RES-2 from `BIND_FULL_AUDIT_REPORT.md` (repo root — read it in full first).
 

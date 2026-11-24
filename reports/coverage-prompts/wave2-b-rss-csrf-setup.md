@@ -2,7 +2,7 @@
 
 **Model: Claude Sonnet**  
 **Prereq: Run Group A first** (both append to `tests/test_rss_server.py`)  
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 
 ## Why Claude for this group
 

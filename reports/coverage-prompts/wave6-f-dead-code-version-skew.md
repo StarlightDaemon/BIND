@@ -2,7 +2,7 @@
 
 **Model: 🔵 Claude Sonnet**
 **Dependencies:** Wave 4-A committed (it already deletes `/api/dashboard`). Run this prompt LAST in the remediation program — it deletes code other prompts must not be touching mid-flight.
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Findings remediated:** CQ-4, version skew (section 8.7 / Phase 4 of the audit), optional RES-3 from `BIND_FULL_AUDIT_REPORT.md`.
 

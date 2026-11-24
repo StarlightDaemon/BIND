@@ -2,7 +2,7 @@
 
 **Model: 🔵 Claude Sonnet**
 **No dependencies** — runs independently. Must be **committed before Wave 5-B** (5-B's per-tick config reads depend on the atomic write landing first).
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Findings remediated:** ARCH-4, RES-1, RES-5, TEST-4 from `BIND_FULL_AUDIT_REPORT.md` (repo root — read them in full first).
 

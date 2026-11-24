@@ -32,7 +32,7 @@ Phase 1 — runs **in parallel** with T2 and T3. No dependencies on other tasks.
 
 ## Prompt
 
-You are working in the repository at `/Users/dante/Citadel/BIND`.
+You are working in the BIND repository root.
 
 BIND is a Python audiobook metadata daemon (v1.7.1). This task is a small CI
 hardening change with no Python source modifications.

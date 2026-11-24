@@ -2,7 +2,7 @@
 
 **Model: Claude Opus**
 **Dependencies:** Waves 5-A and 5-B **committed** (these tests target the post-rework control plane: `loop_tick`, `LiveConfig`, heartbeat).
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Finding remediated:** TEST-3 (integration-test half; the loop-extraction half shipped in Wave 5-B) from `BIND_FULL_AUDIT_REPORT.md`.
 

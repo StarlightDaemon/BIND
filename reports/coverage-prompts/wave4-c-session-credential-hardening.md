@@ -2,7 +2,7 @@
 
 **Model: Claude Opus**
 **No dependencies** — runs independently. Avoid running concurrently with Wave 4-B (both edit `src/security.py`).
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Findings remediated:** SEC-6, SEC-7, SEC-8, SEC-9, TEST-2 from `BIND_FULL_AUDIT_REPORT.md` (repo root — read them in full first).
 

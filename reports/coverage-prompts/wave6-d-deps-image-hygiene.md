@@ -2,7 +2,7 @@
 
 **Model: 🔵 Claude Sonnet**
 **Dependencies:** Wave 5-A committed (it edits `docker-compose.yml`, `docker/Dockerfile.single`, and `docker/entrypoint.sh` — this prompt touches the same files and must build on its versions).
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Findings remediated:** DEP-D2, DEP-D3, DEP-3, DEP-5 from `BIND_FULL_AUDIT_REPORT.md` (repo root — read them first).
 

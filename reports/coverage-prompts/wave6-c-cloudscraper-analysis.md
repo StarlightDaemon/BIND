@@ -2,7 +2,7 @@
 
 **Model: Claude Opus**
 **Dependencies:** none. **This is an analysis task — it produces a report, not code.**
-**Working directory:** `/Users/dante/Citadel/BIND`
+**Working directory:** the BIND repository root
 **Activate the venv before any shell commands:** `source .venv/bin/activate`
 **Finding remediated:** DEP-D1 from `BIND_FULL_AUDIT_REPORT.md` (repo root — read it and section 8.3 of `reports/BIND_REPOSITORY_AUDIT_2026-06-12.md` first).
 
