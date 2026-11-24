@@ -1,5 +1,11 @@
 # Work Log
 
+## 2026-11-24 — Dependabot lockfile refresh
+
+- Cleared the Dependabot alerts on the locks that matter: `uv.lock` (certifi to 2026.11.20, urllib3 to 2.8.0, werkzeug to 3.1.9, soupsieve to 4.1.3 on Python 3.11.5 and newer) and `frontend/package-lock.json` (vite 7.3.5 to 7.3.8, source-map-js 1.2.1 to 1.2.4; `npm audit` reports 0). Lockfiles only; no manifest or code change.
+- Residual: on Python below 3.11.5 the lock resolves soupsieve 2.10, which still has three advisories whose fixes (3.0.2, 4.0.0) need a newer Python. Tracked as F-J4.
+- Verified on Windows: `npm ci` and `npm run build` pass; `pip-audit` on the exported lock is clean for the Python 3.14 branch. Pytest not run (`fcntl`); CI is the check. The shipped Docker images install from `requirements.txt` on `python:3.11-slim`, not from `uv.lock`.
+
 ## 2026-11-24 — F-J2 governance validator lockfiles reconciled
 
 - Re-audited both validator copies, ran `npm audit fix` (no breaking changes) on the working copy's lockfile, and copied it to the reference-kit copy; lockfiles now identical, critical advisory gone, one high (zod) left as F-J3. See D-005 and the F-J2 resolution.

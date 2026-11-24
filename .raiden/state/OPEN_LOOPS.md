@@ -5,6 +5,7 @@
 ## Active
 
 - **F-J3 · open · gate: none (ordinary work)** · The governance validator's `zod` (^3) carries one high advisory (memory exhaustion on oversized collections, GHSA-mrhx-c7xc-m3w5). The fix is zod 4, a major bump, and the validator's `src/rules.ts` uses zod 3 APIs. Dev tooling only; not shipped, not in CI. Next step: migrate `rules.ts` to zod 4 and re-run `npm run validate`, or record acceptance. Details in the F-J3 entry below.
+- **F-J4 · open · gate: none (ordinary work)** · `uv.lock` still resolves soupsieve 2.10 for Python below 3.11.5, which has three advisories (fixes need soupsieve 3.0.2 or 4.0.0, which need a newer Python). Not in the shipped image or CI. Next step: raise `requires-python` or the lock's Python floor, or accept and record in `DECISIONS.md`. Details in the F-J4 entry below.
 - **F6 · deferred · gate: owner** · The frontend has no tests. Restarts when: the owner holds the scoping conversation (test runner, fixtures, CI). Details in the F6 entry below.
 - No-action information findings: F-A6, F-A9, F-A10. All other entries are closed.
 
@@ -326,4 +327,22 @@
   ships, nothing runs in CI.
 - **Success condition:** `rules.ts` migrated to zod 4 in both copies and
   `npm run validate` still passes, or the advisory is explicitly accepted and
+  recorded in `DECISIONS.md`.
+
+## F-J4 — uv.lock soupsieve 2.10 branch for older Python [open]
+
+- **Opened:** 2026-11-24, found while clearing the Dependabot alerts.
+- **Status:** open
+- **Gate:** none — ordinary work
+- **Finding:** after the 2026-11-24 refresh, `uv.lock` splits soupsieve by Python
+  version. The branch for Python 3.11.5 and newer is 4.1.3 (clean). The branch
+  for older Python is 2.10, which `pip-audit` flags with CVE-2026-126190 (fixed
+  in 4.0.0), CVE-2026-126191 and CVE-2026-126193 (both fixed in 3.0.2). Those
+  fixed releases don't support the older Python, so a lockfile refresh can't
+  clear them. Dependabot may keep these alerts open.
+- **Mitigating context:** `uv.lock` isn't used by the Docker images (they
+  install from `requirements.txt` on `python:3.11-slim`) or by CI. It matters
+  only to a developer running `uv sync` on Python 3.10 or 3.11.0 to 3.11.4.
+- **Success condition:** raise the project's minimum Python so the lock has a
+  single clean soupsieve, or dismiss the alerts as accepted with the reason
   recorded in `DECISIONS.md`.

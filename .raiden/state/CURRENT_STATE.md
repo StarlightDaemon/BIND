@@ -34,4 +34,4 @@ main — clean. HEAD: see git log.
 
 ## Open Loops
 
-See the `## Active` section of OPEN_LOOPS.md: F-J3 open (zod 4 bump in the local validator tooling), F6 deferred (frontend tests; owner scoping). F-A6, F-A9 and F-A10 are no-action; everything else is closed (F-J2 closed 2026-11-24).
+See the `## Active` section of OPEN_LOOPS.md: F-J3 open (zod 4 bump in the local validator tooling), F-J4 open (soupsieve on older Python in `uv.lock`), F6 deferred (frontend tests; owner scoping). F-A6, F-A9 and F-A10 are no-action; everything else is closed (F-J2 closed 2026-11-24).
